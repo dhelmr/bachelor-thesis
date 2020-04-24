@@ -17,17 +17,16 @@ Clone the git repo, install the requirements with `pip install -r requirements.t
 
 ```
 ❯ ./main.py --help
-usage: PROG [-h] [--dataset-path DATASET_PATH] {simulate,evaluate} ...
+
+usage: main.py [-h] {simulate,evaluate} ...
 
 positional arguments:
-  {simulate,evaluate}   sub-command help
-    simulate            Feed traffic from a dataset and detect anomalies.
-    evaluate            Generate an evaluation report from a log file.
+  {simulate,evaluate}
+    simulate           Feed traffic from a dataset and detect anomalies.
+    evaluate           Generate an evaluation report from a log file.
 
 optional arguments:
-  -h, --help            show this help message and exit
-  --dataset-path DATASET_PATH, -dp DATASET_PATH
-                        Path of the dataset
+  -h, --help           show this help message and exit
 
 ```
 
@@ -36,36 +35,37 @@ optional arguments:
 Read the traffic from a dataset and detect anomalies. The classifications will be written into a csv file:
 
 ```
-./main.py -dp data/cic-ids-2017/MachineLearningCVE/ simulate --output classification-log.csv
+./main.py simulate --logfile classification-log.csv -dp data/cic-ids-2017/MachineLearningCVE/
 ```
 
 Evaluate the classification and generate a report containing precision, recall and f1-scores:
 
 ```
-./main.py -dp data/cic-ids-2017/MachineLearningCVE/ evaluate --logfile classification-log.csv
+./main.py evaluate --logfile classification-log.csv --output evaluation_report.txt -dp data/cic-ids-2017/MachineLearningCVE/ 
 ```
 
-Example output: 
+Example content of the resulting report: 
 
 ```
-Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv
+❯ cat evaluation_report.txt | head -n 16
+
+>>> Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv
               precision    recall  f1-score   support
 
-      BENIGN       0.55      0.84      0.66     97718
-      ATTACK       0.79      0.47      0.59    128027
+      BENIGN       0.62      0.80      0.70     97718
+      ATTACK       0.81      0.63      0.71    128027
 
-    accuracy                           0.63    225745
-   macro avg       0.67      0.66      0.63    225745
-weighted avg       0.69      0.63      0.62    225745
-
-Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv
+    accuracy                           0.70    225745
+   macro avg       0.71      0.72      0.70    225745
+weighted avg       0.73      0.70      0.70    225745
+>>> Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv
               precision    recall  f1-score   support
 
-      BENIGN       0.45      1.00      0.62    127537
-      ATTACK       0.23      0.00      0.00    158930
+      BENIGN       0.44      1.00      0.62    127537
+      ATTACK       0.34      0.00      0.00    158930
 
     accuracy                           0.44    286467
-   macro avg       0.34      0.50      0.31    286467
-weighted avg       0.33      0.44      0.27    286467
+
 ```
+
 

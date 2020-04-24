@@ -2,6 +2,7 @@ from sklearn.svm import OneClassSVM
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from anomaly_detection.traffic_type import TrafficType
+import logging
 
 
 # this is what the SVM yields if it classifies a traffic record as an anomaly
@@ -30,7 +31,9 @@ class OneClassSVMDE:
             return self.anomaly_traffic_type
 
     def classify(self, traffic_data):
+        logging.info("Start prediction of traffic data")
         predictions = self.svm.predict(traffic_data)
+        logging.info("Prediction done")
         traffic_type_labels = [self._prediction_to_traffic_type(p) for p in predictions]
         return traffic_type_labels
         

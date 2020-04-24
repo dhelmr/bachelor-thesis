@@ -4,6 +4,7 @@ import numpy as np
 import uuid
 from anomaly_detection.traffic_type import TrafficType
 from collections import namedtuple
+import logging
 
 BENIGN_DATA_FILE = "Monday-WorkingHours.pcap_ISCX.csv"
 LABEL_COLUMN_NAME = "Label"
@@ -43,8 +44,9 @@ class Reader:
         return (without_labels, traffic_types)
     
     def read_normal_data(self):
-        benign_data = read_csv(os.path.join(
-            self.directory, BENIGN_DATA_FILE), nrows=self.number_of_records)
+        full_path = os.path.join(self.directory, BENIGN_DATA_FILE)
+        logging.info("Read normal data from %s", full_path)
+        benign_data = read_csv(full_path, nrows=self.number_of_records)
         preprocess(df=benign_data, id_prefix=BENIGN_DATA_FILE)
         without_labels, labels = self.split_labels(benign_data)
         return TrafficSequence(name=BENIGN_DATA_FILE, traffic=without_labels, labels = labels)
@@ -55,7 +57,9 @@ class Reader:
     def __next__(self):
         file = next(self.file_iterator)
         if BENIGN_DATA_FILE == file:
+            logging.debug("Skip file %s - it contains only normal traffic.", file)
             return self.__next__()
+        logging.debug("Read data from file %s", file)
         df = read_csv(os.path.join(self.directory, file),
                       nrows=self.number_of_records)
         preprocess(df, id_prefix=file)
