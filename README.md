@@ -35,13 +35,13 @@ optional arguments:
 Read the traffic from a dataset and detect anomalies. The classifications will be written into a csv file:
 
 ```
-./main.py simulate --logfile classification-log.csv -dp data/cic-ids-2017/MachineLearningCVE/
+./main.py simulate --logfile classification-log.csv -d data/cic-ids-2017/MachineLearningCVE/
 ```
 
 Evaluate the classification and generate a report containing precision, recall and f1-scores:
 
 ```
-./main.py evaluate --logfile classification-log.csv --output evaluation_report.txt -dp data/cic-ids-2017/MachineLearningCVE/ 
+./main.py evaluate --logfile classification-log.csv --output evaluation_report.txt -d data/cic-ids-2017/MachineLearningCVE/ 
 ```
 
 Example content of the resulting report: 
