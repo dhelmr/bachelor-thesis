@@ -18,15 +18,78 @@ Clone the git repo, install the requirements with `pip install -r requirements.t
 ```
 ❯ ./main.py --help
 
-usage: main.py [-h] {simulate,evaluate} ...
+usage: main.py [-h] {simulate,evaluate,list-de} ...
 
 positional arguments:
-  {simulate,evaluate}
-    simulate           Feed traffic from a dataset and detect anomalies.
-    evaluate           Generate an evaluation report from a log file.
+  {simulate,evaluate,list-de}
+    simulate            Feed traffic from a dataset and detect anomalies.
+    evaluate            Generate an evaluation report from a log file.
+    list-de             Lists the available decision engines
 
 optional arguments:
-  -h, --help           show this help message and exit
+  -h, --help            show this help message and exit
+
+```
+
+For help of the subcommands just type, for example:
+
+```
+❯ ./main.py simulate --help
+
+usage: main.py simulate [-h] [--logfile LOGFILE]
+                        [--decision-engine {one_class_svm}]
+                        [--dataset-path DATASET_PATH]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --logfile LOGFILE, -l LOGFILE
+                        Log file where the predictions will be written into
+                        (default: log-2020-04-25 21:10:27.347375.csv)
+  --decision-engine {one_class_svm}
+                        Choose which algorithm will be used for classifying
+                        anomalies. (default: one_class_svm)
+  --dataset-path DATASET_PATH, -d DATASET_PATH
+                        Path of the dataset (default: ./data/cic-
+                        ids-2017/MachineLearningCVE/)
+
+```
+
+Currently, there is only one decision engine implemented: OneClassSVM. It is selected by default. You can list all available engines and their parameters with:
+
+```
+❯ ./main.py list-de
+
+
+>>> one_class_svm <<<
+
+usage: one_class_svm [-h] [--gamma GAMMA] [--nu NU]
+                     [--kernel {rbf,polynomial,linear,sigmoid}]
+                     [--tolerance TOLERANCE] [--coef0 COEF0]
+                     [--max-iter MAX_ITER] [--shrinking SHRINKING]
+                     [--degree DEGREE] [--cache-size CACHE_SIZE]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --gamma GAMMA         Kernel coefficient for ‘rbf’, ‘poly’ and ‘sigmoid’
+                        kernels (default: 0.005)
+  --nu NU               An upper bound on the fraction of training errors and
+                        a lower bound of the fraction of support vectors.
+                        Should be in the interval (0, 1]. (default: 0.001)
+  --kernel {rbf,polynomial,linear,sigmoid}
+  --tolerance TOLERANCE
+                        Tolerance for stopping criterion. (default: 0.001)
+  --coef0 COEF0         Independent term in kernel function. It is only
+                        significant in ‘poly’ and ‘sigmoid’ (default: 0.0)
+  --max-iter MAX_ITER   Hard limit on iterations within solver, or -1 for no
+                        limit. (default: -1)
+  --shrinking SHRINKING
+                        Whether to use the shrinking heuristic. (default:
+                        True)
+  --degree DEGREE       Degree of the polynomial kernel function (‘poly’).
+                        Ignored by all other kernels. (default: 3)
+  --cache-size CACHE_SIZE
+                        Specify the size of the kernel cache (in MB).
+                        (default: 500.0)
 
 ```
 

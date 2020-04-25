@@ -7,9 +7,9 @@ import os.path
 from typing import Sequence
 
 class AnomalyDetector:
-    def __init__(self, log_path):
+    def __init__(self, log_path, decision_engine):
         self.preprocessor = Preprocessor()
-        self.decision_engine = OneClassSVMDE()
+        self.decision_engine = decision_engine
         self.prediction_log = PredictionLog(log_path)
 
     def build_profile(self, traffic_data):

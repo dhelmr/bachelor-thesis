@@ -1,4 +1,4 @@
-from anomaly_detection.anomaly_detector import AnomalyDetector
+from anomaly_detection.anomaly_detector import PredictionLog
 from anomaly_detection.traffic_type import TrafficType
 from sklearn.metrics import classification_report
 import logging
@@ -6,15 +6,15 @@ import os.path
 
 
 class Evaluator:
-    def __init__(self, anomaly_detector: AnomalyDetector, traffic_reader, report_file):
+    def __init__(self, prediction_log: PredictionLog, traffic_reader, report_file):
         self.traffic_reader = traffic_reader
-        self.ad: AnomalyDetector = anomaly_detector
+        self.prediction_log = prediction_log
         self.report_file = report_file
         if os.path.exists(report_file):
             raise FileExistsError(f"File already exists! {report_file}")
 
     def evaluate(self):
-        log = self.ad.prediction_log.read()
+        log = self.prediction_log.read()
         logging.info("Prediction log loaded")
         for name, _, traffic_type in self.traffic_reader:
             self.write_report(f">>> {name}")
