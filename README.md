@@ -23,7 +23,8 @@ usage: main.py [-h] {simulate,evaluate,list-de} ...
 positional arguments:
   {simulate,evaluate,list-de}
     simulate            Feed traffic from a dataset and detect anomalies.
-    evaluate            Generate an evaluation report from a log file.
+    evaluate            Generate an evaluation report in JSON format from a
+                        prediction log.
     list-de             Lists the available decision engines
 
 optional arguments:
@@ -44,7 +45,7 @@ optional arguments:
   -h, --help            show this help message and exit
   --logfile LOGFILE, -l LOGFILE
                         Log file where the predictions will be written into
-                        (default: log-2020-04-25 21:10:27.347375.csv)
+                        (default: log-2020-04-26 10:52:00.174864.csv)
   --decision-engine {one_class_svm}
                         Choose which algorithm will be used for classifying
                         anomalies. (default: one_class_svm)
@@ -98,36 +99,52 @@ optional arguments:
 Read the traffic from a dataset and detect anomalies. The classifications will be written into a csv file:
 
 ```
-./main.py simulate --logfile classification-log.csv -d data/cic-ids-2017/MachineLearningCVE/
+./main.py simulate --logfile classification-log.csv -d data/cic-ids-2017/MachineLearningCVE/ --decision-engine one_class_svm --kernel rbf --gamma 0.005
 ```
 
-Evaluate the classification and generate a report containing precision, recall and f1-scores:
+Evaluate the classification and generate a report containing different metrics:
 
 ```
-./main.py evaluate --logfile classification-log.csv --output evaluation_report.txt -d data/cic-ids-2017/MachineLearningCVE/ 
+./main.py evaluate --logfile classification-log.csv --output evaluation.json -d data/cic-ids-2017/MachineLearningCVE/ 
 ```
 
 Example content of the resulting report: 
 
 ```
-❯ cat evaluation_report.txt | head -n 16
+❯ cat evaluation.json | head -n 32
 
->>> Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv
-              precision    recall  f1-score   support
-
-      BENIGN       0.62      0.80      0.70     97718
-      ATTACK       0.81      0.63      0.71    128027
-
-    accuracy                           0.70    225745
-   macro avg       0.71      0.72      0.70    225745
-weighted avg       0.73      0.70      0.70    225745
->>> Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv
-              precision    recall  f1-score   support
-
-      BENIGN       0.44      1.00      0.62    127537
-      ATTACK       0.34      0.00      0.00    158930
-
-    accuracy                           0.44    286467
+{
+    "Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv": {
+        "ATTACK": {
+            "f1-score": 0.7050652300216553,
+            "precision": 0.807651584668596,
+            "recall": 0.6256024119912206,
+            "support": 128027
+        },
+        "BENIGN": {
+            "f1-score": 0.7012492532123017,
+            "precision": 0.6213105170016433,
+            "recall": 0.8047954317525942,
+            "support": 97718
+        },
+        "accuracy": 0.7031695054154024,
+        "false_negatives": 47933,
+        "false_positives": 19075,
+        "false_positives_rate": 0.19234841533140395,
+        "macro avg": {
+            "f1-score": 0.7031572416169785,
+            "precision": 0.7144810508351196,
+            "recall": 0.7151989218719074,
+            "support": 225745
+        },
+        "true_negatives": 78643,
+        "true_positives": 80094,
+        "weighted avg": {
+            "f1-score": 0.7034134121658604,
+            "precision": 0.7269903232883692,
+            "recall": 0.7031695054154024,
+            "support": 225745
+        }
 
 ```
 

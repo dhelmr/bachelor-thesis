@@ -36,11 +36,11 @@ def main():
     add_common_arguments(parser_simulate)
 
     parser_evaluate = subparsers.add_parser(
-        "evaluate", help='Generate an evaluation report from a log file.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        "evaluate", help='Generate an evaluation report in JSON format from a prediction log.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser_evaluate.add_argument(
         "--logfile", "-l", type=str, help="Log file with classifications", required=True)
     parser_evaluate.add_argument(
-        "--output", "-o", type=str, required=True, help="File where the report will be written into. It is not allowed not exist yet."
+        "--output", "-o", type=str, required=True, help="File where the report will be written into. It is not allowed to exist yet."
     )
     add_common_arguments(parser_evaluate)
 
