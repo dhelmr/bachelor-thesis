@@ -38,15 +38,15 @@ For help of the subcommands just type, for example:
 ❯ ./main.py simulate --help
 
 usage: main.py simulate [-h] [--logfile LOGFILE]
-                        [--decision-engine {one_class_svm}]
+                        [--decision-engine {one_class_svm,local_outlier_factor}]
                         [--dataset-path DATASET_PATH]
 
 optional arguments:
   -h, --help            show this help message and exit
   --logfile LOGFILE, -l LOGFILE
                         Log file where the predictions will be written into
-                        (default: log-2020-04-26 10:52:00.174864.csv)
-  --decision-engine {one_class_svm}
+                        (default: log-2020-04-27 11:11:06.958049.csv)
+  --decision-engine {one_class_svm,local_outlier_factor}
                         Choose which algorithm will be used for classifying
                         anomalies. (default: one_class_svm)
   --dataset-path DATASET_PATH, -d DATASET_PATH
@@ -91,6 +91,13 @@ optional arguments:
   --cache-size CACHE_SIZE
                         Specify the size of the kernel cache (in MB).
                         (default: 500.0)
+
+>>> local_outlier_factor <<<
+
+usage: local_outlier_factor [-h]
+
+optional arguments:
+  -h, --help  show this help message and exit
 
 ```
 

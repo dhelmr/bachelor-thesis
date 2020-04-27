@@ -1,4 +1,4 @@
-#!/usr/bin/python3.8
+#!/usr/bin/python3
 
 import argparse
 import pandas
@@ -6,6 +6,7 @@ import os
 import dataset_utils.cic_ids_2017 as cic2017
 from anomaly_detection.anomaly_detector import *
 import anomaly_detection.one_class_svm as one_class_svm
+import anomaly_detection.local_outlier_factor as local_outlier_factor
 from anomaly_detection.evaluator import *
 import datetime
 import logging
@@ -14,10 +15,9 @@ DATASET_PATH = os.path.join(os.path.dirname(
     __file__), "data/cic-ids-2017/MachineLearningCVE/")
 
 DECISION_ENGINES = {
-    "one_class_svm": (one_class_svm.OneClassSVMDE, one_class_svm.create_parser)
+    "one_class_svm": (one_class_svm.OneClassSVMDE, one_class_svm.create_parser),
+    "local_outlier_factor": (local_outlier_factor.LocalOutlierFactorDE, local_outlier_factor.create_parser)
 }
-
-
 
 def main():
     logging.basicConfig(level=logging.DEBUG)
@@ -60,7 +60,6 @@ def add_common_arguments(subparser):
 
 
 def handle_parsed_arguments(parsed, unknown):
- 
     if parsed.command == "simulate":
         reader = cic2017.Reader(parsed.dataset_path)
         de = create_decision_engine(parsed.decision_engine, unknown)

@@ -5,6 +5,7 @@ from anomaly_detection.traffic_type import TrafficType
 import pandas as pd
 import os.path
 from typing import Sequence
+from abc import ABC, abstractmethod
 
 class AnomalyDetector:
     def __init__(self, log_path, decision_engine):
