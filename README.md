@@ -18,17 +18,22 @@ Clone the git repo, install the requirements with `pip install -r requirements.t
 ```
 ❯ ./main.py --help
 
-usage: main.py [-h] {simulate,evaluate,list-de} ...
+usage: main.py [-h] [--db DB]
+               {simulate,evaluate,list-de,list-classifications} ...
 
 positional arguments:
-  {simulate,evaluate,list-de}
+  {simulate,evaluate,list-de,list-classifications}
     simulate            Feed traffic from a dataset and detect anomalies.
     evaluate            Generate an evaluation report in JSON format from a
                         prediction log.
     list-de             Lists the available decision engines
+    list-classifications
+                        Lists the classifications
 
 optional arguments:
   -h, --help            show this help message and exit
+  --db DB               Database file where the predictions will be written
+                        into (default: classifications.db)
 
 ```
 
@@ -37,82 +42,47 @@ For help of the subcommands just type, for example:
 ```
 ❯ ./main.py simulate --help
 
-usage: main.py simulate [-h] [--logfile LOGFILE]
+usage: main.py simulate [-h]
                         [--decision-engine {one_class_svm,local_outlier_factor}]
-                        [--dataset-path DATASET_PATH]
+                        [--id ID] [--dataset-path DATASET_PATH]
 
 optional arguments:
   -h, --help            show this help message and exit
-  --logfile LOGFILE, -l LOGFILE
-                        Log file where the predictions will be written into
-                        (default: log-2020-04-28 17:26:39.227945.csv)
   --decision-engine {one_class_svm,local_outlier_factor}
                         Choose which algorithm will be used for classifying
                         anomalies. (default: one_class_svm)
+  --id ID               Id of the classification. (default: 2020-04-28
+                        21:53:50.153732)
   --dataset-path DATASET_PATH, -d DATASET_PATH
                         Path of the dataset (default: ./data/cic-
                         ids-2017/MachineLearningCVE/)
 
 ```
 
-Currently, there is only one decision engine implemented: OneClassSVM. It is selected by default. You can list all available engines and their parameters with:
+## List decision engines
+
+The decision engine implements the algorithm to detect the anomalies. You can list available decision engines with `./main.py list-de` or:
 
 ```
-❯ ./main.py list-de
+❯ ./main.py list-de --short
 
-
->>> one_class_svm <<<
-
-usage: one_class_svm [-h] [--gamma GAMMA] [--nu NU]
-                     [--kernel {rbf,polynomial,linear,sigmoid}]
-                     [--tolerance TOLERANCE] [--coef0 COEF0]
-                     [--max-iter MAX_ITER] [--shrinking SHRINKING]
-                     [--degree DEGREE] [--cache-size CACHE_SIZE]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --gamma GAMMA         Kernel coefficient for ‘rbf’, ‘poly’ and ‘sigmoid’
-                        kernels (default: 0.005)
-  --nu NU               An upper bound on the fraction of training errors and
-                        a lower bound of the fraction of support vectors.
-                        Should be in the interval (0, 1]. (default: 0.001)
-  --kernel {rbf,polynomial,linear,sigmoid}
-  --tolerance TOLERANCE
-                        Tolerance for stopping criterion. (default: 0.001)
-  --coef0 COEF0         Independent term in kernel function. It is only
-                        significant in ‘poly’ and ‘sigmoid’ (default: 0.0)
-  --max-iter MAX_ITER   Hard limit on iterations within solver, or -1 for no
-                        limit. (default: -1)
-  --shrinking SHRINKING
-                        Whether to use the shrinking heuristic. (default:
-                        True)
-  --degree DEGREE       Degree of the polynomial kernel function (‘poly’).
-                        Ignored by all other kernels. (default: 3)
-  --cache-size CACHE_SIZE
-                        Specify the size of the kernel cache (in MB).
-                        (default: 500.0)
-
->>> local_outlier_factor <<<
-
-usage: local_outlier_factor [-h]
-
-optional arguments:
-  -h, --help  show this help message and exit
+one_class_svm
+local_outlier_factor
 
 ```
 
 ## Simulate traffic, detect anomalies and create evaluation report
 
-Read the traffic from a dataset and detect anomalies. The classifications will be written into a csv file:
+Read the traffic from a dataset and detect anomalies. The classifications will be written into an internal database.
 
 ```
-./main.py simulate --logfile classification-log.csv -d data/cic-ids-2017/MachineLearningCVE/ --decision-engine one_class_svm --kernel rbf --gamma 0.005
+./main.py simulate --id oc_svm_1 -d data/cic-ids-2017/MachineLearningCVE/ --decision-engine one_class_svm --kernel rbf --gamma 0.005
 ```
 
 Evaluate the classification and generate a report containing different metrics:
 
 ```
-./main.py evaluate --logfile classification-log.csv --output evaluation.json -d data/cic-ids-2017/MachineLearningCVE/ 
+./main.py evaluate --id oc_svm_1 --output evaluation.json -d data/cic-ids-2017/MachineLearningCVE/ 
 ```
 
 Example content of the resulting report: 

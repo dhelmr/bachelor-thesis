@@ -1,4 +1,4 @@
-from anomaly_detection.anomaly_detector import PredictionLog
+from anomaly_detection.db import DBConnector
 from anomaly_detection.traffic_type import TrafficType
 from sklearn.metrics import classification_report, confusion_matrix
 import logging
@@ -7,15 +7,15 @@ import json
 
 
 class Evaluator:
-    def __init__(self, prediction_log: PredictionLog, traffic_reader, report_file):
+    def __init__(self, db: DBConnector, traffic_reader, report_file):
         self.traffic_reader = traffic_reader
-        self.prediction_log = prediction_log
+        self.db: DBConnector = db
         self.report_file = report_file
         if os.path.exists(report_file):
             raise FileExistsError(f"File already exists! {report_file}")
 
-    def evaluate(self):
-        log = self.prediction_log.read()
+    def evaluate(self, classification_id):
+        log = self.db.get_classifications_records(classification_id)
         logging.info("Prediction log loaded")
         evaluation_dict = dict()
         for name, _, traffic_type in self.traffic_reader:

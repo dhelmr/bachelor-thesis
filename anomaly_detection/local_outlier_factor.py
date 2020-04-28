@@ -2,6 +2,7 @@ from sklearn.neighbors import LocalOutlierFactor
 from anomaly_detection.traffic_type import TrafficType
 import logging
 import argparse
+import pickle
 
 PREDICTION_ANOMALY_VALUE = -1
 PREDICTION_NORMAL_VALUE = 1
@@ -37,3 +38,9 @@ class LocalOutlierFactorDE:
     def _set_normal_traffic_type(self, normal_traffic_type: TrafficType):
         self.normal_traffic_type = normal_traffic_type
         self.anomaly_traffic_type = normal_traffic_type.opposite_of()
+
+    def get_name(self):
+        return "local_outlier_factor"
+
+    def serialize(self):
+        return pickle.dumps(self)

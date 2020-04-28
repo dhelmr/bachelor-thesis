@@ -4,6 +4,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from anomaly_detection.traffic_type import TrafficType
 import logging
 import argparse
+import pickle
 
 # this is what the SVM yields if it classifies a traffic record as an anomaly
 PREDICTION_ANOMALY_VALUE = -1
@@ -64,3 +65,8 @@ class OneClassSVMDE:
         else:
             return self.anomaly_traffic_type
  
+    def get_name(self):
+        return "one_class_svm"
+
+    def serialize(self) -> str:
+        return pickle.dumps(self)
