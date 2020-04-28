@@ -42,7 +42,6 @@ class DBConnector:
             );
         """)
         self.conn.commit()
-        self.conn.close()
 
     def save_model_info(self, model_id, decision_engine, pickle_dump):
         c = self.conn.cursor()
