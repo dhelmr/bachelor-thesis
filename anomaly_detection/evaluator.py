@@ -5,6 +5,7 @@ import logging
 import os.path
 import json
 
+
 class Evaluator:
     def __init__(self, prediction_log: PredictionLog, traffic_reader, report_file):
         self.traffic_reader = traffic_reader
@@ -23,22 +24,69 @@ class Evaluator:
             labels = traffic_type.map(lambda x: x.value)
             y_true = labels.values
             y_pred = log.loc[labels.index.values].values
-            evaluation_dict[name] = self.calculate_metrics(y_true, y_pred)
+            tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+            metrics = self.calc_measurements(int(tn),int(fp),int(fn),int(tp))
+            evaluation_dict[name] = metrics
             logging.debug("Metrics for %s generated.", name)
-        self.write_report(json.dumps(evaluation_dict, indent=4, sort_keys=True))
+        evaluation_dict["total"] = self.calc_total_metrics(evaluation_dict)
+        self.write_report(json.dumps(
+            evaluation_dict, indent=4, sort_keys=True))
         logging.info("Report written into %s", self.report_file)
 
-    def calculate_metrics(self, y_true, y_pred) -> dict:
-        target_names = ["BENIGN", "ATTACK"]  # TODO generic
-        metrics = classification_report(y_true, y_pred, target_names= target_names, output_dict=True)
-        print(confusion_matrix(y_true, y_pred))
-        tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
-        metrics["true_negatives"] = int(tn)
-        metrics["true_positives"] = int(tp)
-        metrics["false_negatives"] = int(fn)
-        metrics["false_positives"] = int(fp)
-        metrics["false_positives_rate"] = float(fp/(fp+tp))
+    def calc_total_metrics(self, metrics_dict):
+        tn = self.get_summed_attr(metrics_dict, "true_negatives")
+        fp = self.get_summed_attr(metrics_dict, "false_positives")
+        fn = self.get_summed_attr(metrics_dict, "false_negatives")
+        tp = self.get_summed_attr(metrics_dict, "true_positives")
+        total_metrics = self.calc_measurements(tn, fp, fn, tp)
+        return total_metrics
+
+    def calc_weighted_average(self, metrics_dict, metric_name, total_support=None):
+        # TODO this causes n² complexity (but should not matter)
+        total_support = self.get_summed_attr(metrics_dict, "support")
+        weighted_avg = 0
+        for section in metrics_dict:
+            metrics = metrics_dict[section]
+            support = metrics["support"]
+            fraction = support/total_support
+            weighted_avg += fraction * metrics[metric_name]
+        return weighted_avg
+
+    def calc_measurements(self, tn, fp, fn, tp):
+        """
+        Calculates different metrics for the values of a confusion matrix.
+        For terminology see https://en.wikipedia.org/wiki/Precision_and_recall
+        """
+        metrics = dict()
+        p = tp+fn
+        n = tn + fp
+        metrics["positives"] = p
+        metrics["negatives"] = n
+        metrics["recall"] = tp/p
+        metrics["tnr"] = tn/n
+        metrics["precision"] = tp/(tp+fp)
+        metrics["npv"] = tn/(tn+fn)
+        metrics["fpr"] = fp/n
+        metrics["fdr"] = fp/(fp+tp)
+        metrics["for"] = fn/(fn+tn)
+        metrics["accuracy"] = (tp+tn)/(p+n)
+        metrics["balanced_accuracy"] = (metrics["recall"] + metrics["tnr"])/2
+        metrics["f1_score"] = 2*tp/(2*tp+fp+fn)
+        metrics["true_negatives"] = tn
+        metrics["true_positives"] = tp
+        metrics["false_negatives"] = fn
+        metrics["false_positives"] = fp
+        metrics["support"] = n+p
         return metrics
+
+    def get_summed_attr(self, metrics_dict, attribute):
+        total = 0
+        for section in metrics_dict:
+            total += metrics_dict[section][attribute]
+        return total
+
+    def is_numeric(self, obj):
+        return type(obj) in (float, int)
 
     def write_report(self, text):
         file = open(self.report_file, "a")
