@@ -9,7 +9,7 @@ import pickle
 # this is what the SVM yields if it classifies a traffic record as an anomaly
 PREDICTION_ANOMALY_VALUE = -1
 PREDICTION_NORMAL_VALUE = 1
-AVAILABLE_KERNELS = ["rbf", "polynomial", "linear", "sigmoid"]
+AVAILABLE_KERNELS = ["rbf", "poly", "linear", "sigmoid"]
 
 
 def create_parser(prog_name):
@@ -38,7 +38,7 @@ def create_parser(prog_name):
 
 
 class OneClassSVMDE(DecisionEngine):
-    def __init__(self, args):
+    def __init__(self, args: argparse.Namespace):
         self.svm = OneClassSVM(cache_size=args.cache_size, coef0=args.coef0, kernel=args.kernel, gamma=args.gamma,
                                max_iter=args.max_iter, nu=args.nu, shrinking=args.shrinking, tol=args.tolerance,
                                verbose=False)
