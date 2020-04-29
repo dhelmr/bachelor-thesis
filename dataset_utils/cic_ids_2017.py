@@ -2,12 +2,12 @@ import pandas
 import os
 import numpy as np
 import uuid
-from anomaly_detection.traffic_type import TrafficType
-from collections import namedtuple
+from anomaly_detection.types import TrafficType, TrafficSequence, TrafficReader
 import logging
 
 BENIGN_DATA_FILE = "Monday-WorkingHours.pcap_ISCX.csv"
 LABEL_COLUMN_NAME = "Label"
+
 
 def read_csv(file, nrows=None):
     df = pandas.read_csv(file, sep=",", low_memory=False, nrows=nrows)
@@ -16,12 +16,13 @@ def read_csv(file, nrows=None):
     return df
 
 
-def preprocess(df: pandas.DataFrame, id_prefix):
+def preprocess(df: pandas.DataFrame, id_prefix: str):
     # TODO these columns include Infinity values, handle
     df.drop(df.columns[[14, 15]], axis=1, inplace=True)
     uuids = [id_prefix+"_"+str(i) for i in range(len(df))]
     df.insert(0, "id", uuids)
     df.set_index("id", inplace=True)
+
 
 def label_to_traffic_type(label_text: str):
     if "BENIGN" == label_text.upper():
@@ -29,10 +30,9 @@ def label_to_traffic_type(label_text: str):
     else:
         return TrafficType.ATTACK
 
-TrafficSequence = namedtuple("TrafficSequence", "name traffic labels")
 
-class Reader:
-    def __init__(self, directory, number_of_records=None):
+class Reader(TrafficReader):
+    def __init__(self, directory: str, number_of_records=None):
         self.directory = directory
         self.file_iterator = iter(os.listdir(directory))
         self.number_of_records = number_of_records
@@ -42,27 +42,27 @@ class Reader:
         traffic_types = labels.map(label_to_traffic_type)
         without_labels = df.drop(LABEL_COLUMN_NAME, 1)
         return (without_labels, traffic_types)
-    
+
     def read_normal_data(self):
         full_path = os.path.join(self.directory, BENIGN_DATA_FILE)
         logging.info("Read normal data from %s", full_path)
         benign_data = read_csv(full_path, nrows=self.number_of_records)
         preprocess(df=benign_data, id_prefix=BENIGN_DATA_FILE)
         without_labels, labels = self.split_labels(benign_data)
-        return TrafficSequence(name=BENIGN_DATA_FILE, traffic=without_labels, labels = labels)
+        return TrafficSequence(name=BENIGN_DATA_FILE, traffic=without_labels, labels=labels)
 
     def __iter__(self):
         return self
-    
+
     def __next__(self):
         file = next(self.file_iterator)
         if BENIGN_DATA_FILE == file:
-            logging.debug("Skip file %s - it contains only normal traffic.", file)
+            logging.debug(
+                "Skip file %s - it contains only normal traffic.", file)
             return self.__next__()
         logging.debug("Read data from file %s", file)
         df = read_csv(os.path.join(self.directory, file),
                       nrows=self.number_of_records)
         preprocess(df, id_prefix=file)
         without_labels, labels = self.split_labels(df)
-        return TrafficSequence(name=file, traffic=without_labels, labels = labels)
-        
+        return TrafficSequence(name=file, traffic=without_labels, labels=labels)

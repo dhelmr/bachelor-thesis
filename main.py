@@ -7,7 +7,8 @@ import dataset_utils.cic_ids_2017 as cic2017
 from anomaly_detection.anomaly_detector import *
 import anomaly_detection.one_class_svm as one_class_svm
 import anomaly_detection.local_outlier_factor as local_outlier_factor
-from anomaly_detection.evaluator import *
+from anomaly_detection.simulator import Simulator
+from anomaly_detection.evaluator import Evaluator
 from anomaly_detection.db import DBConnector
 import datetime
 import logging
@@ -21,6 +22,7 @@ DECISION_ENGINES = {
     "local_outlier_factor": (local_outlier_factor.LocalOutlierFactorDE, local_outlier_factor.create_parser)
 }
 
+
 def main():
     logging.basicConfig(level=logging.DEBUG)
     cli_parser = CLIParser()
@@ -32,6 +34,7 @@ class CLIParser:
     """
     Wraps argparse.ArgumentParser and allows easy access to subparsers
     """
+
     def __init__(self):
         self.subparser_references = {}
         self.parser: argparse.ArgumentParser
@@ -78,9 +81,9 @@ class CLIParser:
         parser_list_cl = self._create_subparser(
             "list-classifications", help="Lists the classifications")
 
-
     def _create_subparser(self, name: str, help: str):
-        sp = self.subparsers.add_parser(name, help=help, formatter_class=argparse.ArgumentDefaultsHelpFormatter) 
+        sp = self.subparsers.add_parser(
+            name, help=help, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         self.subparser_references[name] = sp
         return sp
 
@@ -93,6 +96,7 @@ class CLIParser:
         if subparser_name not in self.subparser_references:
             raise ValueError("Subparser %s does not exist!" % subparser_name)
         return self.subparser_references[subparser_name]
+
 
 class CommandExecutor:
     def __init__(self, cli_parser: CLIParser):
@@ -122,7 +126,7 @@ class CommandExecutor:
         de_class, de_create_parser = DECISION_ENGINES[name]
         parser = de_create_parser(prog_name=name)
         parsed, unknown = parser.parse_known_args(args)
-        self._check_unknown_args(unknown, expected_len=0)
+        self._check_unknown_args(unknown, expected_len=0, subparser=parser)
 
         decision_engine_instance = de_class(parsed)
         return decision_engine_instance
@@ -144,9 +148,11 @@ class CommandExecutor:
         info = db.get_classification_info()
         print(info)
 
-    def _check_unknown_args(self, unknown: t.Sequence[str], expected_len):
+    def _check_unknown_args(self, unknown: t.Sequence[str], expected_len, subparser: argparse.ArgumentParser = None):
         if len(unknown) != expected_len:
-            raise ParsingException("Invalid arguments: %s" % ",".join(unknown))
+            if subparser is not None:
+                subparser.print_usage()
+            raise ParsingException("Invalid arguments: %s" % " ".join(unknown))
 
     def parse_and_exec(self):
         parser = self.cli_parser.parser
@@ -156,7 +162,8 @@ class CommandExecutor:
         try:
             fn(parsed_args, unknown)
         except ParsingException as e:
-            subparser = self.cli_parser.get_subparser(subparser_name=parsed_args.command)
+            subparser = self.cli_parser.get_subparser(
+                subparser_name=parsed_args.command)
             subparser.print_usage()
             print("\n", str(e))
 

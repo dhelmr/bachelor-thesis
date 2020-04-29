@@ -1,7 +1,7 @@
 from sklearn.svm import OneClassSVM
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
-from anomaly_detection.traffic_type import TrafficType
+from anomaly_detection.types import TrafficType, DecisionEngine
 import logging
 import argparse
 import pickle
@@ -10,6 +10,7 @@ import pickle
 PREDICTION_ANOMALY_VALUE = -1
 PREDICTION_NORMAL_VALUE = 1
 AVAILABLE_KERNELS = ["rbf", "polynomial", "linear", "sigmoid"]
+
 
 def create_parser(prog_name):
     parser = argparse.ArgumentParser(
@@ -35,7 +36,8 @@ def create_parser(prog_name):
                         help="Specify the size of the kernel cache (in MB).",  default=500.0)
     return parser
 
-class OneClassSVMDE:
+
+class OneClassSVMDE(DecisionEngine):
     def __init__(self, args):
         self.svm = OneClassSVM(cache_size=args.cache_size, coef0=args.coef0, kernel=args.kernel, gamma=args.gamma,
                                max_iter=args.max_iter, nu=args.nu, shrinking=args.shrinking, tol=args.tolerance,
@@ -64,7 +66,7 @@ class OneClassSVMDE:
             return self.normal_traffic_type
         else:
             return self.anomaly_traffic_type
- 
+
     def get_name(self):
         return "one_class_svm"
 

@@ -1,25 +1,26 @@
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.pipeline import Pipeline
 from anomaly_detection.one_class_svm import OneClassSVMDE
-from anomaly_detection.traffic_type import TrafficType
+from anomaly_detection.types import TrafficType, DecisionEngine
 import pandas as pd
 import os.path
-from typing import Sequence
-from abc import ABC, abstractmethod
 from anomaly_detection.db import DBConnector
 import uuid
 import pickle
 
 
 class AnomalyDetector:
-    def __init__(self, db, classification_id, decision_engine):
+    def __init__(self, db: DBConnector, classification_id: str, decision_engine: DecisionEngine):
         self.preprocessor = Preprocessor()
-        self.decision_engine = decision_engine
+        self.decision_engine: DecisionEngine = decision_engine
         self.db: DBConnector = db
         self.classification_id = classification_id
         self.init_db()
 
     def init_db(self):
+        if self.db.exists_classification(self.classification_id):
+            raise ValueError(
+                "classification with id '%s' already exists in the database!" % self.classification_id)
         pickle_dump = self.decision_engine.serialize()
         model_id = str(uuid.uuid4())
         self.db.save_model_info(
@@ -39,26 +40,6 @@ class AnomalyDetector:
         preprocessed = self.preprocessor.preprocess_data(traffic_data)
         predictions = self.decision_engine.classify(preprocessed)
         self.db.save_classifications(self.classification_id, ids, predictions)
-
-
-class PredictionLog:
-    def __init__(self, destination_path: str):
-        self.destination_path: str = destination_path
-        self.columns = ['id', 'label']
-        if not os.path.exists(self.destination_path):
-            header_df = pd.DataFrame([], columns=self.columns)
-            header_df.to_csv(self.destination_path, mode='w', index=False)
-
-    def save(self, ids: list, predictions: Sequence[TrafficType]):
-        prediction_values = [p.value for p in predictions]
-        data = list(zip(ids, prediction_values))
-        df = pd.DataFrame(data, columns=self.columns)
-        df.to_csv(self.destination_path, mode='a', header=False, index=False)
-
-    def read(self):
-        df = pd.read_csv(self.destination_path, index_col="id")
-        #traffic_types = df["label"].map(lambda x: TrafficType(x))
-        return df
 
 
 class Preprocessor:

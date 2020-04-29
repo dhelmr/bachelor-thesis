@@ -1,5 +1,5 @@
 from anomaly_detection.db import DBConnector
-from anomaly_detection.traffic_type import TrafficType
+from anomaly_detection.types import TrafficType, TrafficReader
 from sklearn.metrics import classification_report, confusion_matrix
 import logging
 import os.path
@@ -7,14 +7,21 @@ import json
 
 
 class Evaluator:
-    def __init__(self, db: DBConnector, traffic_reader, report_file):
+    def __init__(self, db: DBConnector, traffic_reader: TrafficReader, report_file: str):
         self.traffic_reader = traffic_reader
         self.db: DBConnector = db
         self.report_file = report_file
         if os.path.exists(report_file):
             raise FileExistsError(f"File already exists! {report_file}")
 
-    def evaluate(self, classification_id):
+    def evaluate(self, classification_id: str):
+        """
+        Generate a evaluation report from a previous classification. 
+
+        This reads the records for a previous classification from the database, reads the actual values 
+        from the dataset and creates a confusion matrix. Various measurements, like f1-score, precision,
+        recall and false detection rate (fdr) are generated. The report is then saved as json.
+        """
         log = self.db.get_classifications_records(classification_id)
         logging.info("Prediction log loaded")
         evaluation_dict = dict()
@@ -25,7 +32,8 @@ class Evaluator:
             y_true = labels.values
             y_pred = log.loc[labels.index.values].values
             tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
-            metrics = self.calc_measurements(int(tn),int(fp),int(fn),int(tp))
+            metrics = self.calc_measurements(
+                int(tn), int(fp), int(fn), int(tp))
             evaluation_dict[name] = metrics
             logging.debug("Metrics for %s generated.", name)
         evaluation_dict["total"] = self.calc_total_metrics(evaluation_dict)
@@ -33,7 +41,7 @@ class Evaluator:
             evaluation_dict, indent=4, sort_keys=True))
         logging.info("Report written into %s", self.report_file)
 
-    def calc_total_metrics(self, metrics_dict):
+    def calc_total_metrics(self, metrics_dict: dict):
         tn = self.get_summed_attr(metrics_dict, "true_negatives")
         fp = self.get_summed_attr(metrics_dict, "false_positives")
         fn = self.get_summed_attr(metrics_dict, "false_negatives")
@@ -41,7 +49,7 @@ class Evaluator:
         total_metrics = self.calc_measurements(tn, fp, fn, tp)
         return total_metrics
 
-    def calc_weighted_average(self, metrics_dict, metric_name, total_support=None):
+    def calc_weighted_average(self, metrics_dict: dict, metric_name: str, total_support=None):
         # TODO this causes n² complexity (but should not matter)
         total_support = self.get_summed_attr(metrics_dict, "support")
         weighted_avg = 0
@@ -52,7 +60,7 @@ class Evaluator:
             weighted_avg += fraction * metrics[metric_name]
         return weighted_avg
 
-    def calc_measurements(self, tn, fp, fn, tp):
+    def calc_measurements(self, tn: int, fp: int, fn: int, tp: int):
         """
         Calculates different metrics for the values of a confusion matrix.
         For terminology see https://en.wikipedia.org/wiki/Precision_and_recall
@@ -79,7 +87,7 @@ class Evaluator:
         metrics["support"] = n+p
         return metrics
 
-    def get_summed_attr(self, metrics_dict, attribute):
+    def get_summed_attr(self, metrics_dict: dict, attribute: str):
         total = 0
         for section in metrics_dict:
             total += metrics_dict[section][attribute]
@@ -88,28 +96,9 @@ class Evaluator:
     def is_numeric(self, obj):
         return type(obj) in (float, int)
 
-    def write_report(self, text):
+    def write_report(self, text: str):
         file = open(self.report_file, "a")
         if not text.endswith("\n"):
             text += "\n"
         file.write(text)
         file.close()
-
-
-class Simulator:
-    def __init__(self, anomaly_detector, traffic_reader):
-        self.ad = anomaly_detector
-        self.traffic_reader = traffic_reader
-
-    def start_train_test(self):
-        _, normal_data, _ = self.traffic_reader.read_normal_data()
-        logging.info(
-            "Start training of normal profile (%i records)", len(normal_data))
-        self.ad.build_profile(normal_data)
-        logging.info("Training with normal profile done")
-        for name, test_data, _ in self.traffic_reader:
-            logging.info("Test file %s (%i records)", name, len(test_data))
-            self.ad.feed_traffic(
-                ids=test_data.index.values,
-                traffic_data=test_data.values,
-                traffic_type=TrafficType.UNKNOWN)

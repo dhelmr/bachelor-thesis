@@ -1,5 +1,5 @@
 from sklearn.neighbors import LocalOutlierFactor
-from anomaly_detection.traffic_type import TrafficType
+from anomaly_detection.types import TrafficType,  DecisionEngine
 import logging
 import argparse
 import pickle
@@ -7,13 +7,13 @@ import pickle
 PREDICTION_ANOMALY_VALUE = -1
 PREDICTION_NORMAL_VALUE = 1
 
-def create_parser(prog_name):
+def create_parser(prog_name: str):
     parser = argparse.ArgumentParser(
         prog=prog_name,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     return parser
 
-class LocalOutlierFactorDE:
+class LocalOutlierFactorDE(DecisionEngine):
     def __init__(self, args):
         self.lof = LocalOutlierFactor(novelty=True)
         logging.debug("Initialized LOF %s", self.lof)
