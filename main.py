@@ -11,6 +11,7 @@ from anomaly_detection.evaluator import *
 from anomaly_detection.db import DBConnector
 import datetime
 import logging
+import typing as t
 
 DATASET_PATH = os.path.join(os.path.dirname(
     __file__), "data/cic-ids-2017/MachineLearningCVE/")
@@ -20,104 +21,148 @@ DECISION_ENGINES = {
     "local_outlier_factor": (local_outlier_factor.LocalOutlierFactorDE, local_outlier_factor.create_parser)
 }
 
-
 def main():
     logging.basicConfig(level=logging.DEBUG)
-
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-
-    parser.add_argument(
-        '--db', type=str,
-        help='Database file where the predictions will be written into',
-        default="classifications.db"
-    )
-
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
-    parser_simulate = subparsers.add_parser(
-        "simulate", help='Feed traffic from a dataset and detect anomalies.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser_simulate.add_argument(
-        "--decision-engine", type=str, dest="decision_engine", default=list(DECISION_ENGINES.keys())[0], choices=DECISION_ENGINES.keys(),
-        help="Choose which algorithm will be used for classifying anomalies."
-    )
-    parser_simulate.add_argument(
-        "--id", type=str, default=f"{datetime.datetime.now()}", help="Id of the classification."
-    )
-    add_common_arguments(parser_simulate)
-
-    parser_evaluate = subparsers.add_parser(
-        "evaluate", help='Generate an evaluation report in JSON format from a prediction log.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser_evaluate.add_argument(
-        "--output", "-o", type=str, required=True, help="File where the report will be written into. It is not allowed to exist yet."
-    )
-    parser_evaluate.add_argument(
-        "--id", type=str, required=True, help="Id of the classification that will be evaluated."
-    )
-    add_common_arguments(parser_evaluate)
-
-    parser_list_de = subparsers.add_parser(
-        "list-de", help="Lists the available decision engines")
-    parser_list_de.add_argument("--short", "-s", help="Only list the names of the decision engines, without usage details", action="store_true")
-
-    parser_list_cl = subparsers.add_parser(
-        "list-classifications", help="Lists the classifications")
+    cli_parser = CLIParser()
+    cmd_executor = CommandExecutor(cli_parser)
+    cmd_executor.parse_and_exec()
 
 
-    parsed, unknown = parser.parse_known_args()
-    try:
-        handle_parsed_arguments(parsed, unknown)
-    except ValueError as e:
-        parser.print_help()
-        print(str(e))
+class CLIParser:
+    """
+    Wraps argparse.ArgumentParser and allows easy access to subparsers
+    """
+    def __init__(self):
+        self.subparser_references = {}
+        self.parser: argparse.ArgumentParser
+        self._create_cli_parser()
+
+    def _create_cli_parser(self):
+        parser = argparse.ArgumentParser(
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        self.parser = parser
+
+        parser.add_argument(
+            '--db', type=str,
+            help='Database file where the predictions will be written into',
+            default="classifications.db"
+        )
+        self.subparsers = parser.add_subparsers(dest="command", required=True)
+
+        parser_simulate = self._create_subparser(
+            "simulate", help='Feed traffic from a dataset and detect anomalies.', )
+        parser_simulate.add_argument(
+            "--decision-engine", type=str, dest="decision_engine", default=list(DECISION_ENGINES.keys())[0], choices=DECISION_ENGINES.keys(),
+            help="Choose which algorithm will be used for classifying anomalies."
+        )
+        parser_simulate.add_argument(
+            "--id", type=str, default=f"{datetime.datetime.now()}", help="Id of the classification."
+        )
+        self._add_common_arguments(parser_simulate)
+
+        parser_evaluate = self._create_subparser(
+            "evaluate", help='Generate an evaluation report in JSON format from a prediction log.')
+        parser_evaluate.add_argument(
+            "--output", "-o", type=str, required=True, help="File where the report will be written into. It is not allowed to exist yet."
+        )
+        parser_evaluate.add_argument(
+            "--id", type=str, required=True, help="Id of the classification that will be evaluated."
+        )
+        self._add_common_arguments(parser_evaluate)
+
+        parser_list_de = self._create_subparser(
+            "list-de", help="Lists the available decision engines")
+        parser_list_de.add_argument(
+            "--short", "-s", help="Only list the names of the decision engines, without usage details", action="store_true")
+
+        parser_list_cl = self._create_subparser(
+            "list-classifications", help="Lists the classifications")
 
 
-def add_common_arguments(subparser):
-    subparser.add_argument("--dataset-path", "-d", dest="dataset_path",
-                           help="Path of the dataset", default=DATASET_PATH)
+    def _create_subparser(self, name: str, help: str):
+        sp = self.subparsers.add_parser(name, help=help, formatter_class=argparse.ArgumentDefaultsHelpFormatter) 
+        self.subparser_references[name] = sp
+        return sp
 
-def handle_parsed_arguments(parsed, unknown):
-    if parsed.command == "simulate":
-        reader = cic2017.Reader(parsed.dataset_path)
-        de = create_decision_engine(parsed.decision_engine, unknown)
-        db = DBConnector(db_path=parsed.db)
+    def _add_common_arguments(self, subparser):
+        subparser.add_argument("--dataset-path", "-d", dest="dataset_path",
+                               help="Path of the dataset", default=DATASET_PATH)
+
+    def get_subparser(self, subparser_name) -> argparse.ArgumentParser:
+        """argparse does not allow directly accessing its subparsers, so this little helper method does it."""
+        if subparser_name not in self.subparser_references:
+            raise ValueError("Subparser %s does not exist!" % subparser_name)
+        return self.subparser_references[subparser_name]
+
+class CommandExecutor:
+    def __init__(self, cli_parser: CLIParser):
+        self.cli_parser: CLIParser = cli_parser
+
+    def evaluate(self, args: argparse.Namespace, unknown: t.Sequence[str]):
+        self._check_unknown_args(unknown, expected_len=0)
+        reader = cic2017.Reader(args.dataset_path)
+        db = DBConnector(db_path=args.db)
+        evaluator = Evaluator(db, reader, args.output)
+        evaluator.evaluate(classification_id=args.id)
+
+    def simulate(self, args: argparse.Namespace, unknown: t.Sequence[str]):
+        reader = cic2017.Reader(args.dataset_path)
+        de = self._create_decision_engine(args.decision_engine, unknown)
+        db = DBConnector(db_path=args.db)
         ad = AnomalyDetector(
-            db, classification_id=parsed.id,  decision_engine=de)
+            db, classification_id=args.id,  decision_engine=de)
         simulator = Simulator(ad, reader)
         simulator.start_train_test()
-    elif parsed.command == "evaluate":
-        reader = cic2017.Reader(parsed.dataset_path)
-        db = DBConnector(db_path=parsed.db)
-        evaluator = Evaluator(db, reader, parsed.output)
-        evaluator.evaluate(classification_id=parsed.id)
-    elif parsed.command == "list-de":
+
+    def _create_decision_engine(self, name, args):
+        if name not in DECISION_ENGINES:
+            raise ParsingException(
+                f"{name} is not a valid decision engine. Please specify one of: {DECISION_ENGINES}")
+
+        de_class, de_create_parser = DECISION_ENGINES[name]
+        parser = de_create_parser(prog_name=name)
+        parsed, unknown = parser.parse_known_args(args)
+        self._check_unknown_args(unknown, expected_len=0)
+
+        decision_engine_instance = de_class(parsed)
+        return decision_engine_instance
+
+    def list_de(self, args: argparse.Namespace, unknown: t.Sequence[str]):
+        self._check_unknown_args(unknown, expected_len=0)
         for name in DECISION_ENGINES.keys():
-            if parsed.short:
+            if args.short:
                 print(name)
             else:
                 _, de_parser_creator = DECISION_ENGINES[name]
                 print(f"\n>>> {name} <<<\n")
                 parser = de_parser_creator(name)
                 parser.print_help()
-    elif parsed.command == "list-classifications":
-        db = DBConnector(db_path=parsed.db)
+
+    def list_classifications(self, args: argparse.Namespace, unknown: t.Sequence[str]):
+        self._check_unknown_args(unknown, expected_len=0)
+        db = DBConnector(db_path=args.db, init_if_not_exists=False)
         info = db.get_classification_info()
         print(info)
 
-def create_decision_engine(name, args):
-    if name not in DECISION_ENGINES:
-        raise ValueError(
-            f"{name} is not a valid decision engine. Please specify one of: {DECISION_ENGINES}")
+    def _check_unknown_args(self, unknown: t.Sequence[str], expected_len):
+        if len(unknown) != expected_len:
+            raise ParsingException("Invalid arguments: %s" % ",".join(unknown))
 
-    de_class, de_create_parser = DECISION_ENGINES[name]
-    parser = de_create_parser(prog_name=name)
-    parsed, unknown = parser.parse_known_args(args)
-    if len(unknown) != 0:
-        raise ValueError(
-            f"{parser.format_help()}\nInvalid parameter(s): {', '.join(unknown)}")
+    def parse_and_exec(self):
+        parser = self.cli_parser.parser
+        parsed_args, unknown = parser.parse_known_args()
+        fn_name = parsed_args.command.replace("-", "_")
+        fn = getattr(self, fn_name)
+        try:
+            fn(parsed_args, unknown)
+        except ParsingException as e:
+            subparser = self.cli_parser.get_subparser(subparser_name=parsed_args.command)
+            subparser.print_usage()
+            print("\n", str(e))
 
-    decision_engine_instance = de_class(parsed)
-    return decision_engine_instance
+
+class ParsingException(Exception):
+    pass
 
 
 if __name__ == "__main__":
