@@ -74,13 +74,20 @@ class DBConnector:
             classification_id,), con=self.conn, index_col="record_id")
         return df
 
-    def get_classification_info(self) -> pd.DataFrame:
-        df = pd.read_sql_query(
-            "SELECT classification_id, model_id FROM classification_info", con=self.conn)
+    def get_classification_info(self, with_count=False) -> pd.DataFrame:
+        sql = "SELECT classification_id, model_id FROM classification_info;"
+        if with_count:
+            sql = """
+             SELECT classification_info.classification_id, classification_info.model_id, COUNT(classification_results.record_id) as records
+             FROM classification_info LEFT JOIN classification_results
+             ON classification_info.classification_id = classification_results.classification_id
+             GROUP BY classification_info.classification_id;
+             """
+        df = pd.read_sql_query(sql, con=self.conn, index_col="classification_id")
         return df
 
     def exists_classification(self, classification_id: str) -> bool:
         df = pd.read_sql_query(
             "SELECT * FROM classification_info WHERE classification_id = ?",
             params=(classification_id,), con=self.conn)
-        return len(df) > 0 
+        return len(df) > 0

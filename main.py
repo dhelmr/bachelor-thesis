@@ -7,7 +7,7 @@ import dataset_utils.cic_ids_2017 as cic2017
 from anomaly_detection.anomaly_detector import *
 import anomaly_detection.one_class_svm as one_class_svm
 import anomaly_detection.local_outlier_factor as local_outlier_factor
-from anomaly_detection.simulator import Simulator
+from anomaly_detection.simulator import Simulator, CLASSIFICATION_ID_AUTO_GENERATE
 from anomaly_detection.evaluator import Evaluator
 from anomaly_detection.db import DBConnector
 import datetime
@@ -24,7 +24,7 @@ DECISION_ENGINES = {
 
 
 def main():
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     cli_parser = CLIParser()
     cmd_executor = CommandExecutor(cli_parser)
     cmd_executor.parse_and_exec()
@@ -44,13 +44,7 @@ class CLIParser:
         parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         self.parser = parser
-
-        parser.add_argument(
-            '--db', type=str,
-            help='Database file where the predictions will be written into',
-            default="classifications.db"
-        )
-        self.subparsers = parser.add_subparsers(dest="command", required=True)
+        self.subparsers = parser.add_subparsers(dest="command")
 
         parser_simulate = self._create_subparser(
             "simulate", help='Feed traffic from a dataset and detect anomalies.', )
@@ -59,9 +53,10 @@ class CLIParser:
             help="Choose which algorithm will be used for classifying anomalies."
         )
         parser_simulate.add_argument(
-            "--id", type=str, default=f"{datetime.datetime.now()}", help="Id of the classification."
+            "--id", type=str, default=CLASSIFICATION_ID_AUTO_GENERATE,
+            help=f"Id of the classification. If {CLASSIFICATION_ID_AUTO_GENERATE} is specified, a new id will be auto-generated."
         )
-        self._add_common_arguments(parser_simulate)
+        self._add_dataset_param(parser_simulate)
 
         parser_evaluate = self._create_subparser(
             "evaluate", help='Generate an evaluation report in JSON format from a prediction log.')
@@ -71,7 +66,7 @@ class CLIParser:
         parser_evaluate.add_argument(
             "--id", type=str, required=True, help="Id of the classification that will be evaluated."
         )
-        self._add_common_arguments(parser_evaluate)
+        self._add_dataset_param(parser_evaluate)
 
         parser_list_de = self._create_subparser(
             "list-de", help="Lists the available decision engines")
@@ -79,7 +74,13 @@ class CLIParser:
             "--short", "-s", help="Only list the names of the decision engines, without usage details", action="store_true")
 
         parser_list_cl = self._create_subparser(
-            "list-classifications", help="Lists the classifications")
+            "list-classifications", help="Lists all anomaly classifications that were previously run.")
+        parser_list_cl.add_argument(
+            "--count", "-c", help="Additionally list the number of records for each classification.",
+            action="store_true"
+        )
+
+        self._add_common_params()
 
     def _create_subparser(self, name: str, help: str):
         sp = self.subparsers.add_parser(
@@ -87,9 +88,21 @@ class CLIParser:
         self.subparser_references[name] = sp
         return sp
 
-    def _add_common_arguments(self, subparser):
+    def _add_dataset_param(self, subparser):
         subparser.add_argument("--dataset-path", "-d", dest="dataset_path",
                                help="Path of the dataset", default=DATASET_PATH)
+
+    def _add_common_params(self):
+        for subparser in self.subparser_references.values():
+            subparser.add_argument(
+                '--db', type=str,
+                help='Database file where the classifications are stored.',
+                default="classifications.db"
+            )
+            subparser.add_argument(
+                '--debug', "--verbose", action="store_true",
+                help='Will produce verbose output that is useful for debugging'
+            )
 
     def get_subparser(self, subparser_name) -> argparse.ArgumentParser:
         """argparse does not allow directly accessing its subparsers, so this little helper method does it."""
@@ -114,8 +127,8 @@ class CommandExecutor:
         de = self._create_decision_engine(args.decision_engine, unknown)
         db = DBConnector(db_path=args.db)
         ad = AnomalyDetector(
-            db, classification_id=args.id,  decision_engine=de)
-        simulator = Simulator(ad, reader)
+            db, decision_engine=de)
+        simulator = Simulator(ad, reader, classification_id=args.id)
         simulator.start_train_test()
 
     def _create_decision_engine(self, name, args):
@@ -145,7 +158,7 @@ class CommandExecutor:
     def list_classifications(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)
         db = DBConnector(db_path=args.db, init_if_not_exists=False)
-        info = db.get_classification_info()
+        info = db.get_classification_info(with_count=args.count)
         print(info)
 
     def _check_unknown_args(self, unknown: t.Sequence[str], expected_len, subparser: argparse.ArgumentParser = None):
@@ -154,12 +167,25 @@ class CommandExecutor:
                 subparser.print_usage()
             raise ParsingException("Invalid arguments: %s" % " ".join(unknown))
 
+    def handle_common_args(self, parsed_args):
+        if parsed_args.debug == True:
+            logging.basicConfig(force=True, level=logging.DEBUG)
+
     def parse_and_exec(self):
         parser = self.cli_parser.parser
         parsed_args, unknown = parser.parse_known_args()
+        if parsed_args.command is None:
+            parser.print_help()
+            return
+
         fn_name = parsed_args.command.replace("-", "_")
         fn = getattr(self, fn_name)
+        if fn is None:
+            parser.print_help()
+            print("Unknown command:", parsed_args.command)
+            return
         try:
+            self.handle_common_args(parsed_args)
             fn(parsed_args, unknown)
         except ParsingException as e:
             subparser = self.cli_parser.get_subparser(
