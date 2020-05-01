@@ -4,6 +4,10 @@ Anomaly-based Network Intrusion Detection System written in python
 
 ---
 
+# Installation
+
+Clone the git repository and install the requirements with `pip install -r requirements.txt`. Python version 3.6 or higher is required.
+
 # Dataset preparation
 
 ## CIC-IDS-2017
@@ -13,7 +17,7 @@ Anomaly-based Network Intrusion Detection System written in python
 
 # Usage
 
-Clone the git repo, install the requirements with `pip install -r requirements.txt` and then execute `main.py`:
+There are various subcommands:
 
 ```
 ❯ ./main.py --help
@@ -35,7 +39,7 @@ optional arguments:
 
 ```
 
-For help of the subcommands just type, for example:
+For help of the subcommands just type `--help`, for example:
 
 ```
 ❯ ./main.py simulate --help
@@ -93,6 +97,38 @@ Example content of the resulting report:
 ```
 ❯ cat evaluation.json | head -n 32
 
+{
+    "Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv": {
+        "accuracy": 0.7031695054154024,
+        "balanced_accuracy": 0.7151989218719074,
+        "f1_score": 0.7050652300216553,
+        "false_negatives": 47933,
+        "false_positives": 19075,
+        "fdr": 0.19234841533140395,
+        "for": 0.3786894829983567,
+        "fpr": 0.1952045682474058,
+        "negatives": 97718,
+        "npv": 0.6213105170016433,
+        "positives": 128027,
+        "precision": 0.807651584668596,
+        "recall": 0.6256024119912206,
+        "support": 225745,
+        "tnr": 0.8047954317525942,
+        "true_negatives": 78643,
+        "true_positives": 80094
+    },
+    "Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv": {
+        "accuracy": 0.44455731375690744,
+        "balanced_accuracy": 0.4991174702705049,
+        "f1_score": 0.00248257184412458,
+        "false_negatives": 158732,
+        "false_positives": 384,
+        "fdr": 0.6597938144329897,
+        "for": 0.5552302499256694,
+        "fpr": 0.0030108909571340083,
+        "negatives": 127537,
+        "npv": 0.44476975007433056,
+        "positives": 158930,
 
 ```
 
