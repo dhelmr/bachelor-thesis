@@ -46,17 +46,21 @@ class CLIParser:
         self.parser = parser
         self.subparsers = parser.add_subparsers(dest="command")
 
-        parser_simulate = self._create_subparser(
-            "simulate", help='Feed traffic from a dataset and detect anomalies.', )
-        parser_simulate.add_argument(
-            "--decision-engine", type=str, dest="decision_engine", default=list(DECISION_ENGINES.keys())[0], choices=DECISION_ENGINES.keys(),
-            help="Choose which algorithm will be used for classifying anomalies."
+        parser_build_model = self._create_subparser(
+            "build-model", help="Creates a classification model from analyzing 'normal' traffic and stores it in the database."
         )
-        parser_simulate.add_argument(
+        self._add_model_param(parser_build_model)
+        self._add_decision_engine_param(parser_build_model)
+        self._add_dataset_param(parser_build_model)
+
+        parser_classify = self._create_subparser(
+            "classify", help='Feed traffic from a dataset and detect anomalies.', )
+        parser_classify.add_argument(
             "--id", type=str, default=CLASSIFICATION_ID_AUTO_GENERATE,
             help=f"Id of the classification. If {CLASSIFICATION_ID_AUTO_GENERATE} is specified, a new id will be auto-generated."
         )
-        self._add_dataset_param(parser_simulate)
+        self._add_model_param(parser_classify)
+        self._add_dataset_param(parser_classify)
 
         parser_evaluate = self._create_subparser(
             "evaluate", help='Generate an evaluation report in JSON format from a prediction log.')
@@ -80,29 +84,38 @@ class CLIParser:
             action="store_true"
         )
 
-        self._add_common_params()
-
     def _create_subparser(self, name: str, help: str):
         sp = self.subparsers.add_parser(
             name, help=help, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         self.subparser_references[name] = sp
+        self._add_common_params(sp)
         return sp
 
     def _add_dataset_param(self, subparser):
         subparser.add_argument("--dataset-path", "-d", dest="dataset_path",
                                help="Path of the dataset", default=DATASET_PATH)
 
-    def _add_common_params(self):
-        for subparser in self.subparser_references.values():
-            subparser.add_argument(
-                '--db', type=str,
-                help='Database file where the classifications are stored.',
-                default="classifications.db"
-            )
-            subparser.add_argument(
-                '--debug', "--verbose", action="store_true",
-                help='Will produce verbose output that is useful for debugging'
-            )
+    def _add_decision_engine_param(self, subparser):
+        subparser.add_argument(
+            "--decision-engine", type=str, dest="decision_engine", default=list(DECISION_ENGINES.keys())[0], choices=DECISION_ENGINES.keys(),
+            help="Choose which algorithm will be used for classifying anomalies."
+        )
+
+    def _add_model_param(self, subparser):
+        subparser.add_argument(
+            "--model-id", "-m", help="ID of the model.", required=True, type=str, dest="model_id"
+        )
+
+    def _add_common_params(self, subparser):
+        subparser.add_argument(
+            '--db', type=str,
+            help='Database file where the classifications are stored.',
+            default="classifications.db"
+        )
+        subparser.add_argument(
+            '--debug', "--verbose", action="store_true",
+            help='Will produce verbose output that is useful for debugging'
+        )
 
     def get_subparser(self, subparser_name) -> argparse.ArgumentParser:
         """argparse does not allow directly accessing its subparsers, so this little helper method does it."""
@@ -122,26 +135,30 @@ class CommandExecutor:
         evaluator = Evaluator(db, reader, args.output)
         evaluator.evaluate(classification_id=args.id)
 
-    def simulate(self, args: argparse.Namespace, unknown: t.Sequence[str]):
+    def build_model(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         reader = cic2017.Reader(args.dataset_path)
         de = self._create_decision_engine(args.decision_engine, unknown)
         db = DBConnector(db_path=args.db)
-        preprocessor = StandardPreprocessor()
-        ad = AnomalyDetector(
-            db, decision_engine=de, preprocessor=preprocessor)
-        simulator = Simulator(ad, reader, classification_id=args.id)
-        simulator.start_train_test()
+        preprocessor = StandardPreprocessor() # TODO make generic
+        ad = AnomalyDetector(de, preprocessor)
+        simulator = Simulator(db, reader, model_id=args.model_id, anomaly_detector=ad)
+        simulator.start_training()
+
+    def classify(self, args: argparse.Namespace, unknown: t.Sequence[str]):
+        self._check_unknown_args(unknown, expected_len=0)
+        reader = cic2017.Reader(args.dataset_path)
+        db = DBConnector(db_path=args.db)
+        simulator = Simulator(db, reader, model_id=args.model_id)
+        simulator.start_classification(args.id)
 
     def _create_decision_engine(self, name, args):
         if name not in DECISION_ENGINES:
             raise ParsingException(
                 f"{name} is not a valid decision engine. Please specify one of: {DECISION_ENGINES}")
-
         de_class, de_create_parser = DECISION_ENGINES[name]
         parser = de_create_parser(prog_name=name)
         parsed, unknown = parser.parse_known_args(args)
         self._check_unknown_args(unknown, expected_len=0, subparser=parser)
-
         decision_engine_instance = de_class(parsed)
         return decision_engine_instance
 

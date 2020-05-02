@@ -52,6 +52,10 @@ class Preprocessor(ABC):
     def preprocess_data(self, traffic_data: np.ndarray):
         raise NotImplementedError()
 
+    @abstractmethod
+    def get_name(self) -> str:
+        raise NotImplementedError()
+
 class TrafficSequence(NamedTuple):
     name: str
     traffic: pd.DataFrame

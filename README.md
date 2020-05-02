@@ -22,11 +22,15 @@ There are various subcommands:
 ```
 ❯ ./main.py --help
 
-usage: main.py [-h] {simulate,evaluate,list-de,list-classifications} ...
+usage: main.py [-h]
+               {build-model,classify,evaluate,list-de,list-classifications}
+               ...
 
 positional arguments:
-  {simulate,evaluate,list-de,list-classifications}
-    simulate            Feed traffic from a dataset and detect anomalies.
+  {build-model,classify,evaluate,list-de,list-classifications}
+    build-model         Creates a classification model from analyzing 'normal'
+                        traffic and stores it in the database.
+    classify            Feed traffic from a dataset and detect anomalies.
     evaluate            Generate an evaluation report in JSON format from a
                         prediction log.
     list-de             Lists the available decision engines
@@ -42,27 +46,24 @@ optional arguments:
 For help of the subcommands just type `--help`, for example:
 
 ```
-❯ ./main.py simulate --help
+❯ ./main.py classify --help
 
-usage: main.py simulate [-h]
-                        [--decision-engine {one_class_svm,local_outlier_factor}]
-                        [--id ID] [--dataset-path DATASET_PATH] [--db DB]
-                        [--debug]
+usage: main.py classify [-h] [--db DB] [--debug] [--id ID] --model-id MODEL_ID
+                        [--dataset-path DATASET_PATH]
 
 optional arguments:
   -h, --help            show this help message and exit
-  --decision-engine {one_class_svm,local_outlier_factor}
-                        Choose which algorithm will be used for classifying
-                        anomalies. (default: one_class_svm)
-  --id ID               Id of the classification. If auto is specified, a new
-                        id will be auto-generated. (default: auto)
-  --dataset-path DATASET_PATH, -d DATASET_PATH
-                        Path of the dataset (default: ./data/cic-
-                        ids-2017/MachineLearningCVE/)
   --db DB               Database file where the classifications are stored.
                         (default: classifications.db)
   --debug, --verbose    Will produce verbose output that is useful for
                         debugging (default: False)
+  --id ID               Id of the classification. If auto is specified, a new
+                        id will be auto-generated. (default: auto)
+  --model-id MODEL_ID, -m MODEL_ID
+                        ID of the model. (default: None)
+  --dataset-path DATASET_PATH, -d DATASET_PATH
+                        Path of the dataset (default: ./data/cic-
+                        ids-2017/MachineLearningCVE/)
 
 ```
 
@@ -80,10 +81,16 @@ local_outlier_factor
 
 ## Simulate traffic, detect anomalies and create evaluation report
 
-Read the traffic from a dataset and detect anomalies. The classifications will be written into an internal database.
+First build a model by analyzing normal traffic.
 
 ```
-./main.py simulate --id oc_svm_1 -d data/cic-ids-2017/MachineLearningCVE/ --decision-engine one_class_svm --kernel rbf --gamma 0.005
+./main.py build_model --model-id oc_svm -d data/cic-ids-2017/MachineLearningCVE/ --decision-engine one_class_svm --kernel rbf --gamma 0.005
+```
+
+Then read unknown traffic from a dataset and detect anomalies using the created model. The classifications will be written into an internal database.
+
+```
+./main.py classify --id oc_svm_c1 -d data/cic-ids-2017/MachineLearningCVE/ --model-id oc_svm 
 ```
 
 Evaluate the classification and generate a report containing different metrics:

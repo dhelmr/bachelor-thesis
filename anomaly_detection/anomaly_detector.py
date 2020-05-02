@@ -6,26 +6,37 @@ import pandas as pd
 import numpy as np
 import os.path
 from anomaly_detection.db import DBConnector
+import pickle
 
 
 class AnomalyDetector:
-    def __init__(self, db: DBConnector, decision_engine: DecisionEngine, preprocessor: Preprocessor):
+    def __init__(self, decision_engine: DecisionEngine, preprocessor: Preprocessor):
         self.preprocessor: Preprocessor = preprocessor
         self.decision_engine: DecisionEngine = decision_engine
-        self.db: DBConnector = db
 
     def build_profile(self, traffic_data: np.ndarray):
         self.preprocessor.initialize(traffic_data)
         preprocessed = self.preprocessor.preprocess_data(traffic_data)
         self.decision_engine.fit(preprocessed)
 
-    def feed_traffic(self,  classification_id: str, ids, traffic_data: np.ndarray, traffic_type=TrafficType.UNKNOWN):
+    def feed_traffic(self, db: DBConnector, classification_id: str, ids: list, traffic_data: np.ndarray, traffic_type=TrafficType.UNKNOWN):
         if len(ids) != len(traffic_data):
             raise ValueError(
                 f"Length of ids and traffic data must be equal! len(ids)={len(ids)}, len(traffic_data)={len(traffic_data)}")
         preprocessed = self.preprocessor.preprocess_data(traffic_data)
         predictions = self.decision_engine.classify(preprocessed)
-        self.db.save_classifications(classification_id, ids, predictions)
+        db.save_classifications(classification_id, ids, predictions)
+
+    def serialize(self): 
+        return pickle.dumps(self)
+
+    @staticmethod
+    def deserialize(s):
+        obj = pickle.loads(s)
+        if type(obj) is not AnomalyDetector:
+            raise ValueError("Invalid type of deserialized object (must be AnomalyDetector)! %s" % str(type(obj)))
+        return obj
+
 
 
 class StandardPreprocessor(Preprocessor):
@@ -38,3 +49,6 @@ class StandardPreprocessor(Preprocessor):
 
     def preprocess_data(self, traffic_data: np.ndarray):
         return self.normalizer.transform(traffic_data)
+
+    def get_name(self):
+        return "standard_preprocessor"

@@ -29,6 +29,7 @@ class DBConnector:
             CREATE TABLE model (
                 model_id TEXT PRIMARY KEY,
                 decision_engine TEXT,
+                preprocessor TEXT,
                 pickle_dump TEXT
             );
         """)
@@ -46,12 +47,17 @@ class DBConnector:
         """)
         self.conn.commit()
 
-    def save_model_info(self, model_id, decision_engine, pickle_dump):
+    def save_model_info(self, model_id: str, decision_engine: str, preprocessor: str, pickle_dump):
         c = self.conn.cursor()
-        c.execute("INSERT INTO model (model_id, decision_engine, pickle_dump) VALUES (?,?,?);",
-                  (model_id, decision_engine, pickle_dump))
+        c.execute("INSERT INTO model (model_id, decision_engine, preprocessor, pickle_dump) VALUES (?,?,?,?);",
+                  (model_id, decision_engine, preprocessor, pickle_dump))
         self.conn.commit()
         c.close()
+
+    def get_model_info(self, model_id: str) -> pd.DataFrame:
+        df = pd.read_sql_query("SELECT * FROM model WHERE model_id = ?;",
+                               params=(model_id, ), con=self.conn, index_col="model_id")
+        return df                        
 
     def save_classification_info(self, classification_id, model_id):
         c = self.conn.cursor()
@@ -83,7 +89,8 @@ class DBConnector:
              ON classification_info.classification_id = classification_results.classification_id
              GROUP BY classification_info.classification_id;
              """
-        df = pd.read_sql_query(sql, con=self.conn, index_col="classification_id")
+        df = pd.read_sql_query(
+            sql, con=self.conn, index_col="classification_id")
         return df
 
     def exists_classification(self, classification_id: str) -> bool:
