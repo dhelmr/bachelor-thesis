@@ -28,7 +28,7 @@ class Simulator:
                 break
         return new_id
 
-    def _init_db(self, ):
+    def _init_db(self):
         db = self.ad.db
         if db.exists_classification(self.classification_id):
             raise ValueError(

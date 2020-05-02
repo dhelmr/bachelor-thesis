@@ -4,7 +4,7 @@ import argparse
 import pandas
 import os
 import dataset_utils.cic_ids_2017 as cic2017
-from anomaly_detection.anomaly_detector import *
+from anomaly_detection.anomaly_detector import AnomalyDetector, StandardPreprocessor
 import anomaly_detection.one_class_svm as one_class_svm
 import anomaly_detection.local_outlier_factor as local_outlier_factor
 from anomaly_detection.simulator import Simulator, CLASSIFICATION_ID_AUTO_GENERATE
@@ -126,8 +126,9 @@ class CommandExecutor:
         reader = cic2017.Reader(args.dataset_path)
         de = self._create_decision_engine(args.decision_engine, unknown)
         db = DBConnector(db_path=args.db)
+        preprocessor = StandardPreprocessor()
         ad = AnomalyDetector(
-            db, decision_engine=de)
+            db, decision_engine=de, preprocessor=preprocessor)
         simulator = Simulator(ad, reader, classification_id=args.id)
         simulator.start_train_test()
 

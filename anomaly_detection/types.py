@@ -1,8 +1,10 @@
 import typing as t
 from abc import ABC, abstractmethod, ABCMeta
 import numpy as np
-from collections import namedtuple
+from typing import NamedTuple
 from enum import Enum
+import pandas as pd
+import numpy as np
 
 
 class TrafficType(Enum):
@@ -39,7 +41,21 @@ class DecisionEngine(ABC):
         raise NotImplementedError()
 
 
-TrafficSequence = namedtuple("TrafficSequence", "name traffic labels")
+class Preprocessor(ABC):
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def initialize(self, traffic_data: np.ndarray):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def preprocess_data(self, traffic_data: np.ndarray):
+        raise NotImplementedError()
+
+class TrafficSequence(NamedTuple):
+    name: str
+    traffic: pd.DataFrame
+    labels: pd.DataFrame
 
 
 class TrafficReader(ABC):
