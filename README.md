@@ -28,7 +28,7 @@ usage: main.py [-h]
 
 positional arguments:
   {build-model,classify,evaluate,list-de,list-classifications,list-models}
-    build-model         Creates a classification model from analyzing 'normal'
+    build-model         Creates a classification model from analyzing normal
                         traffic and stores it in the database.
     classify            Feed traffic from a dataset and detect anomalies.
     evaluate            Generate an evaluation report in JSON format from a
