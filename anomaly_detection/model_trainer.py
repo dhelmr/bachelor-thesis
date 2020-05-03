@@ -6,7 +6,7 @@ from anomaly_detection.db import DBConnector
 from anomaly_detection.types import TrafficReader
 
 
-class ModelBuilder:
+class ModelTrainer:
     def __init__(self, db: DBConnector, traffic_reader: TrafficReader,
                  anomaly_detector: AnomalyDetectorModel, model_id: str = str(uuid.uuid4())):
         self.traffic_reader: TrafficReader = traffic_reader

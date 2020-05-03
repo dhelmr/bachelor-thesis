@@ -23,12 +23,12 @@ There are various subcommands:
 ❯ ./main.py --help
 
 usage: main.py [-h]
-               {build-model,classify,evaluate,list-de,list-classifications,list-models}
+               {train,classify,evaluate,list-de,list-classifications,list-models}
                ...
 
 positional arguments:
-  {build-model,classify,evaluate,list-de,list-classifications,list-models}
-    build-model         Creates a classification model from analyzing normal
+  {train,classify,evaluate,list-de,list-classifications,list-models}
+    train               Creates a classification model from analyzing normal
                         traffic and stores it in the database.
     classify            Feed traffic from a dataset and detect anomalies.
     evaluate            Generate an evaluation report in JSON format from a
@@ -82,10 +82,10 @@ local_outlier_factor
 
 ## Simulate traffic, detect anomalies and create evaluation report
 
-First build a model by analyzing normal traffic.
+First build and train a model by analyzing normal traffic:
 
 ```
-./main.py build_model --model-id oc_svm -d data/cic-ids-2017/MachineLearningCVE/ --decision-engine one_class_svm --kernel rbf --gamma 0.005
+./main.py train --model-id oc_svm -d data/cic-ids-2017/MachineLearningCVE/ --decision-engine one_class_svm --kernel rbf --gamma 0.005
 ```
 
 Then read unknown traffic from a dataset and detect anomalies using the created model. The classifications will be written into an internal database.

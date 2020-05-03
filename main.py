@@ -10,12 +10,12 @@ import pandas
 import anomaly_detection.local_outlier_factor as local_outlier_factor
 import anomaly_detection.one_class_svm as one_class_svm
 import dataset_utils.cic_ids_2017 as cic2017
-from anomaly_detection.anomaly_detector import AnomalyDetectorModel, MinxMaxScalerPreprocessor, \
-    StandardScalerPreprocessor
+from anomaly_detection.anomaly_detector import AnomalyDetectorModel
 from anomaly_detection.classifier import Classifier, CLASSIFICATION_ID_AUTO_GENERATE
 from anomaly_detection.db import DBConnector
 from anomaly_detection.evaluator import Evaluator
-from anomaly_detection.model_builder import ModelBuilder
+from anomaly_detection.model_trainer import ModelTrainer
+from anomaly_detection.preprocessors import StandardScalerPreprocessor, MinxMaxScalerPreprocessor
 
 DATASET_PATH = os.path.join(os.path.dirname(
     __file__), "data/cic-ids-2017/MachineLearningCVE/")
@@ -54,16 +54,17 @@ class CLIParser:
         self.parser = parser
         self.subparsers = parser.add_subparsers(dest="command")
 
-        parser_build_model = self._create_subparser(
-            "build-model",
-            help="Creates a classification model from analyzing 'normal' traffic and stores it in the database."
+        parser_train = self._create_subparser(
+            "train",
+            help="Creates a classification model from analyzing normal traffic and stores it in the database."
         )
-        parser_build_model.add_argument('--preprocessor', '-p', type=str, nargs='+', dest="preprocessors",
-                                        help='Specifies one or more preprocessors that are applied before calling the decision engine.')
+        parser_train.add_argument('--preprocessor', '-p', type=str, nargs='+', dest="preprocessors",
+                                  choices=list(PREPROCESSORS.keys()),
+                                  help='Specifies one or more preprocessors that are applied before calling the decision engine.')
 
-        self._add_model_param(parser_build_model)
-        self._add_decision_engine_param(parser_build_model)
-        self._add_dataset_param(parser_build_model)
+        self._add_model_param(parser_train)
+        self._add_decision_engine_param(parser_train)
+        self._add_dataset_param(parser_train)
 
         parser_classify = self._create_subparser(
             "classify", help='Feed traffic from a dataset and detect anomalies.', )
@@ -152,14 +153,14 @@ class CommandExecutor:
         evaluator = Evaluator(db, reader, args.output)
         evaluator.evaluate(classification_id=args.id)
 
-    def build_model(self, args: argparse.Namespace, unknown: t.Sequence[str]):
+    def train(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         reader = cic2017.Reader(args.dataset_path)
         de = self._create_decision_engine(args.decision_engine, unknown)
         db = DBConnector(db_path=args.db)
         preprocessors = self._build_preprocessors(args.preprocessors)
         ad = AnomalyDetectorModel(de, preprocessors)
-        simulator = ModelBuilder(db, reader, anomaly_detector=ad, model_id=args.model_id)
-        simulator.start_training()
+        trainer = ModelTrainer(db, reader, anomaly_detector=ad, model_id=args.model_id)
+        trainer.start_training()
 
     def classify(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)

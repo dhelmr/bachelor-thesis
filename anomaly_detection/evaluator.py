@@ -25,7 +25,9 @@ class Evaluator:
         recall and false detection rate (fdr) are generated. The report is then saved as json.
         """
         log = self.db.get_classifications_records(classification_id)
-        logging.info("Prediction log loaded")
+        if len(log) == 0:
+            raise ValueError(f"Classification with id '{classification_id}' does not exist!")
+        logging.info(f"Prediction log for classification with id {classification_id} loaded")
         evaluation_dict = dict()
         for name, _, traffic_type in self.traffic_reader:
             logging.info("Start evaluation of %s (%i records)",
@@ -94,9 +96,6 @@ class Evaluator:
         for section in metrics_dict:
             total += metrics_dict[section][attribute]
         return total
-
-    def is_numeric(self, obj):
-        return type(obj) in (float, int)
 
     def write_report(self, text: str):
         file = open(self.report_file, "a")
