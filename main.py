@@ -59,7 +59,7 @@ class CLIParser:
             help="Creates a classification model from analyzing normal traffic and stores it in the database."
         )
         parser_train.add_argument('--preprocessor', '-p', type=str, nargs='+', dest="preprocessors",
-                                  choices=list(PREPROCESSORS.keys()),
+                                  choices=list(PREPROCESSORS.keys()), default=[],
                                   help='Specifies one or more preprocessors that are applied before calling the decision engine.')
 
         self._add_model_param(parser_train)
