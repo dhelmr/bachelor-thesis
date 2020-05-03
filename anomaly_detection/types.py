@@ -56,6 +56,7 @@ class Preprocessor(ABC):
     def get_name(self) -> str:
         raise NotImplementedError()
 
+
 class TrafficSequence(NamedTuple):
     name: str
     traffic: pd.DataFrame

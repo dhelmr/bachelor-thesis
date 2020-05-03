@@ -1,10 +1,10 @@
-from sklearn.svm import OneClassSVM
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
-from anomaly_detection.types import TrafficType, DecisionEngine
-import logging
 import argparse
+import logging
 import pickle
+
+from sklearn.svm import OneClassSVM
+
+from anomaly_detection.types import TrafficType, DecisionEngine
 
 # this is what the SVM yields if it classifies a traffic record as an anomaly
 PREDICTION_ANOMALY_VALUE = -1
@@ -25,15 +25,17 @@ def create_parser(prog_name):
     parser.add_argument("--tolerance", type=float,
                         help="Tolerance for stopping criterion.", default=0.001)
     parser.add_argument(
-        "--coef0", type=float, help="Independent term in kernel function. It is only significant in ‘poly’ and ‘sigmoid’", default=0.0)
+        "--coef0", type=float,
+        help="Independent term in kernel function. It is only significant in ‘poly’ and ‘sigmoid’", default=0.0)
     parser.add_argument("--max-iter", dest="max_iter", type=int,
                         help="Hard limit on iterations within solver, or -1 for no limit.", default=-1)
     parser.add_argument("--shrinking", type=bool,
                         help="Whether to use the shrinking heuristic.", default=True)
     parser.add_argument(
-        "--degree", type=int, help="Degree of the polynomial kernel function (‘poly’). Ignored by all other kernels.",  default=3)
+        "--degree", type=int, help="Degree of the polynomial kernel function (‘poly’). Ignored by all other kernels.",
+        default=3)
     parser.add_argument("--cache-size", dest="cache_size", type=float,
-                        help="Specify the size of the kernel cache (in MB).",  default=500.0)
+                        help="Specify the size of the kernel cache (in MB).", default=500.0)
     return parser
 
 

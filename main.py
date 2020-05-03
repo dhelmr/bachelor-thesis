@@ -12,9 +12,10 @@ import anomaly_detection.one_class_svm as one_class_svm
 import dataset_utils.cic_ids_2017 as cic2017
 from anomaly_detection.anomaly_detector import AnomalyDetectorModel, MinxMaxScalerPreprocessor, \
     StandardScalerPreprocessor
+from anomaly_detection.classifier import Classifier, CLASSIFICATION_ID_AUTO_GENERATE
 from anomaly_detection.db import DBConnector
 from anomaly_detection.evaluator import Evaluator
-from anomaly_detection.simulator import Simulator, CLASSIFICATION_ID_AUTO_GENERATE
+from anomaly_detection.model_builder import ModelBuilder
 
 DATASET_PATH = os.path.join(os.path.dirname(
     __file__), "data/cic-ids-2017/MachineLearningCVE/")
@@ -157,14 +158,14 @@ class CommandExecutor:
         db = DBConnector(db_path=args.db)
         preprocessors = self._build_preprocessors(args.preprocessors)
         ad = AnomalyDetectorModel(de, preprocessors)
-        simulator = Simulator(db, reader, model_id=args.model_id, anomaly_detector=ad)
+        simulator = ModelBuilder(db, reader, anomaly_detector=ad, model_id=args.model_id)
         simulator.start_training()
 
     def classify(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)
         reader = cic2017.Reader(args.dataset_path)
         db = DBConnector(db_path=args.db)
-        simulator = Simulator(db, reader, model_id=args.model_id)
+        simulator = Classifier(db, reader, model_id=args.model_id)
         simulator.start_classification(args.id)
 
     def list_de(self, args: argparse.Namespace, unknown: t.Sequence[str]):

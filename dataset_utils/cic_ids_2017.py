@@ -1,9 +1,9 @@
-import pandas
-import os
-import numpy as np
-import uuid
-from anomaly_detection.types import TrafficType, TrafficSequence, TrafficReader
 import logging
+import os
+
+import pandas
+
+from anomaly_detection.types import TrafficType, TrafficSequence, TrafficReader
 
 BENIGN_DATA_FILE = "Monday-WorkingHours.pcap_ISCX.csv"
 LABEL_COLUMN_NAME = "Label"
@@ -19,7 +19,7 @@ def read_csv(file, nrows=None):
 def preprocess(df: pandas.DataFrame, id_prefix: str):
     # TODO these columns include Infinity values, handle
     df.drop(df.columns[[14, 15]], axis=1, inplace=True)
-    uuids = [id_prefix+"_"+str(i) for i in range(len(df))]
+    uuids = [id_prefix + "_" + str(i) for i in range(len(df))]
     df.insert(0, "id", uuids)
     df.set_index("id", inplace=True)
 

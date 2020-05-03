@@ -1,9 +1,11 @@
-from anomaly_detection.db import DBConnector
-from anomaly_detection.types import TrafficType, TrafficReader
-from sklearn.metrics import classification_report, confusion_matrix
+import json
 import logging
 import os.path
-import json
+
+from sklearn.metrics import confusion_matrix
+
+from anomaly_detection.db import DBConnector
+from anomaly_detection.types import TrafficReader
 
 
 class Evaluator:
@@ -56,7 +58,7 @@ class Evaluator:
         for section in metrics_dict:
             metrics = metrics_dict[section]
             support = metrics["support"]
-            fraction = support/total_support
+            fraction = support / total_support
             weighted_avg += fraction * metrics[metric_name]
         return weighted_avg
 
@@ -66,25 +68,25 @@ class Evaluator:
         For terminology see https://en.wikipedia.org/wiki/Precision_and_recall
         """
         metrics = dict()
-        p = tp+fn
+        p = tp + fn
         n = tn + fp
         metrics["positives"] = p
         metrics["negatives"] = n
-        metrics["recall"] = tp/p
-        metrics["tnr"] = tn/n
-        metrics["precision"] = tp/(tp+fp)
-        metrics["npv"] = tn/(tn+fn)
-        metrics["fpr"] = fp/n
-        metrics["fdr"] = fp/(fp+tp)
-        metrics["for"] = fn/(fn+tn)
-        metrics["accuracy"] = (tp+tn)/(p+n)
-        metrics["balanced_accuracy"] = (metrics["recall"] + metrics["tnr"])/2
-        metrics["f1_score"] = 2*tp/(2*tp+fp+fn)
+        metrics["recall"] = tp / p
+        metrics["tnr"] = tn / n
+        metrics["precision"] = tp / (tp + fp)
+        metrics["npv"] = tn / (tn + fn)
+        metrics["fpr"] = fp / n
+        metrics["fdr"] = fp / (fp + tp)
+        metrics["for"] = fn / (fn + tn)
+        metrics["accuracy"] = (tp + tn) / (p + n)
+        metrics["balanced_accuracy"] = (metrics["recall"] + metrics["tnr"]) / 2
+        metrics["f1_score"] = 2 * tp / (2 * tp + fp + fn)
         metrics["true_negatives"] = tn
         metrics["true_positives"] = tp
         metrics["false_negatives"] = fn
         metrics["false_positives"] = fp
-        metrics["support"] = n+p
+        metrics["support"] = n + p
         return metrics
 
     def get_summed_attr(self, metrics_dict: dict, attribute: str):

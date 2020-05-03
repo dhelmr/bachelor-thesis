@@ -18,7 +18,8 @@ class AnomalyDetectorModel:
         preprocessed = self._transform_with_preprocessors(traffic_data)
         self.decision_engine.fit(preprocessed)
 
-    def feed_traffic(self, db: DBConnector, classification_id: str, ids: list, traffic_data: np.ndarray, traffic_type=TrafficType.UNKNOWN):
+    def feed_traffic(self, db: DBConnector, classification_id: str, ids: list, traffic_data: np.ndarray,
+                     traffic_type=TrafficType.UNKNOWN):
         if len(ids) != len(traffic_data):
             raise ValueError(
                 f"Length of ids and traffic data must be equal! len(ids)={len(ids)}, len(traffic_data)={len(traffic_data)}")
@@ -36,7 +37,7 @@ class AnomalyDetectorModel:
             transformed = p.transform(traffic_data)
         return transformed
 
-    def serialize(self): 
+    def serialize(self):
         return pickle.dumps(self)
 
     @staticmethod

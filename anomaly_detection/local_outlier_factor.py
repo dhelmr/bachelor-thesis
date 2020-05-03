@@ -1,17 +1,21 @@
-from sklearn.neighbors import LocalOutlierFactor
-from anomaly_detection.types import TrafficType,  DecisionEngine
-import logging
 import argparse
+import logging
 import pickle
+
+from sklearn.neighbors import LocalOutlierFactor
+
+from anomaly_detection.types import TrafficType, DecisionEngine
 
 PREDICTION_ANOMALY_VALUE = -1
 PREDICTION_NORMAL_VALUE = 1
+
 
 def create_parser(prog_name: str):
     parser = argparse.ArgumentParser(
         prog=prog_name,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     return parser
+
 
 class LocalOutlierFactorDE(DecisionEngine):
     def __init__(self, args):
@@ -28,13 +32,13 @@ class LocalOutlierFactorDE(DecisionEngine):
 
     def fit(self, traffic_data, traffic_type=TrafficType.BENIGN):
         self.lof.fit(traffic_data)
-            
+
     def _prediction_to_traffic_type(self, prediction_value: int):
         if prediction_value == PREDICTION_NORMAL_VALUE:
             return self.normal_traffic_type
         else:
             return self.anomaly_traffic_type
- 
+
     def _set_normal_traffic_type(self, normal_traffic_type: TrafficType):
         self.normal_traffic_type = normal_traffic_type
         self.anomaly_traffic_type = normal_traffic_type.opposite_of()

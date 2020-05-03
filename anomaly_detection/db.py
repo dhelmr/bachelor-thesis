@@ -59,8 +59,8 @@ class DBConnector:
 
     def get_model_info(self, model_id: str) -> pd.DataFrame:
         df = pd.read_sql_query("SELECT * FROM model WHERE model_id = ?;",
-                               params=(model_id, ), con=self.conn, index_col="model_id")
-        return df                        
+                               params=(model_id,), con=self.conn, index_col="model_id")
+        return df
 
     def save_classification_info(self, classification_id, model_id):
         c = self.conn.cursor()
@@ -79,8 +79,9 @@ class DBConnector:
         c.close()
 
     def get_classifications_records(self, classification_id: str) -> pd.DataFrame:
-        df = pd.read_sql_query("SELECT record_id, label FROM classification_results WHERE classification_id = ?", params=(
-            classification_id,), con=self.conn, index_col="record_id")
+        df = pd.read_sql_query("SELECT record_id, label FROM classification_results WHERE classification_id = ?",
+                               params=(
+                                   classification_id,), con=self.conn, index_col="record_id")
         return df
 
     def get_all_models(self) -> pd.DataFrame:
