@@ -23,11 +23,11 @@ There are various subcommands:
 ❯ ./main.py --help
 
 usage: main.py [-h]
-               {build-model,classify,evaluate,list-de,list-classifications}
+               {build-model,classify,evaluate,list-de,list-classifications,list-models}
                ...
 
 positional arguments:
-  {build-model,classify,evaluate,list-de,list-classifications}
+  {build-model,classify,evaluate,list-de,list-classifications,list-models}
     build-model         Creates a classification model from analyzing 'normal'
                         traffic and stores it in the database.
     classify            Feed traffic from a dataset and detect anomalies.
@@ -37,6 +37,7 @@ positional arguments:
     list-classifications
                         Lists all anomaly classifications that were previously
                         run.
+    list-models         List available models.
 
 optional arguments:
   -h, --help            show this help message and exit

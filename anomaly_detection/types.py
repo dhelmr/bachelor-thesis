@@ -1,10 +1,10 @@
 import typing as t
 from abc import ABC, abstractmethod, ABCMeta
-import numpy as np
-from typing import NamedTuple
 from enum import Enum
-import pandas as pd
+from typing import NamedTuple
+
 import numpy as np
+import pandas as pd
 
 
 class TrafficType(Enum):
@@ -45,11 +45,11 @@ class Preprocessor(ABC):
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def initialize(self, traffic_data: np.ndarray):
+    def fit(self, traffic_data: np.ndarray):
         raise NotImplementedError()
 
     @abstractmethod
-    def preprocess_data(self, traffic_data: np.ndarray):
+    def transform(self, traffic_data: np.ndarray):
         raise NotImplementedError()
 
     @abstractmethod

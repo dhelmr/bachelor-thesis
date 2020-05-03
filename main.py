@@ -1,18 +1,20 @@
 #!/usr/bin/python3
 
 import argparse
-import pandas
-import os
-import dataset_utils.cic_ids_2017 as cic2017
-from anomaly_detection.anomaly_detector import AnomalyDetector, StandardPreprocessor
-import anomaly_detection.one_class_svm as one_class_svm
-import anomaly_detection.local_outlier_factor as local_outlier_factor
-from anomaly_detection.simulator import Simulator, CLASSIFICATION_ID_AUTO_GENERATE
-from anomaly_detection.evaluator import Evaluator
-from anomaly_detection.db import DBConnector
-import datetime
 import logging
+import os
 import typing as t
+
+import pandas
+
+import anomaly_detection.local_outlier_factor as local_outlier_factor
+import anomaly_detection.one_class_svm as one_class_svm
+import dataset_utils.cic_ids_2017 as cic2017
+from anomaly_detection.anomaly_detector import AnomalyDetectorModel, MinxMaxScalerPreprocessor, \
+    StandardScalerPreprocessor
+from anomaly_detection.db import DBConnector
+from anomaly_detection.evaluator import Evaluator
+from anomaly_detection.simulator import Simulator, CLASSIFICATION_ID_AUTO_GENERATE
 
 DATASET_PATH = os.path.join(os.path.dirname(
     __file__), "data/cic-ids-2017/MachineLearningCVE/")
@@ -20,6 +22,11 @@ DATASET_PATH = os.path.join(os.path.dirname(
 DECISION_ENGINES = {
     "one_class_svm": (one_class_svm.OneClassSVMDE, one_class_svm.create_parser),
     "local_outlier_factor": (local_outlier_factor.LocalOutlierFactorDE, local_outlier_factor.create_parser)
+}
+
+PREPROCESSORS = {
+    "minmax_scaler": MinxMaxScalerPreprocessor,
+    "standard_scaler": StandardScalerPreprocessor
 }
 
 
@@ -47,8 +54,12 @@ class CLIParser:
         self.subparsers = parser.add_subparsers(dest="command")
 
         parser_build_model = self._create_subparser(
-            "build-model", help="Creates a classification model from analyzing 'normal' traffic and stores it in the database."
+            "build-model",
+            help="Creates a classification model from analyzing 'normal' traffic and stores it in the database."
         )
+        parser_build_model.add_argument('--preprocessor', '-p', type=str, nargs='+', dest="preprocessors",
+                                        help='Specifies one or more preprocessors that are applied before calling the decision engine.')
+
         self._add_model_param(parser_build_model)
         self._add_decision_engine_param(parser_build_model)
         self._add_dataset_param(parser_build_model)
@@ -65,7 +76,8 @@ class CLIParser:
         parser_evaluate = self._create_subparser(
             "evaluate", help='Generate an evaluation report in JSON format from a prediction log.')
         parser_evaluate.add_argument(
-            "--output", "-o", type=str, required=True, help="File where the report will be written into. It is not allowed to exist yet."
+            "--output", "-o", type=str, required=True,
+            help="File where the report will be written into. It is not allowed to exist yet."
         )
         parser_evaluate.add_argument(
             "--id", type=str, required=True, help="Id of the classification that will be evaluated."
@@ -75,7 +87,8 @@ class CLIParser:
         parser_list_de = self._create_subparser(
             "list-de", help="Lists the available decision engines")
         parser_list_de.add_argument(
-            "--short", "-s", help="Only list the names of the decision engines, without usage details", action="store_true")
+            "--short", "-s", help="Only list the names of the decision engines, without usage details",
+            action="store_true")
 
         parser_list_cl = self._create_subparser(
             "list-classifications", help="Lists all anomaly classifications that were previously run.")
@@ -83,6 +96,8 @@ class CLIParser:
             "--count", "-c", help="Additionally list the number of records for each classification.",
             action="store_true"
         )
+
+        parser_list_models = self._create_subparser("list-models", help="List available models.")
 
     def _create_subparser(self, name: str, help: str):
         sp = self.subparsers.add_parser(
@@ -97,7 +112,8 @@ class CLIParser:
 
     def _add_decision_engine_param(self, subparser):
         subparser.add_argument(
-            "--decision-engine", type=str, dest="decision_engine", default=list(DECISION_ENGINES.keys())[0], choices=DECISION_ENGINES.keys(),
+            "--decision-engine", type=str, dest="decision_engine", default=list(DECISION_ENGINES.keys())[0],
+            choices=DECISION_ENGINES.keys(),
             help="Choose which algorithm will be used for classifying anomalies."
         )
 
@@ -139,8 +155,8 @@ class CommandExecutor:
         reader = cic2017.Reader(args.dataset_path)
         de = self._create_decision_engine(args.decision_engine, unknown)
         db = DBConnector(db_path=args.db)
-        preprocessor = StandardPreprocessor() # TODO make generic
-        ad = AnomalyDetector(de, preprocessor)
+        preprocessors = self._build_preprocessors(args.preprocessors)
+        ad = AnomalyDetectorModel(de, preprocessors)
         simulator = Simulator(db, reader, model_id=args.model_id, anomaly_detector=ad)
         simulator.start_training()
 
@@ -151,17 +167,6 @@ class CommandExecutor:
         simulator = Simulator(db, reader, model_id=args.model_id)
         simulator.start_classification(args.id)
 
-    def _create_decision_engine(self, name, args):
-        if name not in DECISION_ENGINES:
-            raise ParsingException(
-                f"{name} is not a valid decision engine. Please specify one of: {DECISION_ENGINES}")
-        de_class, de_create_parser = DECISION_ENGINES[name]
-        parser = de_create_parser(prog_name=name)
-        parsed, unknown = parser.parse_known_args(args)
-        self._check_unknown_args(unknown, expected_len=0, subparser=parser)
-        decision_engine_instance = de_class(parsed)
-        return decision_engine_instance
-
     def list_de(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)
         for name in DECISION_ENGINES.keys():
@@ -169,15 +174,50 @@ class CommandExecutor:
                 print(name)
             else:
                 _, de_parser_creator = DECISION_ENGINES[name]
-                print(f"\n>>> {name} <<<\n")
+                print(f">>> {name} <<<")
                 parser = de_parser_creator(name)
                 parser.print_help()
+                print("\n")
 
     def list_classifications(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)
         db = DBConnector(db_path=args.db, init_if_not_exists=False)
-        info = db.get_classification_info(with_count=args.count)
-        print(info)
+        info = db.get_all_classifications(with_count=args.count)
+        self._print_dataframe(info)
+
+    def list_models(self, args: argparse.Namespace, unknown: t.Sequence[str]):
+        self._check_unknown_args(unknown, expected_len=0)
+        db = DBConnector(db_path=args.db, init_if_not_exists=False)
+        info = db.get_all_models()
+        # TODO: don't drop pickle dump but instead read model-specific parameters from it
+        info.drop(columns="pickle_dump", inplace=True)
+        self._print_dataframe(info)
+
+    def _print_dataframe(self, df: pandas.DataFrame):
+        if len(df) == 0:
+            print("<None>")
+        else:
+            print(df)
+
+    def _create_decision_engine(self, name, args):
+        if name not in DECISION_ENGINES:
+            raise ParsingException(
+                f"{name} is not a valid decision engine. Please specify one of: {DECISION_ENGINES.keys()}")
+        de_class, de_create_parser = DECISION_ENGINES[name]
+        parser = de_create_parser(prog_name=name)
+        parsed, unknown = parser.parse_known_args(args)
+        self._check_unknown_args(unknown, expected_len=0, subparser=parser)
+        decision_engine_instance = de_class(parsed)
+        return decision_engine_instance
+
+    def _build_preprocessors(self, names: t.Sequence[str]):
+        preprocessors = list()
+        for name in names:
+            if name not in PREPROCESSORS:
+                raise ParsingException(
+                    f"{name} is not a valid preprocessor. Please specify one of: {DECISION_ENGINES.keys()}")
+            preprocessors.append(PREPROCESSORS[name]())
+        return preprocessors
 
     def _check_unknown_args(self, unknown: t.Sequence[str], expected_len, subparser: argparse.ArgumentParser = None):
         if len(unknown) != expected_len:

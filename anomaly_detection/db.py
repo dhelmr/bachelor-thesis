@@ -1,6 +1,8 @@
-import sqlite3
-import pandas as pd
 import os.path
+import sqlite3
+import typing as t
+
+import pandas as pd
 
 
 class DBConnector:
@@ -29,7 +31,7 @@ class DBConnector:
             CREATE TABLE model (
                 model_id TEXT PRIMARY KEY,
                 decision_engine TEXT,
-                preprocessor TEXT,
+                preprocessors TEXT,
                 pickle_dump TEXT
             );
         """)
@@ -47,10 +49,11 @@ class DBConnector:
         """)
         self.conn.commit()
 
-    def save_model_info(self, model_id: str, decision_engine: str, preprocessor: str, pickle_dump):
+    def save_model_info(self, model_id: str, decision_engine: str, preprocessors: t.Sequence[str], pickle_dump):
         c = self.conn.cursor()
-        c.execute("INSERT INTO model (model_id, decision_engine, preprocessor, pickle_dump) VALUES (?,?,?,?);",
-                  (model_id, decision_engine, preprocessor, pickle_dump))
+        preprocessors_list = ",".join(preprocessors)
+        c.execute("INSERT INTO model (model_id, decision_engine, preprocessors, pickle_dump) VALUES (?,?,?,?);",
+                  (model_id, decision_engine, preprocessors_list, pickle_dump))
         self.conn.commit()
         c.close()
 
@@ -80,7 +83,11 @@ class DBConnector:
             classification_id,), con=self.conn, index_col="record_id")
         return df
 
-    def get_classification_info(self, with_count=False) -> pd.DataFrame:
+    def get_all_models(self) -> pd.DataFrame:
+        df = pd.read_sql_query("SELECT * FROM model;", con=self.conn, index_col="model_id")
+        return df
+
+    def get_all_classifications(self, with_count=False) -> pd.DataFrame:
         sql = "SELECT classification_id, model_id FROM classification_info;"
         if with_count:
             sql = """
@@ -97,4 +104,8 @@ class DBConnector:
         df = pd.read_sql_query(
             "SELECT * FROM classification_info WHERE classification_id = ?",
             params=(classification_id,), con=self.conn)
+        return len(df) > 0
+
+    def exists_model(self, model_id: str) -> bool:
+        df = pd.read_sql_query("SELECT model_id FROM model WHERE model_id = ?;", con=self.conn, params=(model_id,))
         return len(df) > 0
