@@ -1,39 +1,45 @@
+import logging
 import pickle
 import typing as t
 
 import numpy as np
 
-from anomaly_detection.db import DBConnector
-from anomaly_detection.types import TrafficType, DecisionEngine, Preprocessor
+from anomaly_detection.types import TrafficType, DecisionEngine, Preprocessor, FeatureExtractor, ClassificationResults
 
 
 class AnomalyDetectorModel:
-    def __init__(self, decision_engine: DecisionEngine, preprocessors: t.Sequence[Preprocessor]):
+    def __init__(self, decision_engine: DecisionEngine, feature_extractor: FeatureExtractor,
+                 preprocessors: t.Sequence[Preprocessor]):
         self.preprocessors: t.Sequence[Preprocessor] = preprocessors
         self.decision_engine: DecisionEngine = decision_engine
+        self.feature_extractor: FeatureExtractor = feature_extractor
 
-    def build_profile(self, traffic_data: np.ndarray):
-        self._fit_preprocessors(traffic_data)
-        preprocessed = self._transform_with_preprocessors(traffic_data)
-        self.decision_engine.fit(preprocessed)
+    def build_profile(self, pcap_file: str):
+        logging.info("Extract features...")
+        features = self.feature_extractor.fit_extract(pcap_file)
+        logging.info("Apply feature transformations...")
+        self._fit_preprocessors(features)
+        preprocessed = self._transform_with_preprocessors(features)
+        logging.info("Start model training ...")
+        self.decision_engine.fit(preprocessed, traffic_type=TrafficType.BENIGN)
 
-    def feed_traffic(self, db: DBConnector, classification_id: str, ids: list, traffic_data: np.ndarray,
-                     traffic_type=TrafficType.UNKNOWN):
-        if len(ids) != len(traffic_data):
-            raise ValueError(
-                f"Length of ids and traffic data must be equal! len(ids)={len(ids)}, len(traffic_data)={len(traffic_data)}")
-        preprocessed = self._transform_with_preprocessors(traffic_data)
-        predictions = self.decision_engine.classify(preprocessed)
-        db.save_classifications(classification_id, ids, predictions)
+    def feed_traffic(self, classification_id: str, ids: t.Sequence[str], pcap_file: str):
+        features = self.feature_extractor.extract_features(pcap_file)
+        preprocessed = self._transform_with_preprocessors(features)
+        de_result = self.decision_engine.classify(preprocessed)
+        predictions = self.feature_extractor.map_backwards(pcap_file, de_result)
+        return ClassificationResults(classification_id, ids, predictions)
 
     def _fit_preprocessors(self, traffic_data: np.ndarray):
-        for p in self.preprocessors:
-            p.fit(traffic_data)
-
-    def _transform_with_preprocessors(self, traffic_data: np.ndarray):
         transformed = traffic_data
         for p in self.preprocessors:
-            transformed = p.transform(traffic_data)
+            p.fit(transformed)
+            transformed = p.transform(transformed)
+
+    def _transform_with_preprocessors(self, features: np.ndarray):
+        transformed = features
+        for p in self.preprocessors:
+            transformed = p.transform(transformed)
         return transformed
 
     def serialize(self):

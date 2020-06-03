@@ -4,6 +4,8 @@ import typing as t
 
 import pandas as pd
 
+from anomaly_detection.types import ClassificationResults
+
 
 class DBConnector:
     def __init__(self, db_path: str, init_if_not_exists: bool = True):
@@ -69,10 +71,10 @@ class DBConnector:
         self.conn.commit()
         c.close()
 
-    def save_classifications(self, classification_id, record_ids: list, labels: list):
+    def save_classifications(self, r: ClassificationResults):
         c = self.conn.cursor()
-        data = [(classification_id, i, p.value)
-                for i, p in zip(record_ids, labels)]
+        data = [(r.classification_id, i, p.value)
+                for i, p in zip(r.traffic_ids, r.predictions)]
         c.executemany("INSERT INTO classification_results (classification_id, record_id, label) VALUES (?,?,?);",
                       data)
         self.conn.commit()

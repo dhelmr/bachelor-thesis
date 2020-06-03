@@ -11,14 +11,18 @@ import anomaly_detection.local_outlier_factor as local_outlier_factor
 import anomaly_detection.one_class_svm as one_class_svm
 import dataset_utils.cic_ids_2017 as cic2017
 from anomaly_detection.anomaly_detector import AnomalyDetectorModel
+from anomaly_detection.basic_netflow_extractor import BasicNetflowFeatureExtractor
+from anomaly_detection.basic_packet_feature_extractor import BasicPacketFeatureExtractor
 from anomaly_detection.classifier import Classifier, CLASSIFICATION_ID_AUTO_GENERATE
 from anomaly_detection.db import DBConnector
 from anomaly_detection.evaluator import Evaluator
 from anomaly_detection.model_trainer import ModelTrainer
 from anomaly_detection.preprocessors import StandardScalerPreprocessor, MinxMaxScalerPreprocessor
+from anomaly_detection.types import DatasetPreprocessor, TrafficReader
+from dataset_utils.preprocess_ids2017 import CICIDS2017Preprocessor
 
 DATASET_PATH = os.path.join(os.path.dirname(
-    __file__), "data/cic-ids-2017/MachineLearningCVE/")
+    __file__), "data/cic-ids-2017/")
 
 DECISION_ENGINES = {
     "one_class_svm": (one_class_svm.OneClassSVMDE, one_class_svm.create_parser),
@@ -28,6 +32,21 @@ DECISION_ENGINES = {
 PREPROCESSORS = {
     "minmax_scaler": MinxMaxScalerPreprocessor,
     "standard_scaler": StandardScalerPreprocessor
+}
+
+FEATURE_EXTRACTORS = {
+    "basic_netflow": BasicNetflowFeatureExtractor,
+    "basic_packet_info": BasicPacketFeatureExtractor
+}
+
+
+class DatasetUtils(t.NamedTuple):
+    traffic_reader: TrafficReader
+    preprocessor: DatasetPreprocessor
+
+
+DATASET_UTILS = {
+    "cic-ids-2017": DatasetUtils(cic2017.CIC2017TrafficReader, CICIDS2017Preprocessor)
 }
 
 
@@ -61,10 +80,14 @@ class CLIParser:
         parser_train.add_argument('--preprocessor', '-p', type=str, nargs='+', dest="preprocessors",
                                   choices=list(PREPROCESSORS.keys()), default=[],
                                   help='Specifies one or more preprocessors that are applied before calling the decision engine.')
+        parser_train.add_argument('--feature-extractor', '-f', type=str, dest="feature_extractor",
+                                  choices=list(FEATURE_EXTRACTORS.keys()), default=list(FEATURE_EXTRACTORS.keys())[0],
+                                  required=True,
+                                  help="Specifies the feature extractor that is used to generate features from the raw network traffic.")
 
         self._add_model_param(parser_train)
         self._add_decision_engine_param(parser_train)
-        self._add_dataset_param(parser_train)
+        self._add_dataset_path_param(parser_train)
 
         parser_classify = self._create_subparser(
             "classify", help='Feed traffic from a dataset and detect anomalies.', )
@@ -73,10 +96,10 @@ class CLIParser:
             help=f"Id of the classification. If {CLASSIFICATION_ID_AUTO_GENERATE} is specified, a new id will be auto-generated."
         )
         self._add_model_param(parser_classify)
-        self._add_dataset_param(parser_classify)
+        self._add_dataset_path_param(parser_classify)
 
         parser_evaluate = self._create_subparser(
-            "evaluate", help='Generate an evaluation report in JSON format from a prediction log.')
+            "evaluate", help="Generate an evaluation report in JSON format from a prediction log.")
         parser_evaluate.add_argument(
             "--output", "-o", type=str, required=True,
             help="File where the report will be written into. It is not allowed to exist yet."
@@ -84,7 +107,7 @@ class CLIParser:
         parser_evaluate.add_argument(
             "--id", type=str, required=True, help="Id of the classification that will be evaluated."
         )
-        self._add_dataset_param(parser_evaluate)
+        self._add_dataset_path_param(parser_evaluate)
 
         parser_list_de = self._create_subparser(
             "list-de", help="Lists the available decision engines")
@@ -99,6 +122,16 @@ class CLIParser:
             action="store_true"
         )
 
+        preprocess = self._create_subparser(
+            "preprocess", help="Preprocesses a dataset so that it can be used for evaluation afterwards."
+        )
+        preprocess.add_argument(
+            "dataset", metavar="DATASET", type=str,
+            help=f"The name of the dataset. Choose one of: {list(DATASET_UTILS.keys())}",
+            choices=list(DATASET_UTILS.keys())
+        )
+        self._add_dataset_path_param(preprocess)
+
         parser_list_models = self._create_subparser("list-models", help="List available models.")
 
     def _create_subparser(self, name: str, help: str):
@@ -108,7 +141,7 @@ class CLIParser:
         self._add_common_params(sp)
         return sp
 
-    def _add_dataset_param(self, subparser):
+    def _add_dataset_path_param(self, subparser):
         subparser.add_argument("--dataset-path", "-d", dest="dataset_path",
                                help="Path of the dataset", default=DATASET_PATH)
 
@@ -148,23 +181,24 @@ class CommandExecutor:
 
     def evaluate(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)
-        reader = cic2017.Reader(args.dataset_path)
+        reader = self._get_dataset_utils("cic-ids-2017").traffic_reader(args.dataset_path)  # TODO read from args
         db = DBConnector(db_path=args.db)
         evaluator = Evaluator(db, reader, args.output)
         evaluator.evaluate(classification_id=args.id)
 
     def train(self, args: argparse.Namespace, unknown: t.Sequence[str]):
-        reader = cic2017.Reader(args.dataset_path)
+        reader = self._get_dataset_utils("cic-ids-2017").traffic_reader(args.dataset_path)  # TODO read from args
         de = self._create_decision_engine(args.decision_engine, unknown)
         db = DBConnector(db_path=args.db)
         preprocessors = self._build_preprocessors(args.preprocessors)
-        ad = AnomalyDetectorModel(de, preprocessors)
+        feature_extractor = self._build_feature_extractor(args.feature_extractor)
+        ad = AnomalyDetectorModel(de, feature_extractor, preprocessors)
         trainer = ModelTrainer(db, reader, anomaly_detector=ad, model_id=args.model_id)
         trainer.start_training()
 
     def classify(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)
-        reader = cic2017.Reader(args.dataset_path)
+        reader = cic2017.CIC2017TrafficReader(args.dataset_path)
         db = DBConnector(db_path=args.db)
         simulator = Classifier(db, reader, model_id=args.model_id)
         simulator.start_classification(args.id)
@@ -180,6 +214,10 @@ class CommandExecutor:
                 parser = de_parser_creator(name)
                 parser.print_help()
                 print("\n")
+
+    def preprocess(self, args: argparse.Namespace, unknown: t.Sequence[str]):
+        preprocessor = self._get_dataset_utils(args.dataset).preprocessor()
+        preprocessor.preprocess(args.dataset_path)
 
     def list_classifications(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)
@@ -217,9 +255,20 @@ class CommandExecutor:
         for name in names:
             if name not in PREPROCESSORS:
                 raise ParsingException(
-                    f"{name} is not a valid preprocessor. Please specify one of: {DECISION_ENGINES.keys()}")
+                    f"{name} is not a valid preprocessor. Please specify one of: {PREPROCESSORS.keys()}")
             preprocessors.append(PREPROCESSORS[name]())
         return preprocessors
+
+    def _build_feature_extractor(self, name: str):
+        if name not in FEATURE_EXTRACTORS:
+            raise ParsingException(
+                f"{name} is not a valid feature extractor. Please specify one of: {FEATURE_EXTRACTORS.keys()}")
+        return FEATURE_EXTRACTORS[name]()
+
+    def _get_dataset_utils(self, dataset_name: str) -> DatasetUtils:
+        if dataset_name not in DATASET_UTILS:
+            raise ParsingException(f"{dataset_name} is not a valid dataset.")
+        return DATASET_UTILS[dataset_name]
 
     def _check_unknown_args(self, unknown: t.Sequence[str], expected_len, subparser: argparse.ArgumentParser = None):
         if len(unknown) != expected_len:

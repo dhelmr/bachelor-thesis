@@ -24,17 +24,19 @@ class Evaluator:
         from the dataset and creates a confusion matrix. Various measurements, like f1-score, precision,
         recall and false detection rate (fdr) are generated. The report is then saved as json.
         """
-        log = self.db.get_classifications_records(classification_id)
-        if len(log) == 0:
+        pred = self.db.get_classifications_records(classification_id)
+        if len(pred) == 0:
             raise ValueError(f"Classification with id '{classification_id}' does not exist!")
         logging.info(f"Prediction log for classification with id {classification_id} loaded")
         evaluation_dict = dict()
-        for name, _, traffic_type in self.traffic_reader:
+        for name, _, _, traffic_types in self.traffic_reader:
             logging.info("Start evaluation of %s (%i records)",
-                         name, len(traffic_type))
-            labels = traffic_type.map(lambda x: x.value)
+                         name, len(traffic_types))
+            # Convert traffic type to zero and ones
+            labels = traffic_types.map(lambda x: x.value)
             y_true = labels.values
-            y_pred = log.loc[labels.index.values].values
+            y_pred = pred.loc[labels.index.values].values
+            # TODO case when only one label is set everywhere (no matrix is generated)
             tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
             metrics = self.calc_measurements(
                 int(tn), int(fp), int(fn), int(tp))
@@ -74,22 +76,29 @@ class Evaluator:
         n = tn + fp
         metrics["positives"] = p
         metrics["negatives"] = n
-        metrics["recall"] = tp / p
-        metrics["tnr"] = tn / n
-        metrics["precision"] = tp / (tp + fp)
-        metrics["npv"] = tn / (tn + fn)
-        metrics["fpr"] = fp / n
-        metrics["fdr"] = fp / (fp + tp)
-        metrics["for"] = fn / (fn + tn)
-        metrics["accuracy"] = (tp + tn) / (p + n)
+        metrics["recall"] = self.safe_divide(tp, p)
+        metrics["tnr"] = self.safe_divide(tn, n)
+        metrics["precision"] = self.safe_divide(tp, (tp + fp))
+        metrics["npv"] = self.safe_divide(tn, (tn + fn))
+        metrics["fpr"] = self.safe_divide(fp, n)
+        metrics["fdr"] = self.safe_divide(fp, (fp + tp))
+        metrics["for"] = self.safe_divide(fn, (fn + tn))
+        metrics["accuracy"] = self.safe_divide((tp + tn), (p + n))
         metrics["balanced_accuracy"] = (metrics["recall"] + metrics["tnr"]) / 2
-        metrics["f1_score"] = 2 * tp / (2 * tp + fp + fn)
+        metrics["f1_score"] = self.safe_divide(2 * tp, (2 * tp + fp + fn))
         metrics["true_negatives"] = tn
         metrics["true_positives"] = tp
         metrics["false_negatives"] = fn
         metrics["false_positives"] = fp
         metrics["support"] = n + p
         return metrics
+
+    def safe_divide(self, q1, q2) -> float:
+        try:
+            value = q1 / q2
+        except ZeroDivisionError:
+            value = float('Inf')
+        return value
 
     def get_summed_attr(self, metrics_dict: dict, attribute: str):
         total = 0

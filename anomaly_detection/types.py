@@ -59,8 +59,9 @@ class Preprocessor(ABC):
 
 class TrafficSequence(NamedTuple):
     name: str
-    traffic: pd.DataFrame
-    labels: pd.DataFrame
+    pcap_file: str
+    ids: t.List[str]
+    labels: pd.Series
 
 
 class TrafficReader(ABC):
@@ -76,4 +77,34 @@ class TrafficReader(ABC):
 
     @abstractmethod
     def __iter__(self):
+        raise NotImplementedError()
+
+
+class FeatureExtractor:
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def fit_extract(self, pcap_file: str) -> np.ndarray:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def extract_features(self, pcap_file: str) -> np.ndarray:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def map_backwards(self, pcap_file: str, de_result: t.Sequence[TrafficType]) -> t.Sequence[TrafficType]:
+        raise NotImplementedError()
+
+
+class ClassificationResults(NamedTuple):
+    classification_id: str
+    traffic_ids: t.Sequence[str]
+    predictions: t.Sequence[TrafficType]
+
+
+class DatasetPreprocessor:
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def preprocess(self, dataset_path: str):
         raise NotImplementedError()

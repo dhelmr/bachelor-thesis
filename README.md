@@ -23,11 +23,11 @@ There are various subcommands:
 ❯ ./main.py --help
 
 usage: main.py [-h]
-               {train,classify,evaluate,list-de,list-classifications,list-models}
+               {train,classify,evaluate,list-de,list-classifications,preprocess,list-models}
                ...
 
 positional arguments:
-  {train,classify,evaluate,list-de,list-classifications,list-models}
+  {train,classify,evaluate,list-de,list-classifications,preprocess,list-models}
     train               Creates a classification model from analyzing normal
                         traffic and stores it in the database.
     classify            Feed traffic from a dataset and detect anomalies.
@@ -37,6 +37,8 @@ positional arguments:
     list-classifications
                         Lists all anomaly classifications that were previously
                         run.
+    preprocess          Preprocesses a dataset so that it can be used for
+                        evaluation afterwards.
     list-models         List available models.
 
 optional arguments:
@@ -63,8 +65,7 @@ optional arguments:
   --model-id MODEL_ID, -m MODEL_ID
                         ID of the model. (default: None)
   --dataset-path DATASET_PATH, -d DATASET_PATH
-                        Path of the dataset (default: ./data/cic-
-                        ids-2017/MachineLearningCVE/)
+                        Path of the dataset (default: ./data/cic-ids-2017/)
 
 ```
 

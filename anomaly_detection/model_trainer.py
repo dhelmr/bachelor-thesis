@@ -17,10 +17,10 @@ class ModelTrainer:
     def start_training(self):
         if self.db.exists_model(self.model_id):
             raise ValueError("Model with id '%s' already exists!" % self.model_id)
-        _, normal_data, _ = self.traffic_reader.read_normal_data()
+        name, normal_traffic_file, _, _ = self.traffic_reader.read_normal_data()
         logging.info(
-            "Start training of normal profile (%i records)", len(normal_data))
-        self.ad.build_profile(normal_data.values)
+            "Start training of normal profile (%s)", name)
+        self.ad.build_profile(normal_traffic_file)
         logging.info("Training with normal profile done")
         self._save_model()
 

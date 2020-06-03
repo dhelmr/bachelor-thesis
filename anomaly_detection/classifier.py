@@ -2,7 +2,7 @@ import logging
 
 from anomaly_detection.anomaly_detector import AnomalyDetectorModel
 from anomaly_detection.db import DBConnector
-from anomaly_detection.types import TrafficType, TrafficReader
+from anomaly_detection.types import TrafficReader
 
 # If the classification id takes this value, it will be replaced by a new auto-generated id.
 CLASSIFICATION_ID_AUTO_GENERATE = "auto"
@@ -19,14 +19,13 @@ class Classifier:
         if classification_id == CLASSIFICATION_ID_AUTO_GENERATE:
             classification_id = self._generate_new_id()
         self._init_db_for_classification(classification_id)
-        for name, test_data, _ in self.traffic_reader:
-            logging.info("Detect anomalies in %s (%i records)", name, len(test_data))
-            self.ad.feed_traffic(
-                self.db,
+        for name, pcap_file, ids, _ in self.traffic_reader:
+            logging.info("Detect anomalies in %s.", name)
+            classification_results = self.ad.feed_traffic(
                 classification_id,
-                ids=test_data.index.values,
-                traffic_data=test_data.values,
-                traffic_type=TrafficType.UNKNOWN)
+                ids=ids,
+                pcap_file=pcap_file)
+            self.db.save_classifications(classification_results)
 
     def _init_db_for_classification(self, classification_id):
         db = self.db

@@ -30,7 +30,8 @@ class LocalOutlierFactorDE(DecisionEngine):
             self._prediction_to_traffic_type(p) for p in predictions]
         return traffic_type_labels
 
-    def fit(self, traffic_data, traffic_type=TrafficType.BENIGN):
+    def fit(self, traffic_data, traffic_type: TrafficType):
+        # TODO handle traffic type (see one_class_svm)
         self.lof.fit(traffic_data)
 
     def _prediction_to_traffic_type(self, prediction_value: int):
