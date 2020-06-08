@@ -30,10 +30,10 @@ class ModelTrainer:
 
     def _save_model(self):
         pickle_dump = self.ad.serialize()
-        preprocessor_names = [p.get_name() for p in self.ad.preprocessors]
+        transformer_names = [p.get_name() for p in self.ad.transformers]
         self.db.save_model_info(
             model_id=self.model_id, decision_engine=self.ad.decision_engine.get_name(),
-            preprocessors=preprocessor_names, feature_extractor=self.ad.feature_extractor.get_name(),
+            transformers=transformer_names, feature_extractor=self.ad.feature_extractor.get_name(),
             pickle_dump=pickle_dump)
         logging.debug("Store model with id '%s' in database" % self.model_id)
 

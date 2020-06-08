@@ -33,7 +33,7 @@ class DBConnector:
             CREATE TABLE model (
                 model_id TEXT PRIMARY KEY,
                 decision_engine TEXT,
-                preprocessors TEXT,
+                transformers TEXT,
                 feature_extractor TEXT,
                 pickle_dump TEXT
             );
@@ -52,13 +52,13 @@ class DBConnector:
         """)
         self.conn.commit()
 
-    def save_model_info(self, model_id: str, decision_engine: str, preprocessors: t.Sequence[str],
+    def save_model_info(self, model_id: str, decision_engine: str, transformers: t.Sequence[str],
                         feature_extractor: str, pickle_dump: str):
         c = self.conn.cursor()
-        preprocessors_list = ",".join(preprocessors)
+        transformer_list = ",".join(transformers)
         c.execute(
-            "INSERT INTO model (model_id, decision_engine, preprocessors, feature_extractor, pickle_dump) VALUES (?,?,?,?,?);",
-            (model_id, decision_engine, preprocessors_list, feature_extractor, pickle_dump))
+            "INSERT INTO model (model_id, decision_engine, transformers, feature_extractor, pickle_dump) VALUES (?,?,?,?,?);",
+            (model_id, decision_engine, transformer_list, feature_extractor, pickle_dump))
         self.conn.commit()
         c.close()
 

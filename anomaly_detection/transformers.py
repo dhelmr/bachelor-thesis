@@ -1,10 +1,10 @@
 import numpy as np
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
-from anomaly_detection.types import Preprocessor
+from anomaly_detection.types import Transformer
 
 
-class StandardScalerPreprocessor(Preprocessor):
+class StandardScalerTransformer(Transformer):
     def __init__(self):
         self.scaler = StandardScaler()
 
@@ -18,7 +18,7 @@ class StandardScalerPreprocessor(Preprocessor):
         return "standard_scaler"
 
 
-class MinxMaxScalerPreprocessor(Preprocessor):
+class MinxMaxScalerTransformer(Transformer):
     def __init__(self):
         self.scaler = MinMaxScaler()
 

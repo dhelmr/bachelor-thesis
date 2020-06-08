@@ -18,8 +18,8 @@ from anomaly_detection.classifier import Classifier, CLASSIFICATION_ID_AUTO_GENE
 from anomaly_detection.db import DBConnector
 from anomaly_detection.evaluator import Evaluator
 from anomaly_detection.model_trainer import ModelTrainer
-from anomaly_detection.preprocessors import StandardScalerPreprocessor, MinxMaxScalerPreprocessor
-from anomaly_detection.types import DatasetPreprocessor, TrafficReader
+from anomaly_detection.transformers import StandardScalerTransformer, MinxMaxScalerTransformer
+from anomaly_detection.types import DatasetUtils
 from dataset_utils.preprocess_ids2017 import CICIDS2017Preprocessor
 
 DATASET_PATH = os.path.join(os.path.dirname(
@@ -30,21 +30,15 @@ DECISION_ENGINES = {
     "local_outlier_factor": (local_outlier_factor.LocalOutlierFactorDE, local_outlier_factor.create_parser)
 }
 
-PREPROCESSORS = {
-    "minmax_scaler": MinxMaxScalerPreprocessor,
-    "standard_scaler": StandardScalerPreprocessor
+TRANSFORMERS = {
+    "minmax_scaler": MinxMaxScalerTransformer,
+    "standard_scaler": StandardScalerTransformer
 }
 
 FEATURE_EXTRACTORS = {
     "basic_netflow": BasicNetflowFeatureExtractor,
     "basic_packet_info": BasicPacketFeatureExtractor
 }
-
-
-class DatasetUtils(t.NamedTuple):
-    traffic_reader: TrafficReader
-    preprocessor: DatasetPreprocessor
-
 
 DATASET_UTILS = {
     "cic-ids-2017": DatasetUtils(cic2017.CIC2017TrafficReader, CICIDS2017Preprocessor)
@@ -78,9 +72,9 @@ class CLIParser:
             "train",
             help="Creates a classification model from analyzing normal traffic and stores it in the database."
         )
-        parser_train.add_argument('--preprocessor', '-p', type=str, nargs='+', dest="preprocessors",
-                                  choices=list(PREPROCESSORS.keys()), default=[],
-                                  help='Specifies one or more preprocessors that are applied before calling the decision engine.')
+        parser_train.add_argument('--transformers', '-t', type=str, nargs='+', dest="transformers",
+                                  choices=list(TRANSFORMERS.keys()), default=[],
+                                  help='Specifies one or more transformers that are applied before calling the decision engine.')
         parser_train.add_argument('--feature-extractor', '-f', type=str, dest="feature_extractor",
                                   choices=list(FEATURE_EXTRACTORS.keys()), default=list(FEATURE_EXTRACTORS.keys())[0],
                                   help="Specifies the feature extractor that is used to generate features from the raw network traffic.")
@@ -191,9 +185,9 @@ class CommandExecutor:
         reader = self._get_dataset_utils("cic-ids-2017").traffic_reader(args.dataset_path)  # TODO read from args
         de = self._create_decision_engine(args.decision_engine, unknown)
         db = DBConnector(db_path=args.db)
-        preprocessors = self._build_preprocessors(args.preprocessors)
+        transformers = self._build_transformers(args.transformers)
         feature_extractor = self._build_feature_extractor(args.feature_extractor)
-        ad = AnomalyDetectorModel(de, feature_extractor, preprocessors)
+        ad = AnomalyDetectorModel(de, feature_extractor, transformers)
         trainer = ModelTrainer(db, reader, anomaly_detector=ad, model_id=args.model_id)
         trainer.start_training()
 
@@ -251,14 +245,14 @@ class CommandExecutor:
         decision_engine_instance = de_class(parsed)
         return decision_engine_instance
 
-    def _build_preprocessors(self, names: t.Sequence[str]):
-        preprocessors = list()
+    def _build_transformers(self, names: t.Sequence[str]):
+        transformers = list()
         for name in names:
-            if name not in PREPROCESSORS:
+            if name not in TRANSFORMERS:
                 raise ParsingException(
-                    f"{name} is not a valid preprocessor. Please specify one of: {PREPROCESSORS.keys()}")
-            preprocessors.append(PREPROCESSORS[name]())
-        return preprocessors
+                    f"{name} is not a valid transformer. Please specify one of: {TRANSFORMERS.keys()}")
+            transformers.append(TRANSFORMERS[name]())
+        return transformers
 
     def _build_feature_extractor(self, name: str):
         if name not in FEATURE_EXTRACTORS:

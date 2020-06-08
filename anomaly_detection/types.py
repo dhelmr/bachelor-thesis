@@ -41,7 +41,7 @@ class DecisionEngine(ABC):
         raise NotImplementedError()
 
 
-class Preprocessor(ABC):
+class Transformer(ABC):
     __metaclass__ = ABCMeta
 
     @abstractmethod
@@ -112,3 +112,8 @@ class DatasetPreprocessor:
     @abstractmethod
     def preprocess(self, dataset_path: str):
         raise NotImplementedError()
+
+
+class DatasetUtils(NamedTuple):
+    traffic_reader: t.Callable[[str], TrafficReader]
+    preprocessor: t.Callable[[], DatasetPreprocessor]
