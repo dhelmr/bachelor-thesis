@@ -107,6 +107,10 @@ class CLIParser:
         parser_evaluate.add_argument(
             "--id", type=str, required=True, help="Id of the classification that will be evaluated."
         )
+        parser_evaluate.add_argument(
+            "--force-overwrite", "-f", default=False, action="store_true",
+            help="Overwrite the report file, if it already exists."
+        )
         self._add_dataset_path_param(parser_evaluate)
 
         parser_list_de = self._create_subparser(
@@ -174,13 +178,6 @@ class CommandExecutor:
     def __init__(self, cli_parser: CLIParser):
         self.cli_parser: CLIParser = cli_parser
 
-    def evaluate(self, args: argparse.Namespace, unknown: t.Sequence[str]):
-        self._check_unknown_args(unknown, expected_len=0)
-        reader = self._get_dataset_utils("cic-ids-2017").traffic_reader(args.dataset_path)  # TODO read from args
-        db = DBConnector(db_path=args.db)
-        evaluator = Evaluator(db, reader, args.output)
-        evaluator.evaluate(classification_id=args.id)
-
     def train(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         reader = self._get_dataset_utils("cic-ids-2017").traffic_reader(args.dataset_path)  # TODO read from args
         de = self._create_decision_engine(args.decision_engine, unknown)
@@ -197,6 +194,13 @@ class CommandExecutor:
         db = DBConnector(db_path=args.db)
         simulator = Classifier(db, reader, model_id=args.model_id)
         simulator.start_classification(args.id)
+
+    def evaluate(self, args: argparse.Namespace, unknown: t.Sequence[str]):
+        self._check_unknown_args(unknown, expected_len=0)
+        reader = self._get_dataset_utils("cic-ids-2017").traffic_reader(args.dataset_path)  # TODO read from args
+        db = DBConnector(db_path=args.db)
+        evaluator = Evaluator(db, reader, args.output, args.force_overwrite)
+        evaluator.evaluate(classification_id=args.id)
 
     def list_de(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)

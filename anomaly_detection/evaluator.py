@@ -9,12 +9,15 @@ from anomaly_detection.types import TrafficReader
 
 
 class Evaluator:
-    def __init__(self, db: DBConnector, traffic_reader: TrafficReader, report_file: str):
+    def __init__(self, db: DBConnector, traffic_reader: TrafficReader, report_file: str, force_overwrite: bool = False):
         self.traffic_reader = traffic_reader
         self.db: DBConnector = db
         self.report_file = report_file
         if os.path.exists(report_file):
-            raise FileExistsError(f"File already exists! {report_file}")
+            if not force_overwrite:
+                raise FileExistsError(f"File already exists! {report_file}")
+            else:
+                logging.info(f"File {report_file} already exists, will overwrite.")
 
     def evaluate(self, classification_id: str):
         """
@@ -111,7 +114,7 @@ class Evaluator:
         return total
 
     def write_report(self, text: str):
-        file = open(self.report_file, "a")
+        file = open(self.report_file, "w")
         if not text.endswith("\n"):
             text += "\n"
         file.write(text)
