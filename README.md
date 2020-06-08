@@ -13,12 +13,12 @@ Clone the git repository and install the requirements with `pip install -r requi
 ## CIC-IDS-2017
 
 [Download](http://205.174.165.80/CICDataset/CIC-IDS-2017/) the dataset and extract the file `GeneratedLabelledFlows.zip`. The default path that is assumed for the dataset is 
-`data/cic-ids-2017/MachineLearningCVE`, but another path can be specified with the option `-d` (see below). For now, only the preprocessed network flows will be used from this datasets.
+`data/cic-ids-2017/MachineLearningCVE`, but another path can be specified with the option `--src` (see below). For now, only the preprocessed network flows will be used from this datasets.
 
 Preprocess the dataset with 
 
 ```
-> ./main.py preprocess cic-ids-2017 -d data/cic-ids-2017
+> ./main.py preprocess cic-ids-2017 --src data/cic-ids-2017
 ```
 
 # Usage
@@ -62,7 +62,7 @@ usage: main.py train [-h] [--db DB] [--debug]
                      [--feature-extractor {basic_netflow,basic_packet_info}]
                      [--model-id MODEL_ID]
                      [--decision-engine {one_class_svm,local_outlier_factor}]
-                     [--dataset-path DATASET_PATH]
+                     [--dataset {cic-ids-2017}] [--src DATASET_PATH]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -83,8 +83,10 @@ optional arguments:
   --decision-engine {one_class_svm,local_outlier_factor}
                         Choose which algorithm will be used for classifying
                         anomalies. (default: one_class_svm)
-  --dataset-path DATASET_PATH, -d DATASET_PATH
-                        Path of the dataset (default: ./data/cic-ids-2017/)
+  --dataset {cic-ids-2017}, -d {cic-ids-2017}
+                        The name of the dataset. Choose one of: ['cic-
+                        ids-2017'] (default: cic-ids-2017)
+  --src DATASET_PATH    Path of the dataset (default: ./data/cic-ids-2017/)
 
 ```
 
@@ -105,19 +107,19 @@ local_outlier_factor
 First build and train a model by analyzing normal traffic:
 
 ```
-./main.py train --model-id oc_svm -d data/cic-ids-2017/MachineLearningCVE/ --decision-engine one_class_svm --kernel rbf --gamma 0.005
+./main.py train --model-id oc_svm --src data/cic-ids-2017/MachineLearningCVE/ --decision-engine one_class_svm --kernel rbf --gamma 0.005
 ```
 
 Then read unknown traffic from a dataset and detect anomalies using the created model. The classifications will be written into an internal database.
 
 ```
-./main.py classify --id oc_svm_c1 -d data/cic-ids-2017/MachineLearningCVE/ --model-id oc_svm 
+./main.py classify --id oc_svm_c1 --src data/cic-ids-2017/MachineLearningCVE/ --model-id oc_svm 
 ```
 
 Evaluate the classification and generate a report containing different metrics:
 
 ```
-./main.py evaluate --id oc_svm_1 --output evaluation.json -d data/cic-ids-2017/MachineLearningCVE/ 
+./main.py evaluate --id oc_svm_1 --output evaluation.json --src data/cic-ids-2017/MachineLearningCVE/ --force-overwrite
 ```
 
 Example content of the resulting report: 

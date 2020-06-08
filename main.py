@@ -129,11 +129,6 @@ class CLIParser:
         preprocess = self._create_subparser(
             "preprocess", help="Preprocesses a dataset so that it can be used for evaluation afterwards."
         )
-        preprocess.add_argument(
-            "dataset", metavar="DATASET", type=str,
-            help=f"The name of the dataset. Choose one of: {list(DATASET_UTILS.keys())}",
-            choices=list(DATASET_UTILS.keys())
-        )
         self._add_dataset_path_param(preprocess)
 
         parser_list_models = self._create_subparser("list-models", help="List available models.")
@@ -146,7 +141,12 @@ class CLIParser:
         return sp
 
     def _add_dataset_path_param(self, subparser):
-        subparser.add_argument("--dataset-path", "-d", dest="dataset_path",
+        subparser.add_argument(
+            "--dataset", "-d", type=str, dest="dataset", default=list(DATASET_UTILS.keys())[0],
+            help=f"The name of the dataset. Choose one of: {list(DATASET_UTILS.keys())}",
+            choices=list(DATASET_UTILS.keys())
+        )
+        subparser.add_argument("--src", dest="dataset_path",
                                help="Path of the dataset", default=DATASET_PATH)
 
     def _add_decision_engine_param(self, subparser):
@@ -179,7 +179,7 @@ class CommandExecutor:
         self.cli_parser: CLIParser = cli_parser
 
     def train(self, args: argparse.Namespace, unknown: t.Sequence[str]):
-        reader = self._get_dataset_utils("cic-ids-2017").traffic_reader(args.dataset_path)  # TODO read from args
+        reader = self._get_dataset_utils(args.dataset).traffic_reader(args.dataset_path)
         de = self._create_decision_engine(args.decision_engine, unknown)
         db = DBConnector(db_path=args.db)
         transformers = self._build_transformers(args.transformers)
@@ -197,7 +197,7 @@ class CommandExecutor:
 
     def evaluate(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)
-        reader = self._get_dataset_utils("cic-ids-2017").traffic_reader(args.dataset_path)  # TODO read from args
+        reader = self._get_dataset_utils(args.dataset).traffic_reader(args.dataset_path)
         db = DBConnector(db_path=args.db)
         evaluator = Evaluator(db, reader, args.output, args.force_overwrite)
         evaluator.evaluate(classification_id=args.id)
