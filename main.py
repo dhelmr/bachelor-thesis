@@ -10,6 +10,7 @@ import pandas
 import anomaly_detection.local_outlier_factor as local_outlier_factor
 import anomaly_detection.one_class_svm as one_class_svm
 import dataset_utils.cic_ids_2017 as cic2017
+from anomaly_detection import model_trainer
 from anomaly_detection.anomaly_detector import AnomalyDetectorModel
 from anomaly_detection.basic_netflow_extractor import BasicNetflowFeatureExtractor
 from anomaly_detection.basic_packet_feature_extractor import BasicPacketFeatureExtractor
@@ -82,10 +83,13 @@ class CLIParser:
                                   help='Specifies one or more preprocessors that are applied before calling the decision engine.')
         parser_train.add_argument('--feature-extractor', '-f', type=str, dest="feature_extractor",
                                   choices=list(FEATURE_EXTRACTORS.keys()), default=list(FEATURE_EXTRACTORS.keys())[0],
-                                  required=True,
                                   help="Specifies the feature extractor that is used to generate features from the raw network traffic.")
 
-        self._add_model_param(parser_train)
+        parser_train.add_argument(
+            "--model-id", "-m",
+            help=f"ID of the model. If {model_trainer.MODEL_ID_AUTO_GENERATE} is used, the model ID will be auto-generated.",
+            type=str, dest="model_id", default=model_trainer.MODEL_ID_AUTO_GENERATE
+        )
         self._add_decision_engine_param(parser_train)
         self._add_dataset_path_param(parser_train)
 
@@ -95,7 +99,9 @@ class CLIParser:
             "--id", type=str, default=CLASSIFICATION_ID_AUTO_GENERATE,
             help=f"Id of the classification. If {CLASSIFICATION_ID_AUTO_GENERATE} is specified, a new id will be auto-generated."
         )
-        self._add_model_param(parser_classify)
+        parser_classify.add_argument(
+            "--model-id", "-m", help="ID of the model.", required=True, type=str, dest="model_id"
+        )
         self._add_dataset_path_param(parser_classify)
 
         parser_evaluate = self._create_subparser(
@@ -150,11 +156,6 @@ class CLIParser:
             "--decision-engine", type=str, dest="decision_engine", default=list(DECISION_ENGINES.keys())[0],
             choices=DECISION_ENGINES.keys(),
             help="Choose which algorithm will be used for classifying anomalies."
-        )
-
-    def _add_model_param(self, subparser):
-        subparser.add_argument(
-            "--model-id", "-m", help="ID of the model.", required=True, type=str, dest="model_id"
         )
 
     def _add_common_params(self, subparser):

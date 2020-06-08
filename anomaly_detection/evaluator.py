@@ -36,8 +36,12 @@ class Evaluator:
             labels = traffic_types.map(lambda x: x.value)
             y_true = labels.values
             y_pred = pred.loc[labels.index.values].values
-            # TODO case when only one label is set everywhere (no matrix is generated)
-            tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+            # create confusion matrix and extract true/false positives/negatives from it
+            cm = confusion_matrix(y_true, y_pred)
+            if cm.shape == (1, 1):
+                tn, fp, fn, tp = cm[0][0], 0, 0, 0
+            else:
+                tn, fp, fn, tp = cm.ravel()
             metrics = self.calc_measurements(
                 int(tn), int(fp), int(fn), int(tp))
             evaluation_dict[name] = metrics

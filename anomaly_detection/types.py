@@ -95,6 +95,10 @@ class FeatureExtractor:
     def map_backwards(self, pcap_file: str, de_result: t.Sequence[TrafficType]) -> t.Sequence[TrafficType]:
         raise NotImplementedError()
 
+    @abstractmethod
+    def get_name(self) -> str:
+        raise NotImplementedError()
+
 
 class ClassificationResults(NamedTuple):
     classification_id: str

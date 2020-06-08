@@ -19,3 +19,6 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
 
     def map_backwards(self, pcap_file: str, de_result: t.Sequence[TrafficType]) -> t.Sequence[TrafficType]:
         pass
+
+    def get_name(self) -> str:
+        return "basic_netflow_extractor"
