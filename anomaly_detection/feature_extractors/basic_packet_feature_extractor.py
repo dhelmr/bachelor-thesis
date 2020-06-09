@@ -18,29 +18,28 @@ class BasicPacketFeatureExtractor(FeatureExtractor):
         return self._extract_features(pcap_file, False)
 
     def _extract_features(self, pcap_file: str, prepare_backwards_mapping: bool):
-        features = []
         packets = pyshark.FileCapture(pcap_file, keep_packets=False)
-        for pkt in packets:
-            if "ip" not in pkt:
-                features.append([-1, -1, -1])
-                continue
-            src_ip = int(pkt.ip.src.replace(".", ""))  # TODO!!! handle ip formats like 8.23.123.2 vs 8.231.2.32
-            dest_ip = int(pkt.ip.dst.replace(".", ""))
-            if "tcp" in pkt:
-                src_port = int(pkt.tcp.port)
-                dest_port = int(pkt.tcp.dstport)
-                protocol = 6
-            elif "udp" in pkt:
-                src_port = int(pkt.udp.port)
-                dest_port = int(pkt.udp.dstport)
-                protocol = 17
-            else:
-                src_port = 0
-                dest_port = 0
-                protocol = 0
-            features.append([src_port, dest_port, protocol])
-            # TODO add more features
+        features = [self.analyze_packet(pkt) for pkt in packets]
         return np.array(features)
+
+    def analyze_packet(self, pkt):
+        if "ip" not in pkt:
+            return [-1, -1, -1]
+        src_ip = int(pkt.ip.src.replace(".", ""))  # TODO!!! handle ip formats like 8.23.123.2 vs 8.231.2.32
+        dest_ip = int(pkt.ip.dst.replace(".", ""))
+        if "tcp" in pkt:
+            src_port = int(pkt.tcp.port)
+            dest_port = int(pkt.tcp.dstport)
+            protocol = 6
+        elif "udp" in pkt:
+            src_port = int(pkt.udp.port)
+            dest_port = int(pkt.udp.dstport)
+            protocol = 17
+        else:
+            src_port = 0
+            dest_port = 0
+            protocol = 0
+        return [src_port, dest_port, protocol]
 
     def get_name(self) -> str:
         return "basic_packet_feature_extractor"
