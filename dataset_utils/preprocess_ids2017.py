@@ -1,7 +1,8 @@
+import socket
 import typing as t
 from datetime import datetime
 
-import pyshark
+import dpkt as dpkt
 
 from anomaly_detection.types import DatasetPreprocessor
 from dataset_utils.cic_ids_2017 import *
@@ -14,19 +15,19 @@ FILES = {
 PacketID = str
 
 
-def make_flow_ids(pkg: Packet):
-    if "ip" not in pkg:
-        logging.warning("no ip packet")
+def make_flow_ids(ts, buf):
+    eth = dpkt.ethernet.Ethernet(buf)
+    if type(eth.data) is not dpkt.ip.IP:
         return None
-    src_ip = str(pkg.ip.addr)
-    dest_ip = str(pkg.ip.dst)
-    if "tcp" in pkg:
-        src_port = int(pkg.tcp.port)
-        dest_port = int(pkg.tcp.dstport)
+    src_ip = socket.inet_ntoa(eth.ip.src)
+    dest_ip = socket.inet_ntoa(eth.ip.dst)
+    if type(eth.ip.data) is dpkt.tcp.TCP:
+        src_port = int(eth.ip.tcp.sport)
+        dest_port = int(eth.ip.tcp.dport)
         protocol = 6
-    elif "udp" in pkg:
-        src_port = int(pkg.udp.port)
-        dest_port = int(pkg.udp.dstport)
+    elif type(eth.ip.data) is dpkt.udp.UDP:
+        src_port = int(eth.ip.udp.sport)
+        dest_port = int(eth.ip.udp.dport)
         protocol = 17
     else:
         src_port = 0
@@ -42,13 +43,13 @@ def format_flow_id(src_ip, dest_ip, src_port, dest_port, protocol, reverse=False
     return "%s-%s-%s-%s-%s" % (dest_ip, src_ip, dest_port, src_port, protocol)
 
 
-def get_packet_id(pkg: Packet, flow_ids: t.List[str] = None) -> PacketID:
+def get_packet_id(timestamp, buf, flow_ids: t.List[str] = None) -> PacketID:
     if flow_ids is None:
-        flow_ids = make_flow_ids(pkg)
+        flow_ids = make_flow_ids(timestamp, buf)
     if flow_ids is None:
-        return "<no-ip>" + pkg.sniff_timestamp
+        return "<no-ip>-%s" % timestamp
     else:
-        return flow_ids[0] + pkg.sniff_timestamp
+        return "%s-%s" % (flow_ids[0], timestamp)
 
 
 def determine_traffic_type(matching_labels: pandas.DataFrame):
@@ -67,31 +68,32 @@ def determine_traffic_type(matching_labels: pandas.DataFrame):
 class CICIDS2017Preprocessor(DatasetPreprocessor):
 
     def preprocess(self, dataset_path: str):
-        print(dataset_path)
         for pcap_file, label_file in self.pcap_and_label_files(dataset_path):
+            logging.info("Process file %s", pcap_file)
             attacks_packet_ids = self.get_attacks_packet_ids(label_file)
             labels = self.generate_labels(pcap_file, attacks_packet_ids)
             pandas_dict = {packet_id: [packet_id, label] for packet_id, label in labels.items()}
             df = pandas.DataFrame.from_dict(pandas_dict, orient="index", columns=["packet_id", "label"])
             output_csv_path = os.path.join(dataset_path, os.path.basename(pcap_file) + "_packet_labels.csv")
+            logging.info("Write packet labels into %s", label_file)
             df.to_csv(output_csv_path, index=False)
 
     def generate_labels(self, pcap_file: str, attack_times: pandas.DataFrame) \
             -> t.Dict[PacketID, TrafficType]:
-        packets = pyshark.FileCapture(pcap_file, keep_packets=False)
+        packets = dpkt.pcap.Reader(open(pcap_file, "rb"))
         labelled_packets: t.Dict[PacketID, TrafficType] = dict()
         progress = 0
-        for packet in packets:
-            flow_ids = make_flow_ids(packet)
-            packet_id = get_packet_id(packet, flow_ids)
+        for timestamp, buf in packets:
+            flow_ids = make_flow_ids(timestamp, buf)
+            packet_id = get_packet_id(timestamp, buf, flow_ids)
             if (flow_ids is None) or \
                     not (flow_ids[0] in attack_times.index or flow_ids[1] in attack_times.index):
                 labelled_packets[packet_id] = TrafficType.BENIGN.value
             else:
                 # check for attack times
                 labelled_packets[packet_id] = TrafficType.ATTACK.value
-            if progress % 1000 == 0:
-                print(progress)
+            if progress % 10000 == 0:
+                logging.info("Processed %s packets...", progress)
             progress += 1
         return labelled_packets
 
