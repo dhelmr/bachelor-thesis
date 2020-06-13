@@ -2,4 +2,4 @@ pandas
 numpy
 scikit-learn
 scapy
-pyshark
+dpkt==1.9.2
