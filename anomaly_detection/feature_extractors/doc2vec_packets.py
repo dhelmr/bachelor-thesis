@@ -48,7 +48,7 @@ class PacketDoc2Vec(FeatureExtractor):
 
     def _read_packets(self, pcap_file: str) -> t.List[PacketInformation]:
         packet_infos = []
-        packets = dpkt.pcap.Reader(open(pcap_file, "rb"))
+        packets = dpkt.pcapng.Reader(open(pcap_file, "rb"))
         for ts, buf in packets:
             # statistic = self.statistic_features_extractor.analyze_packet(pkt)
             eth = dpkt.ethernet.Ethernet(buf)
