@@ -80,7 +80,7 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
 
     def generate_labels(self, pcap_file: str, attack_times: pandas.DataFrame) \
             -> t.Dict[PacketID, TrafficType]:
-        packets = dpkt.pcap.Reader(open(pcap_file, "rb"))
+        packets = dpkt.pcapng.Reader(open(pcap_file, "rb"))
         labelled_packets: t.Dict[PacketID, TrafficType] = dict()
         progress = 0
         for timestamp, buf in packets:
