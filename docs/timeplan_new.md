@@ -1,6 +1,6 @@
 | Weeks | Goal |
 | --- | --- | 
-| 01   | Results for Doc2Vec + packet meta information for cic-ids-2017 dataset | 
+| 01 = 15/06/2020   | Results for Doc2Vec + packet meta information for cic-ids-2017 dataset | 
 | 02   | Presentation; Use proposal as first draft for thesis |
 | 03 | Generate Network Flows from raw pcaps |
 | 04   | Generate features from Netflows |
