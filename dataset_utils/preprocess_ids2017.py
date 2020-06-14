@@ -92,51 +92,55 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
             else:
                 # check for attack times
                 labelled_packets[packet_id] = TrafficType.ATTACK.value
-            if progress % 10000 == 0:
+            if progress % 50000 == 0:
                 logging.info("Processed %s packets...", progress)
             progress += 1
         return labelled_packets
 
-    def get_attacks_packet_ids(self, flows_file: str) -> pandas.DataFrame:
-        df = read_csv(flows_file)  # TODO
-        attacks = df.loc[df["Label"] != BENIGN_LABEL]
-        benigns = df.loc[df["Label"] == BENIGN_LABEL]
-        attacks["reverse_flow_id"] = attacks.index.map(lambda flow: self.reverse_flow_id(flow))
-        in_both = pandas.merge(attacks, benigns, how="inner", left_index=True, right_index=True)
-        in_both_reversed_id = pandas.merge(attacks, benigns, how="inner", left_on="reverse_flow_id", right_index=True)
-        in_both = pandas.concat([in_both, in_both_reversed_id])
-        benign_times = in_both["Timestamp_y"].groupby(in_both.index).apply(
-            lambda elements: [self.date_to_timestamp(formatted_date) for formatted_date in list(elements)]
-        )
-        attack_times = attacks["Timestamp"].groupby(attacks.index).apply(
-            lambda elements: [self.date_to_timestamp(formatted_date) for formatted_date in list(elements)]
-        )
-        result_df = pandas.merge(attack_times, benign_times, how="left", right_index=True, left_index=True)
-        result_df.rename(columns={"Timestamp_y": "benign", "Timestamp": "attack"}, inplace=True)
-        return result_df
 
-    def pcap_and_label_files(self, dataset_path: str) -> t.List[t.Tuple[str, str]]:
-        return [(os.path.join(dataset_path, pcap), os.path.join(dataset_path, label_file)) \
-                for pcap, label_file in FILES.items()]
+def get_attacks_packet_ids(self, flows_file: str) -> pandas.DataFrame:
+    df = read_csv(flows_file)  # TODO
+    attacks = df.loc[df["Label"] != BENIGN_LABEL]
+    benigns = df.loc[df["Label"] == BENIGN_LABEL]
+    attacks["reverse_flow_id"] = attacks.index.map(lambda flow: self.reverse_flow_id(flow))
+    in_both = pandas.merge(attacks, benigns, how="inner", left_index=True, right_index=True)
+    in_both_reversed_id = pandas.merge(attacks, benigns, how="inner", left_on="reverse_flow_id", right_index=True)
+    in_both = pandas.concat([in_both, in_both_reversed_id])
+    benign_times = in_both["Timestamp_y"].groupby(in_both.index).apply(
+        lambda elements: [self.date_to_timestamp(formatted_date) for formatted_date in list(elements)]
+    )
+    attack_times = attacks["Timestamp"].groupby(attacks.index).apply(
+        lambda elements: [self.date_to_timestamp(formatted_date) for formatted_date in list(elements)]
+    )
+    result_df = pandas.merge(attack_times, benign_times, how="left", right_index=True, left_index=True)
+    result_df.rename(columns={"Timestamp_y": "benign", "Timestamp": "attack"}, inplace=True)
+    return result_df
 
-    @staticmethod
-    def reverse_flow_id(flow_id: str):
-        splitted = flow_id.split("-")
-        if len(splitted) != 5:
-            return "<invalid flow>"
-        src_ip, dest_ip, src_port, dest_port, protocol = splitted
-        return format_flow_id(src_ip, dest_ip, src_port, dest_port, protocol, reverse=True)
 
-    def date_to_timestamp(self, datestr: str):
-        date_part, time_part = datestr.split(" ")
-        d, m, y = date_part.split("/")
-        if len(d) != 2:
-            d = "0" + d
-        if len(m) != 2:
-            m = "0" + m
-        date_part = f"{d}/{m}/{y}"
-        if time_part[1] == ":":
-            time_part = "0" + time_part
-        datestr = f"{date_part} {time_part}"
-        result = datetime.strptime(datestr, "%d/%m/%Y %I:%M")  # example "5/7/2017 8:42" = 5th of July 2017
-        return result
+def pcap_and_label_files(self, dataset_path: str) -> t.List[t.Tuple[str, str]]:
+    return [(os.path.join(dataset_path, pcap), os.path.join(dataset_path, label_file)) \
+            for pcap, label_file in FILES.items()]
+
+
+@staticmethod
+def reverse_flow_id(flow_id: str):
+    splitted = flow_id.split("-")
+    if len(splitted) != 5:
+        return "<invalid flow>"
+    src_ip, dest_ip, src_port, dest_port, protocol = splitted
+    return format_flow_id(src_ip, dest_ip, src_port, dest_port, protocol, reverse=True)
+
+
+def date_to_timestamp(self, datestr: str):
+    date_part, time_part = datestr.split(" ")
+    d, m, y = date_part.split("/")
+    if len(d) != 2:
+        d = "0" + d
+    if len(m) != 2:
+        m = "0" + m
+    date_part = f"{d}/{m}/{y}"
+    if time_part[1] == ":":
+        time_part = "0" + time_part
+    datestr = f"{date_part} {time_part}"
+    result = datetime.strptime(datestr, "%d/%m/%Y %I:%M")  # example "5/7/2017 8:42" = 5th of July 2017
+    return result

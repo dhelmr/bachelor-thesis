@@ -1,7 +1,6 @@
 import typing as t
 
 import numpy as np
-import pyshark
 
 from anomaly_detection.types import FeatureExtractor, TrafficType
 
@@ -18,9 +17,10 @@ class BasicPacketFeatureExtractor(FeatureExtractor):
         return self._extract_features(pcap_file, False)
 
     def _extract_features(self, pcap_file: str, prepare_backwards_mapping: bool):
-        packets = pyshark.FileCapture(pcap_file, keep_packets=False)
-        features = [self.analyze_packet(pkt) for pkt in packets]
-        return np.array(features)
+        raise NotImplementedError("TODO change to dpkt")
+        # packets = pyshark.FileCapture(pcap_file, keep_packets=False)
+        # features = [self.analyze_packet(pkt) for pkt in packets]
+        # return np.array(features)
 
     def analyze_packet(self, pkt):
         if "ip" not in pkt:
