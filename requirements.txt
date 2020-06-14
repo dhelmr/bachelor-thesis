@@ -1,5 +1,5 @@
-pandas
-numpy
-scikit-learn
-scapy
+pandas==1.0.4
+numpy==1.18.5
+scikit-learn==0.23.1
+gensim==3.8.3
 dpkt==1.9.2

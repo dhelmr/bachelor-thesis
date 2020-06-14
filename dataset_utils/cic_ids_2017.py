@@ -3,7 +3,6 @@ import os
 import re
 
 import pandas
-from pyshark.packet.packet import Packet
 
 from anomaly_detection.types import TrafficType, TrafficSequence, TrafficReader
 
@@ -47,36 +46,6 @@ def load_label_csv(pcap_file: str):
 def get_csv_timestamp(timestamp: int):
     # dt.datetime.fromtimestamp(timestamp)
     pass
-
-
-def get_label(df: pandas.DataFrame, pkg: Packet):
-    # 172.217.11.2-192.168.10.12-443-45468-6
-    if not "ip" in pkg:
-        logging.warning("no ip packet")
-        return TrafficType.BENIGN
-    src_ip = str(pkg.ip.addr)
-    dest_ip = str(pkg.ip.dst)
-    if not "tcp" in pkg:
-        logging.warning("no tcp")
-        return TrafficType.BENIGN
-    src_port = int(pkg.tcp.port)
-    dest_port = int(pkg.tcp.dstport)
-
-    labels = df.loc[(df["Source IP"] == src_ip) &
-                    (df["Source Port"] == src_port) &
-                    (df["Destination IP"] == dest_ip) &
-                    (df["Destination Port"] == dest_port)
-                    ]["Label"]
-    print(len(labels))
-    if len(labels) == 0:
-        logging.warning("packet not found")
-        return TrafficType.BENIGN
-    elif len(labels) > 1:
-        logging.warning("more than one packet")  # TODO
-        return TrafficType.BENIGN
-    label = labels.values[0]
-    logging.info(label)
-    return label_to_traffic_type(label)
 
 
 class CIC2017TrafficReader(TrafficReader):
