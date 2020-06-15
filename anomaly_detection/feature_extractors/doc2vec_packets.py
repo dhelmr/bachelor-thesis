@@ -14,6 +14,19 @@ class PacketInformation(t.NamedTuple):
     statistic_features: np.ndarray
 
 
+class DocumentGenerator:
+    def __init__(self, packet_infos: t.List[PacketInformation]):
+        self.packet_infos = packet_infos
+
+    def __iter__(self):
+        i = 0
+        for p in self.packet_infos:
+            doc = list(map(lambda byte: str(byte), p))
+            tags = [i]
+            i += 1
+            yield TaggedDocument(doc, tags)
+
+
 class PacketDoc2Vec(FeatureExtractor):
     def __init__(self):
         self.statistic_features_extractor = BasicPacketFeatureExtractor()
@@ -26,25 +39,15 @@ class PacketDoc2Vec(FeatureExtractor):
         if not train_before and self.model is None:
             raise RuntimeError("Error, Doc2Vec model is not yet trained. Abort.")
         packet_infos = self._read_packets(pcap_file)
+        logging.info("Finished loading the packets into memory.")
         payloads, statistics = zip(*packet_infos)
-        payloads = self._gen_documents(payloads)
-        tagged_docs = [TaggedDocument(pkt_info, [i]) for i, pkt_info in enumerate(payloads)]
+        doc_gen = DocumentGenerator(payloads)
         if train_before:
             logging.info("Start training doc2vec model")
-            self._train_model(tagged_docs)
+            self.model = Doc2Vec(doc_gen, vector_size=5, window=2, min_count=1, workers=4)
+            logging.info("Finished training doc2vec model")
         doc2vec_features = list(map(lambda x: self.model.infer_vector(x), payloads))
         return np.array(doc2vec_features)  # TODO add statistic features as well
-
-    def _train_model(self, documents):
-        self.model = Doc2Vec(documents, vector_size=5, window=2, min_count=1, workers=4)
-
-    def _gen_documents(self, payloads: t.List[bytes]):
-        """
-        Creates for each payload a list of its byte's integer representations, like ["123","23","0"]
-        :param payloads:
-        :return:
-        """
-        return [list(map(lambda byte: str(byte), payload)) for payload in payloads]
 
     def _read_packets(self, pcap_file: str) -> t.List[PacketInformation]:
         packet_infos = []
@@ -60,7 +63,7 @@ class PacketDoc2Vec(FeatureExtractor):
                 payload = bytes()
             packet_infos.append(PacketInformation(payload, np.array([])))
             progress += 1
-            if progress % 50_000 == 0:
+            if progress % 1_000_000 == 0:
                 logging.info("Processed %s packets", progress)
         return packet_infos
 
