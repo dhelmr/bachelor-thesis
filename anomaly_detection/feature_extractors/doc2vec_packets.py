@@ -49,6 +49,7 @@ class PacketDoc2Vec(FeatureExtractor):
     def _read_packets(self, pcap_file: str) -> t.List[PacketInformation]:
         packet_infos = []
         packets = dpkt.pcapng.Reader(open(pcap_file, "rb"))
+        progress = 0
         for ts, buf in packets:
             # statistic = self.statistic_features_extractor.analyze_packet(pkt)
             eth = dpkt.ethernet.Ethernet(buf)
@@ -58,6 +59,9 @@ class PacketDoc2Vec(FeatureExtractor):
             else:
                 payload = bytes()
             packet_infos.append(PacketInformation(payload, np.array([])))
+            progress += 1
+            if progress % 50_000 == 0:
+                logging.info("Processed %s packets", progress)
         return packet_infos
 
     def extract_features(self, pcap_file: str) -> np.ndarray:
