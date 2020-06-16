@@ -44,14 +44,14 @@ class PacketDoc2Vec(FeatureExtractor):
         doc_gen = DocumentGenerator(payloads)
         if train_before:
             logging.info("Start training doc2vec model")
-            self.model = Doc2Vec(doc_gen, vector_size=5, window=2, min_count=1, workers=4)
+            self.model = Doc2Vec(doc_gen, vector_size=20, window=4, min_count=1, workers=128)
             logging.info("Finished training doc2vec model")
-        doc2vec_features = list(map(lambda x: self.model.infer_vector(x), payloads))
+        doc2vec_features = list(map(lambda x: self.model.infer_vector(x), doc_gen))
         return np.array(doc2vec_features)  # TODO add statistic features as well
 
     def _read_packets(self, pcap_file: str) -> t.List[PacketInformation]:
         packet_infos = []
-        packets = dpkt.pcapng.Reader(open(pcap_file, "rb"))
+        packets = read_pcap_pcapng(pcap_file)
         progress = 0
         for ts, buf in packets:
             # statistic = self.statistic_features_extractor.analyze_packet(pkt)
@@ -76,3 +76,11 @@ class PacketDoc2Vec(FeatureExtractor):
 
     def get_name(self) -> str:
         return "packet_doc2vec"
+
+
+def read_pcap_pcapng(file):
+    try:
+        reader = dpkt.pcapng.Reader(open(file, "rb"))
+    except ValueError as e:
+        reader = dpkt.pcap.Reader(open(file, "rb"))
+    return reader
