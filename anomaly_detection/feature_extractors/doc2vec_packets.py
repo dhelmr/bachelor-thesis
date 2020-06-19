@@ -8,6 +8,7 @@ from gensim.models.doc2vec import Doc2Vec, TaggedDocument
 
 from anomaly_detection.feature_extractors.basic_packet_feature_extractor import BasicPacketFeatureExtractor
 from anomaly_detection.types import FeatureExtractor, TrafficType
+from dataset_utils.pcap_utils import read_pcap_pcapng
 
 
 class PacketInformation(t.NamedTuple):
@@ -37,29 +38,21 @@ class PacketDoc2Vec(FeatureExtractor):
             os.mkdir(self.model_dir)
 
     def fit_extract(self, pcap_file: str) -> np.ndarray:
-        return self.get_features(pcap_file, train_before=True)
-
-    def get_features(self, pcap_file: str, train_before: bool):
+        if self.model is not None:
+            raise RuntimeError("Doc2Vec model is already trained and loaded in memory, abort.")
+        doc_gen = self._make_doc_gen(pcap_file)
         model_file = self.get_model_file(pcap_file)
-        if self.model is None and os.path.exists(model_file):
+        if os.path.exists(model_file):
             logging.info("Found model file %s, load...", model_file)
             self.model = Doc2Vec.load(model_file)
-
-        if not train_before and self.model is None:
-            raise RuntimeError("Error, Doc2Vec model is not yet trained. Abort.")
-        packet_infos = self._read_packets(pcap_file)
-        logging.info("Finished loading the packets into memory.")
-        payloads, statistics = zip(*packet_infos)
-        doc_gen = DocumentGenerator(payloads)
-        if train_before and self.model is None:
+        else:
             logging.info("Start training doc2vec model")
             self.model = Doc2Vec(doc_gen, vector_size=20, window=5, min_count=4, workers=128)
             logging.info("Finished training doc2vec model")
             self.model.save(open(model_file, "wb"))
             logging.info("Stored doc2vec model to %s", model_file)
-        logging.info("Infer vectors...")
-        doc2vec_features = [self.model.infer_vector(x.words) for x in doc_gen]
-        return np.array(doc2vec_features)  # TODO add statistic features as well
+        d2v_features = self.model.docvecs.vectors_docs
+        return self._append_statistical_features(pcap_file, d2v_features)
 
     def _read_packets(self, pcap_file: str) -> t.List[PacketInformation]:
         packet_infos = []
@@ -79,8 +72,31 @@ class PacketDoc2Vec(FeatureExtractor):
                 logging.info("Processed %s packets", progress)
         return packet_infos
 
+    def _make_doc_gen(self, pcap_file) -> DocumentGenerator:
+        packet_infos = self._read_packets(pcap_file)
+        logging.info("Finished loading the packets into memory.")
+        payloads, statistics = zip(*packet_infos)
+        doc_gen = DocumentGenerator(payloads)
+        return doc_gen
+
     def extract_features(self, pcap_file: str) -> np.ndarray:
-        return self.get_features(pcap_file, train_before=False)
+        if self.model is None:
+            raise RuntimeError("Error, Doc2Vec model is not yet trained. Abort.")
+        doc_gen = self._make_doc_gen(pcap_file)
+        logging.info("Infer vectors...")
+        d2v_features = []
+        progress = 0
+        for doc in doc_gen:
+            d2v_features.append(self.model.infer_vector(doc.words))
+            progress += 1
+            if progress % 100_000:
+                logging.info("Inferred %s vectors...", progress)
+        return self._append_statistical_features(pcap_file, np.array(d2v_features))
+
+    def _append_statistical_features(self, pcap_file: str, d2v_features: np.ndarray) -> np.ndarray:
+        # TODO add statistical features
+        # use numpy.hstack()
+        return d2v_features
 
     def map_backwards(self, pcap_file: str, de_result: t.Sequence[TrafficType]) -> t.Sequence[TrafficType]:
         # No dimension reduction was made when extracting the features
@@ -91,11 +107,3 @@ class PacketDoc2Vec(FeatureExtractor):
 
     def get_model_file(self, pcap: str) -> str:
         return os.path.join(self.model_dir, "doc2vec_%s.model" % os.path.basename(pcap))
-
-
-def read_pcap_pcapng(file):
-    try:
-        reader = dpkt.pcapng.Reader(open(file, "rb"))
-    except ValueError as e:
-        reader = dpkt.pcap.Reader(open(file, "rb"))
-    return reader
