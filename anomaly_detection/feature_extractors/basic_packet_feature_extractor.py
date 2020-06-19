@@ -1,8 +1,11 @@
+import logging
 import typing as t
 
+import dpkt
 import numpy as np
 
 from anomaly_detection.types import FeatureExtractor, TrafficType
+from dataset_utils.pcap_utils import read_pcap_pcapng
 
 
 class BasicPacketFeatureExtractor(FeatureExtractor):
@@ -17,29 +20,42 @@ class BasicPacketFeatureExtractor(FeatureExtractor):
         return self._extract_features(pcap_file, False)
 
     def _extract_features(self, pcap_file: str, prepare_backwards_mapping: bool):
-        raise NotImplementedError("TODO change to dpkt")
-        # packets = pyshark.FileCapture(pcap_file, keep_packets=False)
-        # features = [self.analyze_packet(pkt) for pkt in packets]
-        # return np.array(features)
+        packets = read_pcap_pcapng(pcap_file)
+        feature_matrix = []
+        progress = 0
+        for ts, buf in packets:
+            feature_matrix.append(self.analyze_packet(ts, buf))
+            progress += 1
+            if progress % 500_000 == 0:
+                logging.info("Processed %s packets for meta features extraction", progress)
+        return np.array(feature_matrix)
 
-    def analyze_packet(self, pkt):
-        if "ip" not in pkt:
-            return [-1, -1, -1]
-        src_ip = int(pkt.ip.src.replace(".", ""))  # TODO!!! handle ip formats like 8.23.123.2 vs 8.231.2.32
-        dest_ip = int(pkt.ip.dst.replace(".", ""))
-        if "tcp" in pkt:
-            src_port = int(pkt.tcp.port)
-            dest_port = int(pkt.tcp.dstport)
-            protocol = 6
-        elif "udp" in pkt:
-            src_port = int(pkt.udp.port)
-            dest_port = int(pkt.udp.dstport)
-            protocol = 17
+    def analyze_packet(self, timestamp, buffer):
+        udp_features = [0, 0, 0]
+        tcp_features = [0, 0, 0, 0]
+        src_port = -1000
+        dest_port = -1000
+        eth = dpkt.ethernet.Ethernet(buffer)
+        if type(eth.data) is not dpkt.ip.IP:
+            src_ip = -1000
+            dest_ip = -1000
         else:
-            src_port = 0
-            dest_port = 0
-            protocol = 0
-        return [src_port, dest_port, protocol]
+            ip = eth.data
+            src_ip = int.from_bytes(eth.ip.src, "big")
+            dest_ip = int.from_bytes(eth.ip.dst, "big")
+            if ip.data is dpkt.tcp.TCP:
+                src_port = int(eth.ip.tcp.sport)
+                dest_port = int(eth.ip.tcp.dport)
+                tcp_ops = int.from_bytes(eth.ip.tcp.opts, "big")
+                tcp_urp = eth.ip.tcp.urp
+                tcp_flags = eth.ip.tcp.tcp_flags  # TODO one-hot encoding
+                tcp_features = [1, tcp_ops, tcp_urp, tcp_flags]
+            elif ip.data is dpkt.udp.UDP:
+                src_port = int(eth.ip.udp.sport)
+                dest_port = int(eth.ip.udp.dport)
+                udp_features = [1, eth.ip.udp.ulen, eth.ip.udp.sum]
+        feature_list = [len(eth), src_ip, dest_ip, src_port, dest_port] + tcp_features + udp_features
+        return feature_list
 
     def get_name(self) -> str:
         return "basic_packet_feature_extractor"
