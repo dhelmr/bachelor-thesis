@@ -13,6 +13,7 @@ from dataset_utils.pcap_utils import read_pcap_pcapng
 
 class PacketInformation(t.NamedTuple):
     payload: bytes
+    # TODO this should be removed, but the currently trained model depends on it
     statistic_features: np.ndarray
 
 
@@ -40,12 +41,12 @@ class PacketDoc2Vec(FeatureExtractor):
     def fit_extract(self, pcap_file: str) -> np.ndarray:
         if self.model is not None:
             raise RuntimeError("Doc2Vec model is already trained and loaded in memory, abort.")
-        doc_gen = self._make_doc_gen(pcap_file)
         model_file = self.get_model_file(pcap_file)
         if os.path.exists(model_file):
             logging.info("Found model file %s, load...", model_file)
             self.model = Doc2Vec.load(model_file)
         else:
+            doc_gen = self._make_doc_gen(pcap_file)
             logging.info("Start training doc2vec model")
             self.model = Doc2Vec(doc_gen, vector_size=20, window=5, min_count=4, workers=128)
             logging.info("Finished training doc2vec model")
@@ -59,7 +60,7 @@ class PacketDoc2Vec(FeatureExtractor):
         packets = read_pcap_pcapng(pcap_file)
         progress = 0
         for ts, buf in packets:
-            # statistic = self.statistic_features_extractor.analyze_packet(pkt)
+            statistic = self.statistic_features_extractor.analyze_packet(ts, buf)
             eth = dpkt.ethernet.Ethernet(buf)
             if type(eth.data) is dpkt.ip.IP:
                 ip = eth.data
@@ -94,9 +95,9 @@ class PacketDoc2Vec(FeatureExtractor):
         return self._append_statistical_features(pcap_file, np.array(d2v_features))
 
     def _append_statistical_features(self, pcap_file: str, d2v_features: np.ndarray) -> np.ndarray:
-        # TODO add statistical features
-        # use numpy.hstack()
-        return d2v_features
+        # TODO feed already read-in packets (buf)
+        meta_features = self.statistic_features_extractor.extract_features(pcap_file)
+        return np.hstack(d2v_features, meta_features)
 
     def map_backwards(self, pcap_file: str, de_result: t.Sequence[TrafficType]) -> t.Sequence[TrafficType]:
         # No dimension reduction was made when extracting the features

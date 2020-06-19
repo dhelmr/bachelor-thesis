@@ -53,19 +53,6 @@ def get_packet_id(timestamp, buf, flow_ids: t.List[str] = None) -> PacketID:
         return "%s-%s" % (flow_ids[0], timestamp)
 
 
-def determine_traffic_type(matching_labels: pandas.DataFrame):
-    if len(matching_labels) == 1:
-        return label_to_traffic_type(matching_labels["Label"].values[0])
-
-    labels = set(matching_labels["Label"].values)
-    if len(labels) > 1:
-        # TODO compare for timestamp
-        logging.warning("TODO compare for time")
-        return TrafficType.UNKNOWN
-    else:
-        return label_to_traffic_type(labels.pop())
-
-
 class CICIDS2017Preprocessor(DatasetPreprocessor):
 
     def preprocess(self, dataset_path: str):
