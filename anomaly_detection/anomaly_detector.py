@@ -20,7 +20,7 @@ class AnomalyDetectorModel:
         logging.info("Apply feature transformations...")
         self._fit_transformers(features)
         preprocessed = self._apply_transformers(features)
-        logging.info("Start model training ...")
+        logging.info("Start decision engine training ...")
         self.decision_engine.fit(preprocessed, traffic_type=TrafficType.BENIGN)
 
     def feed_traffic(self, classification_id: str, ids: t.Sequence[str], pcap_file: str):
@@ -35,11 +35,13 @@ class AnomalyDetectorModel:
         for t in self.transformers:
             t.fit(transformed)
             transformed = t.transform(transformed)
+            logging.info("Applied %s", t.get_name())
 
     def _apply_transformers(self, features: np.ndarray):
         transformed = features
         for t in self.transformers:
             transformed = t.transform(transformed)
+            logging.info("Applied %s", t.get_name())
         return transformed
 
     def serialize(self):
