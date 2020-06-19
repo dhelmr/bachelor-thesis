@@ -97,7 +97,7 @@ class PacketDoc2Vec(FeatureExtractor):
     def _append_statistical_features(self, pcap_file: str, d2v_features: np.ndarray) -> np.ndarray:
         # TODO feed already read-in packets (buf)
         meta_features = self.statistic_features_extractor.extract_features(pcap_file)
-        return np.hstack(d2v_features, meta_features)
+        return np.hstack((d2v_features, meta_features))
 
     def map_backwards(self, pcap_file: str, de_result: t.Sequence[TrafficType]) -> t.Sequence[TrafficType]:
         # No dimension reduction was made when extracting the features
