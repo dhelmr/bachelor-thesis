@@ -1,4 +1,5 @@
 import logging
+import multiprocessing
 import os
 import typing as t
 
@@ -85,13 +86,9 @@ class PacketDoc2Vec(FeatureExtractor):
             raise RuntimeError("Error, Doc2Vec model is not yet trained. Abort.")
         doc_gen = self._make_doc_gen(pcap_file)
         logging.info("Infer vectors...")
-        d2v_features = []
-        progress = 0
-        for doc in doc_gen:
-            d2v_features.append(self.model.infer_vector(doc.words))
-            progress += 1
-            if progress % 100_000:
-                logging.info("Inferred %s vectors...", progress)
+        workers = MultiThreadedDoc2VecInferer(self.model)
+        d2v_features = workers.infer_vectors(doc_gen)
+        print(d2v_features)
         return self._append_statistical_features(pcap_file, np.array(d2v_features))
 
     def _append_statistical_features(self, pcap_file: str, d2v_features: np.ndarray) -> np.ndarray:
@@ -108,3 +105,35 @@ class PacketDoc2Vec(FeatureExtractor):
 
     def get_model_file(self, pcap: str) -> str:
         return os.path.join(self.model_dir, "doc2vec_%s.model" % os.path.basename(pcap))
+
+
+class MultiThreadedDoc2VecInferer:
+    def __init__(self, model, n_proc=None):
+        if n_proc is None:
+            n_proc = os.cpu_count()
+        self.n_proc = n_proc
+        self.model = model
+
+    def infer_vectors(self, doc_gen):
+        pool = multiprocessing.Pool(self.n_proc)
+        iterator = LogIter(doc_gen, "Loaded %s vectors", 10_000)
+        features = pool.map(self._infer, iterator)
+        return features
+
+    def _infer(self, doc):
+        return self.model.infer_vector(doc.words)
+
+
+class LogIter:
+    def __init__(self, base_iter, format="Processed %s items", log_after=10_000):
+        self.base_iter = base_iter
+        self.format = format
+        self.log_after = log_after
+
+    def __iter__(self):
+        process = 0
+        for item in self.base_iter:
+            process += 1
+            if process % self.log_after == 0:
+                logging.info(self.format, process)
+            yield item
