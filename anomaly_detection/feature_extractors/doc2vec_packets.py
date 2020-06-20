@@ -23,12 +23,14 @@ class DocumentGenerator:
         self.packet_infos = packet_infos
 
     def __iter__(self):
-        i = 0
-        for p in self.packet_infos:
-            doc = list(map(lambda byte: str(byte), p))
-            tags = [i]
-            i += 1
-            yield TaggedDocument(doc, tags)
+        for i in range(len(self.packet_infos)):
+            yield self.get(i)
+
+    def get(self, index) -> TaggedDocument:
+        p = self.packet_infos[index]
+        doc = list(map(lambda byte: str(byte), p))
+        tags = [index]
+        return TaggedDocument(doc, tags)
 
 
 class PacketDoc2Vec(FeatureExtractor):
@@ -85,10 +87,8 @@ class PacketDoc2Vec(FeatureExtractor):
         if self.model is None:
             raise RuntimeError("Error, Doc2Vec model is not yet trained. Abort.")
         doc_gen = self._make_doc_gen(pcap_file)
-        logging.info("Infer vectors...")
-        workers = MultiThreadedDoc2VecInferer(self.model)
-        d2v_features = workers.infer_vectors(doc_gen)
-        print(d2v_features)
+        workers = MultiThreadedDoc2VecInferer(self.model, doc_gen)
+        d2v_features = workers.infer_vectors()
         return self._append_statistical_features(pcap_file, np.array(d2v_features))
 
     def _append_statistical_features(self, pcap_file: str, d2v_features: np.ndarray) -> np.ndarray:
@@ -108,20 +108,25 @@ class PacketDoc2Vec(FeatureExtractor):
 
 
 class MultiThreadedDoc2VecInferer:
-    def __init__(self, model, n_proc=None):
+    def __init__(self, model: Doc2Vec, doc_gen: DocumentGenerator, n_proc=None):
         if n_proc is None:
             n_proc = os.cpu_count()
         self.n_proc = n_proc
         self.model = model
+        self.doc_gen = doc_gen
 
-    def infer_vectors(self, doc_gen):
+    def infer_vectors(self):
+        logging.info("Infer vectors with %s processes...", self.n_proc)
         pool = multiprocessing.Pool(self.n_proc)
-        iterator = LogIter(doc_gen, "Loaded %s vectors", 10_000)
-        features = pool.map(self._infer, iterator)
+        features = pool.map(self._infer, range(len(self.doc_gen.packet_infos)))
         return features
 
-    def _infer(self, doc):
-        return self.model.infer_vector(doc.words)
+    def _infer(self, doc_index):
+        words = self.doc_gen.get(doc_index).words
+        vector = self.model.infer_vector(words)
+        if (doc_index + 1) % 10_000 == 0:
+            logging.info("Inferred %s vectors", doc_index)
+        return vector
 
 
 class LogIter:
