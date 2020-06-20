@@ -73,6 +73,7 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
         for timestamp, buf in packets:
             flow_ids = make_flow_ids(timestamp, buf)
             packet_id = get_packet_id(timestamp, buf, flow_ids)
+            packet_id = "%s_%s" % (progress, packet_id)  # TODO hack to make the packet ids unique
             if (flow_ids is None) or \
                     not (flow_ids[0] in attack_times.index or flow_ids[1] in attack_times.index):
                 traffic_type = TrafficType.BENIGN
