@@ -127,9 +127,9 @@ class MultiThreadedDoc2VecInferer:
         features = []
         # Read in the indexes portion-wise due to a bug in python < 3.8 when sending large lists with pool connections
         # See https://bugs.python.org/issue35152
-        for batch_indexes in self.iter_batches():
+        for batch_indexes in self.iter_batch_ranges():
             batch_features = pool.map(self._infer, batch_indexes)
-            features.append(batch_features)
+            features += batch_features
         return features
 
     def _infer(self, doc_index):
@@ -139,7 +139,7 @@ class MultiThreadedDoc2VecInferer:
             logging.info("Inferred %s vectors", doc_index)
         return vector
 
-    def iter_batches(self):
+    def iter_batch_ranges(self):
         start_index = 0
         total_length = len(self.doc_gen.packet_infos)
         while True:
