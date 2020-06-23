@@ -50,7 +50,6 @@ class PacketDoc2Vec(FeatureExtractor):
         self.model_dir = ".packet_doc2vec_cache"
         if not os.path.exists(self.model_dir):
             os.mkdir(self.model_dir)
-        patch_mp_connection_bpo_17560()
 
     def fit_extract(self, pcap_file: str) -> np.ndarray:
         if self.model is not None:
@@ -227,3 +226,6 @@ def patch_mp_connection_bpo_17560():
     Connection._recv_bytes = recv_bytes
 
     logger.info(patchname + " applied")
+
+
+patch_mp_connection_bpo_17560()
