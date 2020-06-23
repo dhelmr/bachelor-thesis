@@ -14,7 +14,8 @@ from dataset_utils.pcap_utils import read_pcap_pcapng
 
 class PacketInformation(t.NamedTuple):
     payload: bytes
-    # TODO this should be removed, but the currently trained model depends on it
+    # TODO this should be removed/refactored, because it is not used, but the currently trained model depends on
+    #  its existence
     statistic_features: np.ndarray
 
 
@@ -27,10 +28,14 @@ class DocumentGenerator:
             yield self.get(i)
 
     def get(self, index) -> TaggedDocument:
+        words = self.get_words(index)
+        tags = [index]
+        return TaggedDocument(words, tags)
+
+    def get_words(self, index):
         p = self.packet_infos[index]
         doc = list(map(lambda byte: str(byte), p))
-        tags = [index]
-        return TaggedDocument(doc, tags)
+        return doc
 
 
 class PacketDoc2Vec(FeatureExtractor):
@@ -114,19 +119,35 @@ class MultiThreadedDoc2VecInferer:
         self.n_proc = n_proc
         self.model = model
         self.doc_gen = doc_gen
+        self.batch_size = 100_000
 
     def infer_vectors(self):
         logging.info("Infer vectors with %s processes...", self.n_proc)
         pool = multiprocessing.Pool(self.n_proc)
-        features = pool.map(self._infer, range(len(self.doc_gen.packet_infos)))
+        features = []
+        # Read in the indexes portion-wise due to a bug in python < 3.8 when sending large lists with pool connections
+        # See https://bugs.python.org/issue35152
+        for batch_indexes in self.iter_batches():
+            batch_features = pool.map(self._infer, batch_indexes)
+            features.append(batch_features)
         return features
 
     def _infer(self, doc_index):
-        words = self.doc_gen.get(doc_index).words
+        words = self.doc_gen.get_words(doc_index)
         vector = self.model.infer_vector(words)
         if (doc_index + 1) % 10_000 == 0:
             logging.info("Inferred %s vectors", doc_index)
         return vector
+
+    def iter_batches(self):
+        start_index = 0
+        total_length = len(self.doc_gen.packet_infos)
+        while True:
+            end = min(start_index + self.batch_size, total_length)
+            yield range(start_index, end)
+            start_index = end
+            if start_index >= total_length:
+                break
 
 
 class LogIter:
