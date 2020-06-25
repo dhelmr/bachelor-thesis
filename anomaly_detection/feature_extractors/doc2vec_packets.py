@@ -46,7 +46,7 @@ class DocumentGenerator:
 class PacketDoc2Vec(FeatureExtractor):
     def __init__(self):
         self.statistic_features_extractor = BasicPacketFeatureExtractor()
-        self.model = None
+        self.model: Doc2Vec = None
         self.model_dir = ".packet_doc2vec_cache"
         if not os.path.exists(self.model_dir):
             os.mkdir(self.model_dir)
@@ -117,32 +117,37 @@ class PacketDoc2Vec(FeatureExtractor):
         return os.path.join(self.model_dir, "doc2vec_%s.model" % os.path.basename(pcap))
 
 
+global_parallel_model: Doc2Vec
 class MultiThreadedDoc2VecInferer:
     def __init__(self, model: Doc2Vec, doc_gen: DocumentGenerator, n_proc=None):
         if n_proc is None:
-            n_proc = os.cpu_count()
+            n_proc = multiprocessing.cpu_count()
         self.n_proc = n_proc
         self.model = model
+        self.model.delete_temporary_training_data(keep_doctags_vectors=False, keep_inference=True)
+        global global_parallel_model
+        global_parallel_model = self.model
         self.doc_gen = doc_gen
-        self.batch_size = 100_000
+        self.batch_size = 1000
 
     def infer_vectors(self):
         logging.info("Infer vectors with %s processes...", self.n_proc)
-        pool = multiprocessing.Pool(self.n_proc)
         features = []
         # Read in the indexes portion-wise due to a bug in python < 3.8 when sending large lists with pool connections
         # See https://bugs.python.org/issue35152
+        i = 0
         for batch_indexes in self.iter_batch_ranges():
-            batch_features = pool.map(self._infer, batch_indexes)
+            logging.info("Infer vector progress: %s perc", i * self.batch_size / len(self.doc_gen.packet_infos) * 100)
+            with multiprocessing.Pool(self.n_proc) as pool:
+                batch_features = pool.map(parallel_infer_vector, self.make_parallel_params(batch_indexes))
             features += batch_features
+            i += 1
         return features
 
-    def _infer(self, doc_index):
-        words = self.doc_gen.get_words(doc_index)
-        vector = self.model.infer_vector(words)
-        if (doc_index + 1) % 10_000 == 0:
-            logging.info("Inferred %s vectors", doc_index)
-        return vector
+    def make_parallel_params(self, iter_range):
+        for doc_index in iter_range:
+            words = self.doc_gen.get_words(doc_index)
+            yield (words,)
 
     def iter_batch_ranges(self):
         start_index = 0
@@ -154,6 +159,11 @@ class MultiThreadedDoc2VecInferer:
             if start_index >= total_length:
                 break
 
+
+def parallel_infer_vector(params):
+    words = params[0]
+    vector = global_parallel_model.infer_vector(words)
+    return vector
 
 class LogIter:
     def __init__(self, base_iter, format="Processed %s items", log_after=10_000):
