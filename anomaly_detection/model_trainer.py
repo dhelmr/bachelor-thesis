@@ -21,10 +21,11 @@ class ModelTrainer:
     def start_training(self):
         if self.db.exists_model(self.model_id):
             raise ValueError("Model with id '%s' already exists!" % self.model_id)
-        name, normal_packet_reader, _, _ = self.traffic_reader.read_normal_data()
+        traffic = self.traffic_reader.read_normal_data()
+        name = traffic[0]
         logging.info(
             "Start training of normal profile (%s)", name)
-        self.ad.build_profile(normal_packet_reader)
+        self.ad.build_profile(traffic)
         logging.info("Training with normal profile done")
         self._save_model()
 

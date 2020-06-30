@@ -88,15 +88,15 @@ class FeatureExtractor:
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def fit_extract(self, packet_reader: PacketReader) -> np.ndarray:
+    def fit_extract(self, traffic: TrafficSequence) -> np.ndarray:
         raise NotImplementedError()
 
     @abstractmethod
-    def extract_features(self, packet_reader: PacketReader) -> np.ndarray:
+    def extract_features(self, traffic: TrafficSequence) -> np.ndarray:
         raise NotImplementedError()
 
     @abstractmethod
-    def map_backwards(self, packet_reader: PacketReader, de_result: t.Sequence[TrafficType]) -> t.Sequence[TrafficType]:
+    def map_backwards(self, traffic: TrafficSequence, de_result: t.Sequence[TrafficType]) -> t.Sequence[TrafficType]:
         raise NotImplementedError()
 
     @abstractmethod

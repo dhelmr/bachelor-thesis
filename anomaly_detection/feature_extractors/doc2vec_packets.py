@@ -11,8 +11,7 @@ import numpy as np
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
 
 from anomaly_detection.feature_extractors.basic_packet_feature_extractor import BasicPacketFeatureExtractor
-from anomaly_detection.types import FeatureExtractor, TrafficType, PacketReader
-from dataset_utils.pcap_utils import read_pcap_pcapng
+from anomaly_detection.types import FeatureExtractor, TrafficType, TrafficSequence
 
 logger = logging.getLogger()
 
@@ -49,10 +48,10 @@ class PacketDoc2Vec(FeatureExtractor):
         if not os.path.exists(self.model_dir):
             os.mkdir(self.model_dir)
 
-    def fit_extract(self, packet_reader: PacketReader) -> np.ndarray:
+    def fit_extract(self, traffic: TrafficSequence) -> np.ndarray:
         if self.model is not None:
             raise RuntimeError("Doc2Vec model is already trained and loaded in memory, abort.")
-        packet_infos = self._read_packets(packet_reader)
+        packet_infos = self._read_packets(traffic)
         doc_gen = self._make_doc_gen(packet_infos)
         logging.info("Start training doc2vec model")
         self.model = Doc2Vec(doc_gen, vector_size=20, window=5, min_count=4, workers=128)
@@ -60,11 +59,10 @@ class PacketDoc2Vec(FeatureExtractor):
         d2v_features = self.model.docvecs.vectors_docs
         return self._append_statistical_features(packet_infos, d2v_features)
 
-    def _read_packets(self, packet_reader: PacketReader) -> t.List[PacketInformation]:
+    def _read_packets(self, traffic: TrafficSequence) -> t.List[PacketInformation]:
         packet_infos = []
-        packets = read_pcap_pcapng(packet_reader)
         progress = 0
-        for packet in packets:
+        for packet in traffic.packet_reader:
             ts, buf = packet
             statistic = self.statistic_features_extractor.analyze_packet(packet)
             eth = dpkt.ethernet.Ethernet(buf)
@@ -91,10 +89,10 @@ class PacketDoc2Vec(FeatureExtractor):
         doc_gen = DocumentGenerator(payloads)
         return doc_gen
 
-    def extract_features(self, packet_reader: PacketReader) -> np.ndarray:
+    def extract_features(self, traffic: TrafficSequence) -> np.ndarray:
         if self.model is None:
             raise RuntimeError("Error, Doc2Vec model is not yet trained. Abort.")
-        packet_infos = self._read_packets(packet_reader)
+        packet_infos = self._read_packets(traffic)
         doc_gen = self._make_doc_gen(packet_infos)
         workers = MultiThreadedDoc2VecInferer(self.model, doc_gen)
         d2v_features = workers.infer_vectors()
