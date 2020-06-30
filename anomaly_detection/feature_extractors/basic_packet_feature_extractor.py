@@ -4,24 +4,24 @@ import typing as t
 import dpkt
 import numpy as np
 
-from anomaly_detection.types import FeatureExtractor, TrafficType, PacketReader, Packet
+from anomaly_detection.types import FeatureExtractor, TrafficType, Packet, TrafficSequence
 
 
 class BasicPacketFeatureExtractor(FeatureExtractor):
 
-    def extract_features(self, packet_reader: PacketReader) -> np.ndarray:
-        return self._extract_features(packet_reader, True)
+    def extract_features(self, traffic: TrafficSequence) -> np.ndarray:
+        return self._extract_features(traffic, True)
 
-    def map_backwards(self, packet_reader: PacketReader, de_result: t.Sequence[TrafficType]) -> t.Sequence[TrafficType]:
+    def map_backwards(self, traffic: TrafficSequence, de_result: t.Sequence[TrafficType]) -> t.Sequence[TrafficType]:
         return de_result
 
-    def fit_extract(self, packet_reader: PacketReader) -> np.ndarray:
-        return self._extract_features(packet_reader, False)
+    def fit_extract(self, traffic: TrafficSequence) -> np.ndarray:
+        return self._extract_features(traffic, False)
 
-    def _extract_features(self, packet_reader: PacketReader, prepare_backwards_mapping: bool):
+    def _extract_features(self, traffic: TrafficSequence, prepare_backwards_mapping: bool):
         feature_matrix = []
         progress = 0
-        for packet in packet_reader:
+        for packet in traffic.packet_reader:
             feature_matrix.append(self.analyze_packet(packet))
             progress += 1
             if progress % 500_000 == 0:

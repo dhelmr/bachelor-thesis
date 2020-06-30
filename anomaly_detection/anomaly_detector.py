@@ -5,7 +5,7 @@ import typing as t
 import numpy as np
 
 from anomaly_detection.types import TrafficType, DecisionEngine, Transformer, FeatureExtractor, ClassificationResults, \
-    PacketReader
+    TrafficSequence
 
 
 class AnomalyDetectorModel:
@@ -15,24 +15,24 @@ class AnomalyDetectorModel:
         self.decision_engine: DecisionEngine = decision_engine
         self.feature_extractor: FeatureExtractor = feature_extractor
 
-    def build_profile(self, packet_reader: PacketReader):
+    def build_profile(self, traffic: TrafficSequence):
         logging.info("Extract features...")
-        features = self.feature_extractor.fit_extract(packet_reader)
+        features = self.feature_extractor.fit_extract(traffic)
         logging.info("Apply feature transformations...")
         self._fit_transformers(features)
         preprocessed = self._apply_transformers(features)
         logging.info("Start decision engine training ...")
         self.decision_engine.fit(preprocessed, traffic_type=TrafficType.BENIGN)
 
-    def feed_traffic(self, classification_id: str, ids: t.Sequence[str], packet_reader: PacketReader):
-        features = self.feature_extractor.extract_features(packet_reader)
+    def feed_traffic(self, classification_id: str, traffic: TrafficSequence):
+        features = self.feature_extractor.extract_features(traffic)
         preprocessed = self._apply_transformers(features)
         de_result = self.decision_engine.classify(preprocessed)
-        predictions = self.feature_extractor.map_backwards(packet_reader, de_result)
-        return ClassificationResults(classification_id, ids, predictions)
+        predictions = self.feature_extractor.map_backwards(traffic, de_result)
+        return ClassificationResults(classification_id, traffic.ids, predictions)
 
-    def _fit_transformers(self, traffic_data: np.ndarray):
-        transformed = traffic_data
+    def _fit_transformers(self, features: np.ndarray):
+        transformed = features
         for t in self.transformers:
             t.fit(transformed)
             transformed = t.transform(transformed)
