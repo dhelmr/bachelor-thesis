@@ -9,8 +9,14 @@ from dataset_utils import pcap_utils
 from dataset_utils.cic_ids_2017 import *
 
 FILES = {
-    "PCAPs/Wednesday-WorkingHours.pcap": "labels/Wednesday-workingHours.pcap_ISCX.csv",
-    "PCAPs/Monday-WorkingHours.pcap": "labels/Monday-WorkingHours.pcap_ISCX.csv"
+    "PCAPs/Monday-WorkingHours.pcap": ["labels/Monday-WorkingHours.pcap_ISCX.csv"],
+    "PCAPs/Wednesday-WorkingHours.pcap": ["labels/Wednesday-workingHours.pcap_ISCX.csv"],
+    "PCAPs/Tuesday-WorkingHours.pcap": ["labels/Tuesday-WorkingHours.pcap_ISCX.csv"],
+    "PCAPs/Thursday-WorkingHours.pcap": ["labels/Thursday-WorkingHours-Morning-WebAttacks.pcap_ISCX.csv",
+                                         "labels/Thursday-WorkingHours-Afternoon-Infilteration.pcap_ISCX.csv"],
+    "PCAPs/Friday-WorkingHours.pcap": ["labels/Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv",
+                                       "labels/Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv",
+                                       "labels/Friday-WorkingHours-Morning.pcap_ISCX.csv"]
 }  # TODO add all
 
 PacketID = str
@@ -56,13 +62,13 @@ def get_packet_id(timestamp, buf, flow_ids: t.List[str] = None) -> PacketID:
 class CICIDS2017Preprocessor(DatasetPreprocessor):
 
     def preprocess(self, dataset_path: str):
-        for pcap_file, label_file in self.pcap_and_label_files(dataset_path):
+        for pcap_file, label_files in self.pcap_and_label_files(dataset_path).items():
             logging.info("Process file %s", pcap_file)
-            attacks_packet_ids = self.get_attacks_packet_ids(label_file)
+            attacks_packet_ids = self.get_attacks_packet_ids(label_files)
             labels = self.generate_labels(pcap_file, attacks_packet_ids)
             df = pandas.DataFrame.from_records(labels, columns=["packet_id", "label"])
             output_csv_path = os.path.join(dataset_path, os.path.basename(pcap_file) + "_packet_labels.csv")
-            logging.info("Write packet labels into %s", label_file)
+            logging.info("Write packet labels into %s", output_csv_path)
             df.to_csv(output_csv_path, index=False)
 
     def generate_labels(self, pcap_file: str, attack_times: pandas.DataFrame) \
@@ -87,8 +93,12 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
             progress += 1
         return labelled_packets
 
-    def get_attacks_packet_ids(self, flows_file: str) -> pandas.DataFrame:
-        df = read_csv(flows_file)  # TODO
+    def get_attacks_packet_ids(self, flow_files: t.List[str]) -> pandas.DataFrame:
+        # read in all label csv files and concatenate them
+        df = pandas.DataFrame()
+        for flow_file in flow_files:
+            df_part = read_csv(flow_file)
+            df.append(df_part)
         attacks = df.loc[df["Label"] != BENIGN_LABEL]
         benigns = df.loc[df["Label"] == BENIGN_LABEL]
         attacks["reverse_flow_id"] = attacks.index.map(lambda flow: self.reverse_flow_id(flow))
@@ -105,9 +115,13 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
         result_df.rename(columns={"Timestamp_y": "benign", "Timestamp": "attack"}, inplace=True)
         return result_df
 
-    def pcap_and_label_files(self, dataset_path: str) -> t.List[t.Tuple[str, str]]:
-        return [(os.path.join(dataset_path, pcap), os.path.join(dataset_path, label_file)) \
-                for pcap, label_file in FILES.items()]
+    def pcap_and_label_files(self, dataset_path: str) -> t.Dict[str, t.List[str]]:
+        absolute_paths = dict()
+        for pcap_file, label_files in FILES.items():
+            abs_pcap = os.path.join(dataset_path, pcap)
+            abs_label_files = [os.path.join(dataset_path, label_file) for label_file in label_files]
+            absolute_paths[abs_pcap] = abs_label_files
+        return absolute_paths
 
     @staticmethod
     def reverse_flow_id(flow_id: str):
