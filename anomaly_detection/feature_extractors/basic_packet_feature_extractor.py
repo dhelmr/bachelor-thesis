@@ -4,33 +4,32 @@ import typing as t
 import dpkt
 import numpy as np
 
-from anomaly_detection.types import FeatureExtractor, TrafficType
-from dataset_utils.pcap_utils import read_pcap_pcapng
+from anomaly_detection.types import FeatureExtractor, TrafficType, PacketReader, Packet
 
 
 class BasicPacketFeatureExtractor(FeatureExtractor):
 
-    def extract_features(self, pcap_file: str) -> np.ndarray:
-        return self._extract_features(pcap_file, True)
+    def extract_features(self, packet_reader: PacketReader) -> np.ndarray:
+        return self._extract_features(packet_reader, True)
 
-    def map_backwards(self, pcap_file: str, de_result: t.Sequence[TrafficType]) -> t.Sequence[TrafficType]:
+    def map_backwards(self, packet_reader: PacketReader, de_result: t.Sequence[TrafficType]) -> t.Sequence[TrafficType]:
         return de_result
 
-    def fit_extract(self, pcap_file: str) -> np.ndarray:
-        return self._extract_features(pcap_file, False)
+    def fit_extract(self, packet_reader: PacketReader) -> np.ndarray:
+        return self._extract_features(packet_reader, False)
 
-    def _extract_features(self, pcap_file: str, prepare_backwards_mapping: bool):
-        packets = read_pcap_pcapng(pcap_file)
+    def _extract_features(self, packet_reader: PacketReader, prepare_backwards_mapping: bool):
         feature_matrix = []
         progress = 0
-        for ts, buf in packets:
-            feature_matrix.append(self.analyze_packet(ts, buf))
+        for packet in packet_reader:
+            feature_matrix.append(self.analyze_packet(packet))
             progress += 1
             if progress % 500_000 == 0:
                 logging.info("Processed %s packets for meta features extraction", progress)
         return np.array(feature_matrix)
 
-    def analyze_packet(self, timestamp, buffer):
+    def analyze_packet(self, packet: Packet):
+        timestamp, buffer = packet
         udp_features = [0, 0, 0]
         tcp_features = [0, 0, 0, 0]
         src_port = -1000

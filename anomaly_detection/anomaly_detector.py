@@ -4,7 +4,8 @@ import typing as t
 
 import numpy as np
 
-from anomaly_detection.types import TrafficType, DecisionEngine, Transformer, FeatureExtractor, ClassificationResults
+from anomaly_detection.types import TrafficType, DecisionEngine, Transformer, FeatureExtractor, ClassificationResults, \
+    PacketReader
 
 
 class AnomalyDetectorModel:
@@ -14,20 +15,20 @@ class AnomalyDetectorModel:
         self.decision_engine: DecisionEngine = decision_engine
         self.feature_extractor: FeatureExtractor = feature_extractor
 
-    def build_profile(self, pcap_file: str):
+    def build_profile(self, packet_reader: PacketReader):
         logging.info("Extract features...")
-        features = self.feature_extractor.fit_extract(pcap_file)
+        features = self.feature_extractor.fit_extract(packet_reader)
         logging.info("Apply feature transformations...")
         self._fit_transformers(features)
         preprocessed = self._apply_transformers(features)
         logging.info("Start decision engine training ...")
         self.decision_engine.fit(preprocessed, traffic_type=TrafficType.BENIGN)
 
-    def feed_traffic(self, classification_id: str, ids: t.Sequence[str], pcap_file: str):
-        features = self.feature_extractor.extract_features(pcap_file)
+    def feed_traffic(self, classification_id: str, ids: t.Sequence[str], packet_reader: PacketReader):
+        features = self.feature_extractor.extract_features(packet_reader)
         preprocessed = self._apply_transformers(features)
         de_result = self.decision_engine.classify(preprocessed)
-        predictions = self.feature_extractor.map_backwards(pcap_file, de_result)
+        predictions = self.feature_extractor.map_backwards(packet_reader, de_result)
         return ClassificationResults(classification_id, ids, predictions)
 
     def _fit_transformers(self, traffic_data: np.ndarray):
