@@ -5,6 +5,7 @@ import re
 import pandas
 
 from anomaly_detection.types import TrafficType, TrafficSequence, TrafficReader
+from dataset_utils import pcap_utils
 
 BENIGN_DATA_FILE = "Monday-WorkingHours.pcap"
 TRAFFIC_FILE_PATTERN = re.compile(".*.pcap")
@@ -73,7 +74,8 @@ class CIC2017TrafficReader(TrafficReader):
         labels = self.get_traffic_labels(full_pcap_path)
         ids = labels.index.values.tolist()
         name = os.path.basename(full_pcap_path)
-        return TrafficSequence(name=name, pcap_file=full_pcap_path, labels=labels, ids=ids)
+        packet_reader = pcap_utils.read_pcap_pcapng(full_pcap_path)
+        return TrafficSequence(name=name, packet_reader=packet_reader, labels=labels, ids=ids)
 
     def __iter__(self):
         return self

@@ -19,12 +19,12 @@ class Classifier:
         if classification_id == CLASSIFICATION_ID_AUTO_GENERATE:
             classification_id = self._generate_new_id()
         self._init_db_for_classification(classification_id)
-        for name, pcap_file, ids, _ in self.traffic_reader:
+        for name, packet_reader, ids, _ in self.traffic_reader:
             logging.info("Detect anomalies in %s.", name)
             classification_results = self.ad.feed_traffic(
                 classification_id,
                 ids=ids,
-                pcap_file=pcap_file)
+                packet_reader=packet_reader)
             self.db.save_classifications(classification_results)
 
     def _init_db_for_classification(self, classification_id):

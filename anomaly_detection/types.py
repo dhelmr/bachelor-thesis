@@ -57,9 +57,13 @@ class Transformer(ABC):
         raise NotImplementedError()
 
 
+Packet = t.Tuple[float, bytes]
+PacketReader = t.Iterable[Packet]
+
+
 class TrafficSequence(NamedTuple):
     name: str
-    pcap_file: str
+    packet_reader: PacketReader
     ids: t.List[str]
     labels: pd.Series
 
@@ -84,15 +88,15 @@ class FeatureExtractor:
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def fit_extract(self, pcap_file: str) -> np.ndarray:
+    def fit_extract(self, packet_reader: PacketReader) -> np.ndarray:
         raise NotImplementedError()
 
     @abstractmethod
-    def extract_features(self, pcap_file: str) -> np.ndarray:
+    def extract_features(self, packet_reader: PacketReader) -> np.ndarray:
         raise NotImplementedError()
 
     @abstractmethod
-    def map_backwards(self, pcap_file: str, de_result: t.Sequence[TrafficType]) -> t.Sequence[TrafficType]:
+    def map_backwards(self, packet_reader: PacketReader, de_result: t.Sequence[TrafficType]) -> t.Sequence[TrafficType]:
         raise NotImplementedError()
 
     @abstractmethod
