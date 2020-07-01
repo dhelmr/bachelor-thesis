@@ -14,9 +14,10 @@ FILES = {
     "PCAPs/Tuesday-WorkingHours.pcap": ["labels/Tuesday-WorkingHours.pcap_ISCX.csv"],
     "PCAPs/Thursday-WorkingHours.pcap": ["labels/Thursday-WorkingHours-Morning-WebAttacks.pcap_ISCX.csv",
                                          "labels/Thursday-WorkingHours-Afternoon-Infilteration.pcap_ISCX.csv"],
-    "PCAPs/Friday-WorkingHours.pcap": ["labels/Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv",
+    "PCAPs/Friday-WorkingHours.pcap": ["labels/Friday-WorkingHours-Morning.pcap_ISCX.csv",
+                                       "labels/Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv",
                                        "labels/Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv",
-                                       "labels/Friday-WorkingHours-Morning.pcap_ISCX.csv"]
+                                       ]
 }  # TODO add all
 
 PacketID = str
@@ -63,7 +64,6 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
 
     def preprocess(self, dataset_path: str):
         for pcap_file, label_files in self.pcap_and_label_files(dataset_path).items():
-            logging.info("Process file %s", pcap_file)
             attacks_packet_ids = self.get_attacks_packet_ids(label_files)
             labels = self.generate_labels(pcap_file, attacks_packet_ids)
             df = pandas.DataFrame.from_records(labels, columns=["packet_id", "label"])
@@ -73,6 +73,7 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
 
     def generate_labels(self, pcap_file: str, attack_times: pandas.DataFrame) \
             -> t.List[t.Tuple[PacketID, TrafficType]]:
+        logging.info("Process file %s", pcap_file)
         packets = pcap_utils.read_pcap_pcapng(pcap_file)
         labelled_packets: t.List[t.Tuple[PacketID, TrafficType]] = list()
         progress = 0
@@ -89,7 +90,7 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
             entry = (packet_id, traffic_type.value)
             labelled_packets.append(entry)
             if progress % 50000 == 0:
-                logging.info("Processed %s packets...", progress)
+                logging.info("%s: Processed %s packets...", pcap_file, progress)
             progress += 1
         return labelled_packets
 
@@ -97,6 +98,7 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
         # read in all label csv files and concatenate them
         df = pandas.DataFrame()
         for flow_file in flow_files:
+            logging.info("Read labels from %s", flow_file)
             df_part = read_csv(flow_file)
             df = df.append(df_part)
         attacks = df.loc[df["Label"] != BENIGN_LABEL]
