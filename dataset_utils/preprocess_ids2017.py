@@ -118,7 +118,7 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
     def pcap_and_label_files(self, dataset_path: str) -> t.Dict[str, t.List[str]]:
         absolute_paths = dict()
         for pcap_file, label_files in FILES.items():
-            abs_pcap = os.path.join(dataset_path, pcap)
+            abs_pcap = os.path.join(dataset_path, pcap_file)
             abs_label_files = [os.path.join(dataset_path, label_file) for label_file in label_files]
             absolute_paths[abs_pcap] = abs_label_files
         return absolute_paths
