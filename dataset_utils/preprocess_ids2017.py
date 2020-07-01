@@ -98,7 +98,7 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
         df = pandas.DataFrame()
         for flow_file in flow_files:
             df_part = read_csv(flow_file)
-            df.append(df_part)
+            df = df.append(df_part)
         attacks = df.loc[df["Label"] != BENIGN_LABEL]
         benigns = df.loc[df["Label"] == BENIGN_LABEL]
         attacks["reverse_flow_id"] = attacks.index.map(lambda flow: self.reverse_flow_id(flow))
