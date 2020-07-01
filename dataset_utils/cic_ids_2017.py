@@ -55,7 +55,7 @@ class CIC2017TrafficReader(TrafficReader):
         self.number_of_records = number_of_records
         self.dataset_dir = directory
 
-    def get_traffic_labels(self, pcap_file: str) -> pandas.DataFrame:
+    def get_traffic_labels(self, pcap_file: str) -> pandas.Series:
         i = 0
         packet_labels = os.path.join(self.dataset_dir, os.path.basename(pcap_file) + "_packet_labels.csv")
         if not os.path.exists(packet_labels):
