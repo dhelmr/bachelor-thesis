@@ -18,6 +18,7 @@ def read_csv(file, nrows=None):
     df = pandas.read_csv(file, sep=",", low_memory=False, nrows=nrows, index_col="Flow ID", encoding="cp1252")
     # remove spaces from column labels
     df.rename(columns=lambda x: x.strip(), inplace=True)
+    df.dropna(how="all", inplace=True)  # drop all empty rows (some csv are miss-formatted)
     df["Label"] = df["Label"].apply(lambda x: x.upper())
     return df
 
