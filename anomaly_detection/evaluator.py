@@ -62,37 +62,29 @@ class Evaluator:
         total_metrics = self.calc_measurements(tn, fp, fn, tp)
         return total_metrics
 
-    def calc_weighted_average(self, metrics_dict: dict, metric_name: str, total_support=None):
-        # TODO this causes n² complexity (but should not matter)
-        total_support = self.get_summed_attr(metrics_dict, "support")
-        weighted_avg = 0
-        for section in metrics_dict:
-            metrics = metrics_dict[section]
-            support = metrics["support"]
-            fraction = support / total_support
-            weighted_avg += fraction * metrics[metric_name]
-        return weighted_avg
-
-    def calc_measurements(self, tn: int, fp: int, fn: int, tp: int):
+    @staticmethod
+    def calc_measurements(tn: int, fp: int, fn: int, tp: int) -> dict:
         """
         Calculates different metrics for the values of a confusion matrix.
         For terminology see https://en.wikipedia.org/wiki/Precision_and_recall
         """
+        sd = Evaluator.safe_divide
         metrics = dict()
         p = tp + fn
         n = tn + fp
         metrics["positives"] = p
         metrics["negatives"] = n
-        metrics["recall"] = self.safe_divide(tp, p)
-        metrics["tnr"] = self.safe_divide(tn, n)
-        metrics["precision"] = self.safe_divide(tp, (tp + fp))
-        metrics["npv"] = self.safe_divide(tn, (tn + fn))
-        metrics["fpr"] = self.safe_divide(fp, n)
-        metrics["fdr"] = self.safe_divide(fp, (fp + tp))
-        metrics["for"] = self.safe_divide(fn, (fn + tn))
-        metrics["accuracy"] = self.safe_divide((tp + tn), (p + n))
+        metrics["recall"] = sd(tp, p)
+        metrics["tnr"] = sd(tn, n)
+        metrics["precision"] = sd(tp, (tp + fp))
+        metrics["npv"] = sd(tn, (tn + fn))
+        metrics["fpr"] = sd(fp, n)
+        metrics["fdr"] = sd(fp, (fp + tp))
+        metrics["for"] = sd(fn, (fn + tn))
+        metrics["fnr"] = sd(fn, (fn + tp))
+        metrics["accuracy"] = sd((tp + tn), (p + n))
         metrics["balanced_accuracy"] = (metrics["recall"] + metrics["tnr"]) / 2
-        metrics["f1_score"] = self.safe_divide(2 * tp, (2 * tp + fp + fn))
+        metrics["f1_score"] = sd(2 * tp, (2 * tp + fp + fn))
         metrics["true_negatives"] = tn
         metrics["true_positives"] = tp
         metrics["false_negatives"] = fn
@@ -100,14 +92,16 @@ class Evaluator:
         metrics["support"] = n + p
         return metrics
 
-    def safe_divide(self, q1, q2) -> float:
+    @staticmethod
+    def safe_divide(q1, q2) -> float:
         try:
             value = q1 / q2
         except ZeroDivisionError:
             value = float('Inf')
         return value
 
-    def get_summed_attr(self, metrics_dict: dict, attribute: str):
+    @staticmethod
+    def get_summed_attr(metrics_dict: dict, attribute: str):
         total = 0
         for section in metrics_dict:
             total += metrics_dict[section][attribute]
