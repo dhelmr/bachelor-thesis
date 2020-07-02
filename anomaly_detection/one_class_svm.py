@@ -43,7 +43,7 @@ class OneClassSVMDE(DecisionEngine):
     def __init__(self, args: argparse.Namespace):
         self.svm = OneClassSVM(cache_size=args.cache_size, coef0=args.coef0, kernel=args.kernel, gamma=args.gamma,
                                max_iter=args.max_iter, nu=args.nu, shrinking=args.shrinking, tol=args.tolerance,
-                               verbose=False)
+                               verbose=True)
         logging.debug("Initialized OneClassSVM %s", self.svm)
         self._set_normal_traffic_type(TrafficType.BENIGN)
 
