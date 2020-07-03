@@ -82,8 +82,14 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         if traffic.name not in self.packets_to_flows:
             raise ValueError("No flow <-> packet mapping for %s available" % traffic.name)
         mapping = self.packets_to_flows[traffic.name]
-        packet_classifications = [de_result[flow_index] for flow_index in mapping]
+        packet_classifications = []
+        for flow_index in mapping:
+            if flow_index is None:
+                packet_classifications.append(TrafficType.BENIGN)
+            else:
+                packet_classifications.append(de_result[flow_index])
         return packet_classifications
+
 
     def _extract_flow_features(self, flows: t.List[NetFlow]) -> np.ndarray:
         features = []
@@ -113,11 +119,11 @@ class NetFlowGenerator:
         self.open_flows: t.Dict[FlowIdentifier, int] = dict()
         self.timeout = 10_000  # milliseconds
 
-    def feed_packet(self, packet: Packet):
+    def feed_packet(self, packet: Packet) -> t.Optional[int]:
         timestamp, buf = packet
         packet_infos = self.read_packet_infos(packet)
         if packet_infos is None:
-            return -1
+            return None
         flow_id = self.make_flow_id(*packet_infos)
         if flow_id not in self.open_flows:
             flow_index = self.open_flow(packet, flow_id, packet_infos)

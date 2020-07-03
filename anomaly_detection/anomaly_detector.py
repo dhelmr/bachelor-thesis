@@ -20,14 +20,14 @@ class AnomalyDetectorModel:
         features = self.feature_extractor.fit_extract(traffic)
         logging.info("Apply feature transformations...")
         self._fit_transformers(features)
-        preprocessed = self._apply_transformers(features)
+        transformed = self._apply_transformers(features)
         logging.info("Start decision engine training ...")
-        self.decision_engine.fit(preprocessed, traffic_type=TrafficType.BENIGN)
+        self.decision_engine.fit(transformed, traffic_type=TrafficType.BENIGN)
 
     def feed_traffic(self, classification_id: str, traffic: TrafficSequence):
         features = self.feature_extractor.extract_features(traffic)
-        preprocessed = self._apply_transformers(features)
-        de_result = self.decision_engine.classify(preprocessed)
+        transformed = self._apply_transformers(features)
+        de_result = self.decision_engine.classify(transformed)
         predictions = self.feature_extractor.map_backwards(traffic, de_result)
         return ClassificationResults(classification_id, traffic.ids, predictions)
 
@@ -36,7 +36,7 @@ class AnomalyDetectorModel:
         for t in self.transformers:
             t.fit(transformed)
             transformed = t.transform(transformed)
-            logging.info("Applied %s", t.get_name())
+            logging.info("Trained %s", t.get_name())
 
     def _apply_transformers(self, features: np.ndarray):
         transformed = features
