@@ -18,10 +18,9 @@ FILES = {
                                        "labels/Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv",
                                        "labels/Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv",
                                        ]
-}  # TODO add all
+}
 
 PacketID = str
-
 
 def make_flow_ids(ts, buf):
     eth = dpkt.ethernet.Ethernet(buf)
@@ -63,7 +62,7 @@ def get_packet_id(timestamp, buf, flow_ids: t.List[str] = None) -> PacketID:
 class CICIDS2017Preprocessor(DatasetPreprocessor):
 
     def preprocess(self, dataset_path: str):
-        for pcap_file, label_files in self.pcap_and_label_files(dataset_path).items():
+        for pcap_file, label_files in self.get_abs_paths(dataset_path).items():
             attacks_packet_ids = self.get_attacks_packet_ids(label_files)
             labels = self.generate_labels(pcap_file, attacks_packet_ids)
             df = pandas.DataFrame.from_records(labels, columns=["packet_id", "label"])
@@ -117,7 +116,7 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
         result_df.rename(columns={"Timestamp_y": "benign", "Timestamp": "attack"}, inplace=True)
         return result_df
 
-    def pcap_and_label_files(self, dataset_path: str) -> t.Dict[str, t.List[str]]:
+    def get_abs_paths(self, dataset_path: str) -> t.Dict[str, t.List[str]]:
         absolute_paths = dict()
         for pcap_file, label_files in FILES.items():
             abs_pcap = os.path.join(dataset_path, pcap_file)
