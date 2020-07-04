@@ -95,7 +95,6 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         features = []
         for f in flows:
             n_packets = len(f.packets)
-            end_time = f.end_time()
             duration = f.duration()
             length_stats = packet_length_stats(f.packets)
             if duration == 0:
@@ -131,13 +130,13 @@ class NetFlowGenerator:
             flow_index = self.open_flows[flow_id]
             flow = self.flows[flow_index]
             if timestamp - flow.end_time() > self.timeout:
-                self.close_flow(flow_id, flow)
-                flow_index = self.open_flow(packet, flow_id, packet_infos)
+                self.close_flow(flow_id)
+                flow_index = self.open_flow(packet, packet_infos)
             else:
                 flow.packets.append(packet)
         return flow_index
 
-    def open_flow(self, packet: Packet, flow_id: FlowIdentifier, packet_infos: t.Tuple) -> int:
+    def open_flow(self, packet: Packet, packet_infos: t.Tuple) -> int:
         ts, _ = packet
         flow = NetFlow(
             src_ip=packet_infos[0],
@@ -152,14 +151,13 @@ class NetFlowGenerator:
         index = len(self.flows) - 1
         return index
 
-    def close_flow(self, flow_id: FlowIdentifier, flow: NetFlow):
-        # TODO calculate features
+    def close_flow(self, flow_id: FlowIdentifier):
         del self.open_flows[flow_id]
 
     def close_all(self):
         items = list(self.open_flows.items())
         for flow_id, flow in items:
-            self.close_flow(flow_id, flow)
+            self.close_flow(flow_id)
 
     def read_packet_infos(self, packet: Packet) -> t.Optional[t.Tuple]:
         ts, buf = packet
@@ -192,5 +190,5 @@ class NetFlowGenerator:
             ip_a = dest_ip
             ip_b = src_ip
             port_a = dest_port
-            port_b = dest_port
+            port_b = src_port
         return FlowIdentifier(ip_a, ip_b, port_a, port_b, protocol)
