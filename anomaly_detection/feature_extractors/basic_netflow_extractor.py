@@ -131,12 +131,12 @@ class NetFlowGenerator:
             flow = self.flows[flow_index]
             if timestamp - flow.end_time() > self.timeout:
                 self.close_flow(flow_id)
-                flow_index = self.open_flow(packet, packet_infos)
+                flow_index = self.open_flow(packet, flow_id, packet_infos)
             else:
                 flow.packets.append(packet)
         return flow_index
 
-    def open_flow(self, packet: Packet, packet_infos: t.Tuple) -> int:
+    def open_flow(self, packet: Packet, flow_id: FlowIdentifier, packet_infos: t.Tuple) -> int:
         ts, _ = packet
         flow = NetFlow(
             src_ip=packet_infos[0],
@@ -149,6 +149,7 @@ class NetFlowGenerator:
         )
         self.flows.append(flow)
         index = len(self.flows) - 1
+        self.open_flows[flow_id] = index
         return index
 
     def close_flow(self, flow_id: FlowIdentifier):
