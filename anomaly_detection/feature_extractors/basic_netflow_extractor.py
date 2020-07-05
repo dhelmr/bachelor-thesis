@@ -22,6 +22,11 @@ class FlowIdentifier(t.NamedTuple):
     protocol: Protocol
 
 
+class FlowDirection(Enum):
+    FORWARDS = 0
+    BACKWARDS = 1
+
+
 class NetFlow(t.NamedTuple):
     src_ip: int
     dest_ip: int
@@ -30,12 +35,28 @@ class NetFlow(t.NamedTuple):
     protocol: Protocol
     start_time: float
     packets: t.List[Packet]
+    forward_packets_indexes: t.List[int]
+    backward_packets_indexes: t.List[int]
 
     def end_time(self):
         return self.packets[-1][0]
 
     def duration(self):
         return self.end_time() - self.start_time
+
+    def add_packet(self, packet: Packet, direction: FlowDirection):
+        self.packets.append(packet)
+        index = len(self.packets) - 1
+        if direction == FlowDirection.BACKWARDS:
+            self.backward_packets_indexes.append(index)
+        elif direction == FlowDirection.FORWARDS:
+            self.forward_packets_indexes.append(index)
+
+    def get_packets_in_direction(self, direction: FlowDirection) -> t.List[Packet]:
+        if direction == FlowDirection.FORWARDS:
+            return [self.packets[i] for i in self.forward_packets_indexes]
+        if direction == FlowDirection.BACKWARDS:
+            return [self.packets[i] for i in self.backward_packets_indexes]
 
 
 class PacketLengthStats(t.NamedTuple):
@@ -48,6 +69,10 @@ class PacketLengthStats(t.NamedTuple):
 
 def packet_length_stats(packets: t.List[Packet]) -> PacketLengthStats:
     lengths = [len(buf) for ts, buf in packets]
+    if len(packets) == 0:
+        return PacketLengthStats(
+            0, 0, 0, 0, 0
+        )
     return PacketLengthStats(
         total=sum(lengths),
         mean=statistics.mean(lengths),
@@ -90,23 +115,28 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 packet_classifications.append(de_result[flow_index])
         return packet_classifications
 
-
     def _extract_flow_features(self, flows: t.List[NetFlow]) -> np.ndarray:
         features = []
         for f in flows:
-            n_packets = len(f.packets)
             duration = f.duration()
-            length_stats = packet_length_stats(f.packets)
-            if duration == 0:
-                packets_per_millisecond = n_packets
-                bytes_per_millisecond = length_stats.total
-            else:
-                packets_per_millisecond = n_packets / duration
-                bytes_per_millisecond = length_stats.total / duration
-            features_row = [*length_stats] + [n_packets, duration, packets_per_millisecond, bytes_per_millisecond,
-                                              f.src_ip, f.dest_ip, f.src_port, f.dest_port, f.protocol.value]
+            total = self._extract_packet_list_features(duration, f.packets)
+            forward = self._extract_packet_list_features(duration, f.get_packets_in_direction(FlowDirection.FORWARDS))
+            backward = self._extract_packet_list_features(duration, f.get_packets_in_direction(FlowDirection.BACKWARDS))
+            features_row = [duration, f.src_ip, f.dest_ip, f.src_port, f.dest_port,
+                            f.protocol.value] + total + forward + backward
             features.append(features_row)
         return np.array(features)
+
+    def _extract_packet_list_features(self, duration: float, packet_list: t.List[Packet]):
+        n_packets = len(packet_list)
+        length_stats = packet_length_stats(packet_list)
+        if duration == 0:
+            packets_per_millisecond = n_packets
+            bytes_per_millisecond = length_stats.total
+        else:
+            packets_per_millisecond = n_packets / duration
+            bytes_per_millisecond = length_stats.total / duration
+        return [*length_stats] + [n_packets, packets_per_millisecond, bytes_per_millisecond]
 
     def get_name(self) -> str:
         return "basic_netflow_extractor"
@@ -133,7 +163,8 @@ class NetFlowGenerator:
                 self.close_flow(flow_id)
                 flow_index = self.open_flow(packet, flow_id, packet_infos)
             else:
-                flow.packets.append(packet)
+                flow_direction = self.get_packet_direction(packet_infos, flow_id)
+                flow.add_packet(packet, flow_direction)
         return flow_index
 
     def open_flow(self, packet: Packet, flow_id: FlowIdentifier, packet_infos: t.Tuple) -> int:
@@ -145,8 +176,11 @@ class NetFlowGenerator:
             dest_port=packet_infos[3],
             protocol=packet_infos[4],
             start_time=ts,
-            packets=[packet]
+            packets=[],
+            forward_packets_indexes=[],
+            backward_packets_indexes=[]
         )
+        flow.add_packet(packet, FlowDirection.FORWARDS)
         self.flows.append(flow)
         index = len(self.flows) - 1
         self.open_flows[flow_id] = index
@@ -193,3 +227,9 @@ class NetFlowGenerator:
             port_a = dest_port
             port_b = src_port
         return FlowIdentifier(ip_a, ip_b, port_a, port_b, protocol)
+
+    def get_packet_direction(self, packet_info: t.Tuple, flow_id: FlowIdentifier) -> FlowDirection:
+        if packet_info[0] == flow_id[0]:
+            return FlowDirection.FORWARDS
+        else:
+            return FlowDirection.BACKWARDS
