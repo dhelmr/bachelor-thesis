@@ -108,7 +108,7 @@ class NetflowPayloadAnalyser:
               workers: int = 128) -> np.ndarray:
         doc_gen = NetflowPayloadDocGen(flows)
         logging.info("Start training the doc2vec model with %s flows", len(flows))
-        self.model = Doc2Vec(doc_gen, epochs=1, vector_size=vector_size, window=window_size, min_count=min_count,
+        self.model = Doc2Vec(doc_gen, vector_size=vector_size, window=window_size, min_count=min_count,
                              workers=workers)
         logging.info("Finished training doc2vec model")
         d2v_features = self.model.docvecs.vectors_docs
