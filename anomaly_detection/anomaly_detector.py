@@ -21,7 +21,7 @@ class AnomalyDetectorModel:
         logging.info("Apply feature transformations...")
         self._fit_transformers(features)
         transformed = self._apply_transformers(features)
-        logging.info("Start decision engine training ...")
+        logging.info("Start decision engine training with features of shape %s ...", transformed.shape)
         self.decision_engine.fit(transformed, traffic_type=TrafficType.BENIGN)
 
     def feed_traffic(self, classification_id: str, traffic: TrafficSequence):

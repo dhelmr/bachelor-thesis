@@ -1,9 +1,12 @@
+import logging
 import statistics
 import typing as t
 from enum import Enum
 
 import dpkt
 import numpy as np
+from gensim.models.doc2vec import TaggedDocument, Doc2Vec
+from tqdm import tqdm
 
 from anomaly_detection.types import FeatureExtractor, TrafficType, Packet, TrafficSequence
 
@@ -82,26 +85,78 @@ def packet_length_stats(packets: t.List[Packet]) -> PacketLengthStats:
     )
 
 
+class NetflowPayloadDocGen:
+    def __init__(self, flows: t.List[NetFlow]):
+        self.flows = flows
+
+    def __iter__(self) -> t.Iterable[TaggedDocument]:
+        for i in range(len(self.flows)):
+            flow = self.flows[i]
+            flow_words = []
+            for ts, buffer in flow.packets:
+                words = list(map(lambda byte: str(byte), buffer)) + ["."]
+                flow_words += words
+            tags = [i]
+            yield TaggedDocument(flow_words, tags)
+
+
+class NetflowPayloadAnalyser:
+    def __init__(self, ):
+        self.model: t.Optional[Doc2Vec] = None
+
+    def train(self, flows: t.List[NetFlow], vector_size: int = 40, window_size: int = 10, min_count: int = 4,
+              workers: int = 128) -> np.ndarray:
+        doc_gen = NetflowPayloadDocGen(flows)
+        logging.info("Start training the doc2vec model with %s flows", len(flows))
+        self.model = Doc2Vec(doc_gen, epochs=1, vector_size=vector_size, window=window_size, min_count=min_count,
+                             workers=workers)
+        logging.info("Finished training doc2vec model")
+        d2v_features = self.model.docvecs.vectors_docs
+        return d2v_features
+
+    def infer_vectors(self, flows: t.List[NetFlow]) -> np.ndarray:
+        if self.model is None:
+            raise RuntimeError("Doc2Vec Model is not yet trained.")
+        doc_gen = NetflowPayloadDocGen(flows)
+        logging.info("Start inferring vectors for %s flows", len(flows))
+        d2v_features = []
+        for doc in tqdm(doc_gen, total=len(flows)):
+            flow_features = self.model.infer_vector(doc.words)
+            d2v_features.append(flow_features)
+        return np.array(d2v_features)
+
+
 class BasicNetflowFeatureExtractor(FeatureExtractor):
-    def __init__(self):
-        self.packets_to_flows: t.Dict[
-            str, t.List[int]] = dict()  # Stores the mapping "packet index -> flow index" for each traffic sequence name
+    def __init__(self, payload_analysis: bool = True):
+        # Stores the mapping "packet index -> flow index" for each traffic sequence name
+        self.packets_to_flows: t.Dict[str, t.List[int]] = dict()
+        self.payload_analysis = payload_analysis
+        if self.payload_analysis:
+            self.payload_analyser = NetflowPayloadAnalyser()
 
     def fit_extract(self, traffic: TrafficSequence) -> np.ndarray:
-        # there is no need to do anything here, the features will be extracted statically for each netflow,
-        # i.e. disregarding the other traffic records
-        return self.extract_features(traffic)
+        return self._extract_features(traffic, fit=True)
 
-    def extract_features(self, traffic: TrafficSequence) -> np.ndarray:
+    def _extract_features(self, traffic: TrafficSequence, fit: bool) -> np.ndarray:
         netflow_gen = NetFlowGenerator()
         mapping = []
-        for packet in traffic.packet_reader:
+        for packet in tqdm(traffic.packet_reader, total=len(traffic.ids), desc="Make netflows"):
             flow_index = netflow_gen.feed_packet(packet)
             mapping.append(flow_index)
         netflow_gen.close_all()
+        flows = netflow_gen.flows
         self.packets_to_flows[traffic.name] = mapping
-        features = self._extract_flow_features(netflow_gen.flows)
+        features = self._extract_flow_features(flows)
+        if self.payload_analysis:
+            if fit:
+                d2v_features = self.payload_analyser.train(flows)  # TODO set params dynamically
+            else:
+                d2v_features = self.payload_analyser.infer_vectors(flows)
+            features = np.hstack((features, d2v_features))
         return features
+
+    def extract_features(self, traffic: TrafficSequence) -> np.ndarray:
+        return self._extract_features(traffic, fit=False)
 
     def map_backwards(self, traffic: TrafficSequence, de_result: t.Sequence[TrafficType]) -> t.Sequence[TrafficType]:
         if traffic.name not in self.packets_to_flows:
@@ -117,7 +172,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
 
     def _extract_flow_features(self, flows: t.List[NetFlow]) -> np.ndarray:
         features = []
-        for f in flows:
+        for f in tqdm(flows, desc="Extract statistical flow features"):
             duration = f.duration()
             total = self._extract_packet_list_features(duration, f.packets)
             forward = self._extract_packet_list_features(duration, f.get_packets_in_direction(FlowDirection.FORWARDS))

@@ -3,3 +3,4 @@ numpy==1.18.5
 scikit-learn==0.23.1
 gensim==3.8.3
 dpkt==1.9.2
+tqdm==4.47.0
