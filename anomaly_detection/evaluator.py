@@ -1,6 +1,7 @@
 import json
 import logging
 import os.path
+import typing as t
 
 from sklearn.metrics import confusion_matrix
 
@@ -19,7 +20,7 @@ class Evaluator:
             else:
                 logging.info(f"File {report_file} already exists, will overwrite.")
 
-    def evaluate(self, classification_id: str):
+    def evaluate(self, classification_id: str, filter_traffic_names: t.Optional[t.List[str]] = None):
         """
         Generate a evaluation report from a previous classification. 
 
@@ -32,27 +33,33 @@ class Evaluator:
             raise ValueError(f"Classification with id '{classification_id}' does not exist!")
         logging.info(f"Prediction log for classification with id {classification_id} loaded")
         evaluation_dict = dict()
-        for name, _, _, traffic_types in self.traffic_reader:
-            logging.info("Start evaluation of %s (%i records)",
-                         name, len(traffic_types))
-            # Convert traffic type to zero and ones
-            labels = traffic_types.map(lambda x: x.value)
-            y_true = labels.values
-            y_pred = pred.loc[labels.index.values].values
-            # create confusion matrix and extract true/false positives/negatives from it
-            cm = confusion_matrix(y_true, y_pred)
-            if cm.shape == (1, 1):
-                tn, fp, fn, tp = cm[0][0], 0, 0, 0
-            else:
-                tn, fp, fn, tp = cm.ravel()
-            metrics = self.calc_measurements(
-                int(tn), int(fp), int(fn), int(tp))
-            evaluation_dict[name] = metrics
-            logging.debug("Metrics for %s generated.", name)
+        for name, _, _, true_labels in self.traffic_reader:
+            if filter_traffic_names is not None and name not in filter_traffic_names:
+                logging.debug("Ignore %s", name)
+                continue
+            evaluation_dict[name] = self.evaluate_traffic_sequence(name, pred, true_labels)
         evaluation_dict["total"] = self.calc_total_metrics(evaluation_dict)
         self.write_report(json.dumps(
             evaluation_dict, indent=4, sort_keys=True))
         logging.info("Report written into %s", self.report_file)
+
+    def evaluate_traffic_sequence(self, name, pred_labels, true_labels):
+        logging.info("Start evaluation of %s (%i records)",
+                     name, len(true_labels))
+        # Convert traffic type to zero and ones
+        labels = true_labels.map(lambda x: x.value)
+        y_true = labels.values
+        y_pred = pred_labels.loc[labels.index.values].values
+        # create confusion matrix and extract true/false positives/negatives from it
+        cm = confusion_matrix(y_true, y_pred)
+        if cm.shape == (1, 1):
+            tn, fp, fn, tp = cm[0][0], 0, 0, 0
+        else:
+            tn, fp, fn, tp = cm.ravel()
+        metrics = self.calc_measurements(
+            int(tn), int(fp), int(fn), int(tp))
+        logging.debug("Metrics for %s generated.", name)
+        return metrics
 
     def calc_total_metrics(self, metrics_dict: dict):
         tn = self.get_summed_attr(metrics_dict, "true_negatives")

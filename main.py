@@ -113,6 +113,10 @@ class CLIParser:
             "--force-overwrite", "-f", default=False, action="store_true",
             help="Overwrite the report file, if it already exists."
         )
+        parser_evaluate.add_argument(
+            "--filter-names", default=None, nargs="+",
+            dest="filter_names", help="Filters the traffic sequence names that are to be evaluated."
+        )
         self._add_dataset_path_param(parser_evaluate)
 
         parser_list_de = self._create_subparser(
@@ -202,7 +206,7 @@ class CommandExecutor:
         reader = self._get_dataset_utils(args.dataset).traffic_reader(args.dataset_path)
         db = DBConnector(db_path=args.db)
         evaluator = Evaluator(db, reader, args.output, args.force_overwrite)
-        evaluator.evaluate(classification_id=args.id)
+        evaluator.evaluate(classification_id=args.id, filter_traffic_names=args.filter_names)
 
     def list_de(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)
