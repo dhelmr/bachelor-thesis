@@ -157,6 +157,9 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
     def init_by_parsed(args: argparse.Namespace):
         return BasicNetflowFeatureExtractor(flow_timeout=args.flow_timeout)
 
+    def __str__(self):
+        return f"BasicNetflowFeatureExtractor"
+
 
 class NetFlowGenerator:
     def __init__(self, timeout: int = 10_000):

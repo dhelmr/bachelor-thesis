@@ -49,10 +49,8 @@ class AnomalyDetectorModel:
         return pickle.dumps(self)
 
     @staticmethod
-    def deserialize(s):
+    def deserialize(s) -> "AnomalyDetectorModel":
         obj = pickle.loads(s)
         if type(obj) is not AnomalyDetectorModel:
             raise ValueError("Invalid type of deserialized object (must be AnomalyDetector)! %s" % str(type(obj)))
         return obj
-
-

@@ -237,15 +237,25 @@ class CommandExecutor:
         self._check_unknown_args(unknown, expected_len=0)
         db = DBConnector(db_path=args.db, init_if_not_exists=False)
         info = db.get_all_models()
-        # TODO: don't drop pickle dump but instead read model-specific parameters from it
-        info.drop(columns="pickle_dump", inplace=True)
+        info["model"] = info["pickle_dump"].apply(self._format_model_dump)
+        info.drop(columns=["pickle_dump", "decision_engine", "feature_extractor"], inplace=True)
         self._print_dataframe(info)
+
+    def _format_model_dump(self, dump: str) -> str:
+        try:
+            model = AnomalyDetectorModel.deserialize(dump)
+        except Exception as e:
+            logging.error(e)
+            return "(err: could not read)"
+        de_info = str(model.decision_engine)
+        fe_info = str(model.feature_extractor)
+        return f"DE: {de_info}| FE: {fe_info}"
 
     def _print_dataframe(self, df: pandas.DataFrame):
         if len(df) == 0:
             print("<None>")
-        else:
-            print(df)
+            return
+        print(df.to_string())
 
     def _create_fe_and_de(self, fe_name: str,
                           de_name: str, args: t.Sequence[str]) -> t.Tuple[FeatureExtractor, DecisionEngine]:
@@ -276,7 +286,6 @@ class CommandExecutor:
                     f"{name} is not a valid transformer. Please specify one of: {TRANSFORMERS.keys()}")
             transformers.append(TRANSFORMERS[name]())
         return transformers
-
 
     def _get_dataset_utils(self, dataset_name: str) -> DatasetUtils:
         if dataset_name not in DATASET_UTILS:

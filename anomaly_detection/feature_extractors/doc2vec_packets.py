@@ -115,6 +115,9 @@ class PacketDoc2Vec(FeatureExtractor):
     def init_by_parsed(args: argparse.Namespace):
         return PacketDoc2Vec()
 
+    def __str__(self):
+        return f"PacketDoc2Vec({self.model})"
+
 
 global_parallel_model: Doc2Vec
 class MultiThreadedDoc2VecInferer:

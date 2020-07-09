@@ -41,7 +41,6 @@ class DecisionEngine(ABC):
     def serialize(self) -> str:
         raise NotImplementedError()
 
-
 class Transformer(ABC):
     __metaclass__ = ABCMeta
 

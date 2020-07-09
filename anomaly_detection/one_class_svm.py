@@ -74,3 +74,6 @@ class OneClassSVMDE(DecisionEngine):
 
     def serialize(self) -> str:
         return pickle.dumps(self)
+
+    def __str__(self):
+        return f"{self.svm})"

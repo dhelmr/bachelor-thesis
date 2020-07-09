@@ -67,3 +67,6 @@ class BasicPacketFeatureExtractor(FeatureExtractor):
     @staticmethod
     def init_by_parsed(args: argparse.Namespace):
         return BasicPacketFeatureExtractor()
+
+    def __str__(self):
+        return "BasicPacketFeatureExtractor"
