@@ -18,6 +18,7 @@ from anomaly_detection.evaluator import Evaluator
 from anomaly_detection.feature_extractors.basic_netflow_extractor import BasicNetflowFeatureExtractor
 from anomaly_detection.feature_extractors.basic_packet_feature_extractor import BasicPacketFeatureExtractor
 from anomaly_detection.feature_extractors.doc2vec_packets import PacketDoc2Vec
+from anomaly_detection.feature_extractors.netflow_doc2vec import NetflowDoc2Vec
 from anomaly_detection.model_trainer import ModelTrainer
 from anomaly_detection.transformers import StandardScalerTransformer, MinxMaxScalerTransformer
 from anomaly_detection.types import DatasetUtils
@@ -39,7 +40,8 @@ TRANSFORMERS = {
 FEATURE_EXTRACTORS = {
     "basic_netflow": BasicNetflowFeatureExtractor,
     "basic_packet_info": BasicPacketFeatureExtractor,
-    "doc2vec_packet": PacketDoc2Vec
+    "doc2vec_packet": PacketDoc2Vec,
+    "doc2vec_flows": NetflowDoc2Vec
 }
 
 DATASET_UTILS = {

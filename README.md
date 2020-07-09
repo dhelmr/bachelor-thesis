@@ -59,7 +59,7 @@ For help of the subcommands just type `--help`, for example:
 
 usage: main.py train [-h] [--db DB] [--debug]
                      [--transformers {minmax_scaler,standard_scaler} [{minmax_scaler,standard_scaler} ...]]
-                     [--feature-extractor {basic_netflow,basic_packet_info,doc2vec_packet}]
+                     [--feature-extractor {basic_netflow,basic_packet_info,doc2vec_packet,doc2vec_flows}]
                      [--model-id MODEL_ID]
                      [--decision-engine {one_class_svm,local_outlier_factor}]
                      [--dataset {cic-ids-2017}] [--src DATASET_PATH]
@@ -73,7 +73,7 @@ optional arguments:
   --transformers {minmax_scaler,standard_scaler} [{minmax_scaler,standard_scaler} ...], -t {minmax_scaler,standard_scaler} [{minmax_scaler,standard_scaler} ...]
                         Specifies one or more transformers that are applied
                         before calling the decision engine. (default: [])
-  --feature-extractor {basic_netflow,basic_packet_info,doc2vec_packet}, -f {basic_netflow,basic_packet_info,doc2vec_packet}
+  --feature-extractor {basic_netflow,basic_packet_info,doc2vec_packet,doc2vec_flows}, -f {basic_netflow,basic_packet_info,doc2vec_packet,doc2vec_flows}
                         Specifies the feature extractor that is used to
                         generate features from the raw network traffic.
                         (default: basic_netflow)
