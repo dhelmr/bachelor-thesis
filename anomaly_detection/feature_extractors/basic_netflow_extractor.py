@@ -152,15 +152,15 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             first_ts, _ = subflow[0]
             last_ts, _ = subflow[-1]
             if last_active_ts != -1:
-                idle_time = subflow[0][0] - first_ts
+                idle_time = first_ts - last_active_ts
                 idle_times.append(idle_time)
             active_times.append(last_ts - first_ts)
             last_active_ts = last_ts
         for time_list in [active_times, idle_times]:
             if len(time_list) == 0:
-                features += [0, 0, 0, 0, 0]
+                features += [0, 0, 0, 0, 0, 0]
                 continue
-            features += [min(time_list), max(time_list), sum(time_list), statistics.pstdev(time_list),
+            features += [len(time_list), min(time_list), max(time_list), sum(time_list), statistics.pstdev(time_list),
                          statistics.mean(time_list)]
         subflow_features = [self._extract_packet_list_features(subflow) for subflow in subflows]
         by_features = list(zip(*subflow_features))
@@ -208,12 +208,14 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
 
     @staticmethod
     def init_parser(parser: argparse.ArgumentParser):
-        parser.add_argument("--flow-timeout", type=float, dest="flow_timeout", default=10_000,
+        parser.add_argument("--flow-timeout", type=float, dest="flow_timeout", default=12_000,
                             help="Flow timeout in milliseconds")
+        parser.add_argument("--subflow-timeout", type=float, dest="subflow_timeout", default=500,
+                            help="Activity timeout (for subflows) in milliseconds")
 
     @staticmethod
     def init_by_parsed(args: argparse.Namespace):
-        return BasicNetflowFeatureExtractor(flow_timeout=args.flow_timeout)
+        return BasicNetflowFeatureExtractor(flow_timeout=args.flow_timeout, subflow_timeout=args.subflow_timeout)
 
     def __str__(self):
         return f"BasicNetflowFeatureExtractor"

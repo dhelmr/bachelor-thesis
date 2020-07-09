@@ -73,7 +73,7 @@ class NetflowDoc2Vec(BasicNetflowFeatureExtractor):
     def init_by_parsed(args: argparse.Namespace):
         return NetflowDoc2Vec(vector_size=args.vector_size, workers=args.workers,
                               window_size=args.window, min_count=args.min_count,
-                              flow_timeout=args.flow_timeout)
+                              flow_timeout=args.flow_timeout, subflow_timeout=args.subflow_timeout)
 
     def __str__(self):
         return f"NetflowDoc2Vec({self.model})"
