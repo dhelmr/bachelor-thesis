@@ -104,7 +104,7 @@ class NetflowPayloadAnalyser:
     def __init__(self, ):
         self.model: t.Optional[Doc2Vec] = None
 
-    def train(self, flows: t.List[NetFlow], vector_size: int = 40, window_size: int = 10, min_count: int = 4,
+    def train(self, flows: t.List[NetFlow], vector_size: int = 20, window_size: int = 5, min_count: int = 4,
               workers: int = 128) -> np.ndarray:
         doc_gen = NetflowPayloadDocGen(flows)
         logging.info("Start training the doc2vec model with %s flows", len(flows))
