@@ -39,10 +39,10 @@ class ModelTrainer:
         logging.debug("Store model with id '%s' in database" % self.model_id)
 
     def _auto_generate_id(self) -> str:
-        base_name = self.ad.decision_engine.get_name()
+        base_name = "%s-%s" % (self.ad.feature_extractor.get_name(), self.ad.decision_engine.get_name())
         i = 0
         while True:
-            new_id = f"{base_name}-{i:05d}"
+            new_id = f"{base_name}-{i:01d}"
             i += 1
             if not self.db.exists_model(new_id):
                 return new_id

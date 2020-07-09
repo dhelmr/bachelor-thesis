@@ -51,7 +51,7 @@ class Classifier:
         base_name = self.model_id
         i = 0
         while True:
-            new_id = f"{base_name}-{i:05d}"
+            new_id = f"{base_name}-{i:01d}"
             i += 1
             if new_id not in known_ids:
                 break

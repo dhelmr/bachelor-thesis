@@ -86,7 +86,7 @@ def packet_length_stats(packets: t.List[Packet]) -> PacketLengthStats:
 
 class BasicNetflowFeatureExtractor(FeatureExtractor):
 
-    def __init__(self, flow_timeout: int, subflow_timeout: int = 10):
+    def __init__(self, flow_timeout: int = 12_000, subflow_timeout: int = 500):
         # Stores the mapping "packet index -> flow index" for each traffic sequence name
         self.packets_to_flows: t.Dict[str, t.List[int]] = dict()
         self.flow_timeout = flow_timeout
