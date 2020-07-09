@@ -86,10 +86,11 @@ def packet_length_stats(packets: t.List[Packet]) -> PacketLengthStats:
 
 class BasicNetflowFeatureExtractor(FeatureExtractor):
 
-    def __init__(self, flow_timeout: int):
+    def __init__(self, flow_timeout: int, subflow_timeout: int = 10):
         # Stores the mapping "packet index -> flow index" for each traffic sequence name
         self.packets_to_flows: t.Dict[str, t.List[int]] = dict()
         self.flow_timeout = flow_timeout
+        self.subflow_timeout = subflow_timeout
 
     def fit_extract(self, traffic: TrafficSequence) -> np.ndarray:
         return self.extract_features(traffic)
@@ -126,15 +127,72 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         features = []
         for f in tqdm(flows, desc="Extract statistical flow features"):
             duration = f.duration()
-            total = self._extract_packet_list_features(duration, f.packets)
-            forward = self._extract_packet_list_features(duration, f.get_packets_in_direction(FlowDirection.FORWARDS))
-            backward = self._extract_packet_list_features(duration, f.get_packets_in_direction(FlowDirection.BACKWARDS))
-            features_row = [duration, f.src_ip, f.dest_ip, f.src_port, f.dest_port,
-                            f.protocol.value] + total + forward + backward
+            forward_packets = f.get_packets_in_direction(FlowDirection.FORWARDS)
+            backward_packets = f.get_packets_in_direction(FlowDirection.BACKWARDS)
+            total = self._extract_packet_list_features(f.packets)
+            forward = self._extract_packet_list_features(forward_packets)
+            backward = self._extract_packet_list_features(backward_packets)
+            subflows = self._extract_sub_flows_features(f.packets)
+            subflows_forward = self._extract_sub_flows_features(forward_packets)
+            subflows_backward = self._extract_sub_flows_features(backward_packets)
+            features_row = total + forward + backward + subflows + subflows_forward + subflows_backward + [
+                duration, f.src_ip, f.dest_ip, f.src_port, f.dest_port, f.protocol.value]
             features.append(features_row)
         return np.array(features)
 
-    def _extract_packet_list_features(self, duration: float, packet_list: t.List[Packet]):
+    def _extract_sub_flows_features(self, flow: t.List[Packet]):
+        subflows = self._make_subflows(flow)
+        features = [len(subflows)]
+        active_times = []
+        idle_times = []
+        last_active_ts = -1
+        for subflow in subflows:
+            if len(subflow) == 0:
+                continue
+            first_ts, _ = subflow[0]
+            last_ts, _ = subflow[-1]
+            if last_active_ts != -1:
+                idle_time = subflow[0][0] - first_ts
+                idle_times.append(idle_time)
+            active_times.append(last_ts - first_ts)
+            last_active_ts = last_ts
+        for time_list in [active_times, idle_times]:
+            if len(time_list) == 0:
+                features += [0, 0, 0, 0, 0]
+                continue
+            features += [min(time_list), max(time_list), sum(time_list), statistics.pstdev(time_list),
+                         statistics.mean(time_list)]
+        subflow_features = [self._extract_packet_list_features(subflow) for subflow in subflows]
+        by_features = list(zip(*subflow_features))
+        for feature_list in by_features:
+            if len(feature_list) == 0:
+                features += [0, 0, 0, 0]
+            features += [max(feature_list), min(feature_list), statistics.mean(feature_list),
+                         statistics.pstdev(feature_list)]
+        return features
+
+    def _make_subflows(self, flow: t.List[Packet]) -> t.List[t.List[Packet]]:
+        sub_flows = []
+        current_sub_flow = []
+        for packet in flow:
+            ts, buf = packet
+            if len(current_sub_flow) == 0:
+                current_sub_flow.append(packet)
+                continue
+            last_ts, _ = current_sub_flow[-1]
+            if ts - last_ts > self.subflow_timeout:
+                sub_flows.append(current_sub_flow)
+                current_sub_flow = [packet]
+                continue
+            current_sub_flow.append(packet)
+        sub_flows.append(current_sub_flow)
+        return sub_flows
+
+    def _extract_packet_list_features(self, packet_list: t.List[Packet]):
+        if len(packet_list) == 0:
+            duration = 0
+        else:
+            duration = packet_list[-1][0] - packet_list[0][0]
         n_packets = len(packet_list)
         length_stats = packet_length_stats(packet_list)
         if duration == 0:
