@@ -21,7 +21,7 @@ from anomaly_detection.feature_extractors.doc2vec_packets import PacketDoc2Vec
 from anomaly_detection.feature_extractors.netflow_doc2vec import NetflowDoc2Vec
 from anomaly_detection.model_trainer import ModelTrainer
 from anomaly_detection.transformers import StandardScalerTransformer, MinxMaxScalerTransformer
-from anomaly_detection.types import DatasetUtils
+from anomaly_detection.types import DatasetUtils, FeatureExtractor, DecisionEngine
 from dataset_utils.preprocess_ids2017 import CICIDS2017Preprocessor
 
 DATASET_PATH = os.path.join(os.path.dirname(
@@ -188,10 +188,11 @@ class CommandExecutor:
 
     def train(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         reader = self._get_dataset_utils(args.dataset).traffic_reader(args.dataset_path)
-        de = self._create_decision_engine(args.decision_engine, unknown)
         db = DBConnector(db_path=args.db)
         transformers = self._build_transformers(args.transformers)
-        feature_extractor = self._build_feature_extractor(args.feature_extractor)
+        feature_extractor, de = self._create_fe_and_de(de_name=args.decision_engine,
+                                                       fe_name=args.feature_extractor,
+                                                       args=unknown)
         ad = AnomalyDetectorModel(de, feature_extractor, transformers)
         trainer = ModelTrainer(db, reader, anomaly_detector=ad, model_id=args.model_id)
         trainer.start_training()
@@ -246,16 +247,26 @@ class CommandExecutor:
         else:
             print(df)
 
-    def _create_decision_engine(self, name, args):
-        if name not in DECISION_ENGINES:
+    def _create_fe_and_de(self, fe_name: str,
+                          de_name: str, args: t.Sequence[str]) -> t.Tuple[FeatureExtractor, DecisionEngine]:
+        if fe_name not in FEATURE_EXTRACTORS:
             raise ParsingException(
-                f"{name} is not a valid decision engine. Please specify one of: {DECISION_ENGINES.keys()}")
-        de_class, de_create_parser = DECISION_ENGINES[name]
-        parser = de_create_parser(prog_name=name)
-        parsed, unknown = parser.parse_known_args(args)
-        self._check_unknown_args(unknown, expected_len=0, subparser=parser)
+                f"{fe_name} is not a valid feature extractor. Please specify one of: {FEATURE_EXTRACTORS.keys()}")
+        feature_extractor_class = FEATURE_EXTRACTORS[fe_name]
+        fe_parser = argparse.ArgumentParser(prog=f"Feature Extractor ({fe_name})")
+        feature_extractor_class.init_parser(fe_parser)
+        parsed, unknown = fe_parser.parse_known_args(args)
+        feature_extractor = feature_extractor_class.init_by_parsed(parsed)
+
+        if de_name not in DECISION_ENGINES:
+            raise ParsingException(
+                f"{de_name} is not a valid decision engine. Please specify one of: {DECISION_ENGINES.keys()}")
+        de_class, de_create_parser = DECISION_ENGINES[de_name]
+        de_parser = de_create_parser(prog_name=f"Decision Engine ({de_name})")
+        parsed, unknown = de_parser.parse_known_args(unknown)
+        self._check_unknown_args(unknown, expected_len=0, subparsers=[fe_parser, de_parser])
         decision_engine_instance = de_class(parsed)
-        return decision_engine_instance
+        return feature_extractor, decision_engine_instance
 
     def _build_transformers(self, names: t.Sequence[str]):
         transformers = list()
@@ -266,20 +277,16 @@ class CommandExecutor:
             transformers.append(TRANSFORMERS[name]())
         return transformers
 
-    def _build_feature_extractor(self, name: str):
-        if name not in FEATURE_EXTRACTORS:
-            raise ParsingException(
-                f"{name} is not a valid feature extractor. Please specify one of: {FEATURE_EXTRACTORS.keys()}")
-        return FEATURE_EXTRACTORS[name]()
 
     def _get_dataset_utils(self, dataset_name: str) -> DatasetUtils:
         if dataset_name not in DATASET_UTILS:
             raise ParsingException(f"{dataset_name} is not a valid dataset.")
         return DATASET_UTILS[dataset_name]
 
-    def _check_unknown_args(self, unknown: t.Sequence[str], expected_len, subparser: argparse.ArgumentParser = None):
+    def _check_unknown_args(self, unknown: t.Sequence[str], expected_len,
+                            subparsers: t.List[argparse.ArgumentParser] = []):
         if len(unknown) != expected_len:
-            if subparser is not None:
+            for subparser in subparsers:
                 subparser.print_usage()
             raise ParsingException("Invalid arguments: %s" % " ".join(unknown))
 

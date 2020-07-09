@@ -1,3 +1,4 @@
+import argparse
 import logging
 import typing as t
 
@@ -58,3 +59,11 @@ class BasicPacketFeatureExtractor(FeatureExtractor):
 
     def get_name(self) -> str:
         return "basic_packet_feature_extractor"
+
+    @staticmethod
+    def init_parser(parser: argparse.ArgumentParser):
+        pass
+
+    @staticmethod
+    def init_by_parsed(args: argparse.Namespace):
+        return BasicPacketFeatureExtractor()

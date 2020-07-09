@@ -1,3 +1,4 @@
+import argparse
 import statistics
 import typing as t
 from enum import Enum
@@ -82,10 +83,13 @@ def packet_length_stats(packets: t.List[Packet]) -> PacketLengthStats:
         std=statistics.pstdev(lengths)
     )
 
+
 class BasicNetflowFeatureExtractor(FeatureExtractor):
-    def __init__(self):
+
+    def __init__(self, flow_timeout: int):
         # Stores the mapping "packet index -> flow index" for each traffic sequence name
         self.packets_to_flows: t.Dict[str, t.List[int]] = dict()
+        self.flow_timeout = flow_timeout
 
     def fit_extract(self, traffic: TrafficSequence) -> np.ndarray:
         return self.extract_features(traffic)
@@ -144,12 +148,21 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
     def get_name(self) -> str:
         return "basic_netflow_extractor"
 
+    @staticmethod
+    def init_parser(parser: argparse.ArgumentParser):
+        parser.add_argument("--flow-timeout", type=float, dest="flow_timeout", default=10_000,
+                            help="Flow timeout in milliseconds")
+
+    @staticmethod
+    def init_by_parsed(args: argparse.Namespace):
+        return BasicNetflowFeatureExtractor(flow_timeout=args.flow_timeout)
+
 
 class NetFlowGenerator:
-    def __init__(self):
+    def __init__(self, timeout: int = 10_000):
         self.flows: t.List[NetFlow] = list()
         self.open_flows: t.Dict[FlowIdentifier, int] = dict()
-        self.timeout = 10_000  # milliseconds
+        self.timeout = timeout  # milliseconds
 
     def feed_packet(self, packet: Packet) -> t.Optional[int]:
         timestamp, buf = packet

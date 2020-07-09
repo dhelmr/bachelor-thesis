@@ -1,3 +1,4 @@
+import argparse
 import functools
 import logging
 import multiprocessing
@@ -41,6 +42,7 @@ class DocumentGenerator:
 
 
 class PacketDoc2Vec(FeatureExtractor):
+
     def __init__(self):
         self.statistic_features_extractor = BasicPacketFeatureExtractor()
         self.model: Doc2Vec = None
@@ -104,6 +106,14 @@ class PacketDoc2Vec(FeatureExtractor):
 
     def get_name(self) -> str:
         return "packet_doc2vec"
+
+    @staticmethod
+    def init_parser(parser: argparse.ArgumentParser):
+        pass
+
+    @staticmethod
+    def init_by_parsed(args: argparse.Namespace):
+        return PacketDoc2Vec()
 
 
 global_parallel_model: Doc2Vec

@@ -1,3 +1,4 @@
+import argparse
 import typing as t
 from abc import ABC, abstractmethod, ABCMeta
 from enum import Enum
@@ -101,6 +102,16 @@ class FeatureExtractor:
 
     @abstractmethod
     def get_name(self) -> str:
+        raise NotImplementedError()
+
+    @staticmethod
+    @abstractmethod
+    def init_parser(parser: argparse.ArgumentParser):
+        raise NotImplementedError()
+
+    @staticmethod
+    @abstractmethod
+    def init_by_parsed(args: argparse.Namespace):
         raise NotImplementedError()
 
 

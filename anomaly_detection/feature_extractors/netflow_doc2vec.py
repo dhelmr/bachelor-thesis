@@ -1,3 +1,4 @@
+import argparse
 import logging
 import typing as t
 
@@ -25,9 +26,9 @@ class NetflowPayloadDocGen:
 
 
 class NetflowDoc2Vec(BasicNetflowFeatureExtractor):
-    def __init__(self, vector_size: int = 20, window_size: int = 5, min_count: int = 4, workers: int = 128):
-        super(NetflowDoc2Vec, self).__init__()
-        self.model: Doc2Vec = None
+    def __init__(self, vector_size: int = 20, window_size: int = 5, min_count: int = 4, workers: int = 128, **kwargs):
+        super(NetflowDoc2Vec, self).__init__(**kwargs)
+        self.model: t.Optional[Doc2Vec] = None
         self.vector_size = vector_size
         self.window_size = window_size
         self.min_count = min_count
@@ -59,3 +60,17 @@ class NetflowDoc2Vec(BasicNetflowFeatureExtractor):
             flow_features = self.model.infer_vector(doc.words)
             d2v_features.append(flow_features)
         return np.hstack((flow_features, d2v_features))
+
+    @staticmethod
+    def init_parser(parser: argparse.ArgumentParser):
+        BasicNetflowFeatureExtractor.init_parser(parser)
+        parser.add_argument("--d2v-vector-size", type=int, default=20, dest="vector_size")
+        parser.add_argument("--d2v-workers", type=int, default=64, dest="workers")
+        parser.add_argument("--d2v-window", type=int, default=5, dest="min_count")
+        parser.add_argument("--d2v-min-count", type=int, default=4, dest="window")
+
+    @staticmethod
+    def init_by_parsed(args: argparse.Namespace):
+        return NetflowDoc2Vec(vector_size=args.vector_size, workers=args.workers,
+                              window_size=args.window, min_count=args.min_count,
+                              flow_timeout=args.flow_timeout)
