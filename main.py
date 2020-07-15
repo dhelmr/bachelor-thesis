@@ -19,6 +19,8 @@ from anomaly_detection.feature_extractors.basic_netflow_extractor import BasicNe
 from anomaly_detection.feature_extractors.basic_packet_feature_extractor import BasicPacketFeatureExtractor
 from anomaly_detection.feature_extractors.doc2vec_packets import PacketDoc2Vec
 from anomaly_detection.feature_extractors.netflow_doc2vec import NetflowDoc2Vec
+from anomaly_detection.feature_extractors.testing_extractor import TestingFeatureExtractor, DummyPreprocessor, \
+    DummyTrafficGenerator
 from anomaly_detection.model_trainer import ModelTrainer
 from anomaly_detection.transformers import StandardScalerTransformer, MinxMaxScalerTransformer
 from anomaly_detection.types import DatasetUtils, FeatureExtractor, DecisionEngine
@@ -41,11 +43,13 @@ FEATURE_EXTRACTORS = {
     "basic_netflow": BasicNetflowFeatureExtractor,
     "basic_packet_info": BasicPacketFeatureExtractor,
     "doc2vec_packet": PacketDoc2Vec,
-    "doc2vec_flows": NetflowDoc2Vec
+    "doc2vec_flows": NetflowDoc2Vec,
+    "test": TestingFeatureExtractor
 }
 
 DATASET_UTILS = {
-    "cic-ids-2017": DatasetUtils(cic2017.CIC2017TrafficReader, CICIDS2017Preprocessor)
+    "cic-ids-2017": DatasetUtils(cic2017.CIC2017TrafficReader, CICIDS2017Preprocessor),
+    "test": DatasetUtils(DummyTrafficGenerator, DummyPreprocessor)
 }
 
 
@@ -199,7 +203,7 @@ class CommandExecutor:
 
     def classify(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)
-        reader = cic2017.CIC2017TrafficReader(args.dataset_path)
+        reader = self._get_dataset_utils(args.dataset).traffic_reader(args.dataset_path)
         db = DBConnector(db_path=args.db)
         simulator = Classifier(db, reader, model_id=args.model_id)
         simulator.start_classification(args.id)

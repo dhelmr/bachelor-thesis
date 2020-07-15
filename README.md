@@ -59,10 +59,10 @@ For help of the subcommands just type `--help`, for example:
 
 usage: main.py train [-h] [--db DB] [--debug]
                      [--transformers {minmax_scaler,standard_scaler} [{minmax_scaler,standard_scaler} ...]]
-                     [--feature-extractor {basic_netflow,basic_packet_info,doc2vec_packet,doc2vec_flows}]
+                     [--feature-extractor {basic_netflow,basic_packet_info,doc2vec_packet,doc2vec_flows,test}]
                      [--model-id MODEL_ID]
                      [--decision-engine {one_class_svm,local_outlier_factor}]
-                     [--dataset {cic-ids-2017}] [--src DATASET_PATH]
+                     [--dataset {cic-ids-2017,test}] [--src DATASET_PATH]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -73,7 +73,7 @@ optional arguments:
   --transformers {minmax_scaler,standard_scaler} [{minmax_scaler,standard_scaler} ...], -t {minmax_scaler,standard_scaler} [{minmax_scaler,standard_scaler} ...]
                         Specifies one or more transformers that are applied
                         before calling the decision engine. (default: [])
-  --feature-extractor {basic_netflow,basic_packet_info,doc2vec_packet,doc2vec_flows}, -f {basic_netflow,basic_packet_info,doc2vec_packet,doc2vec_flows}
+  --feature-extractor {basic_netflow,basic_packet_info,doc2vec_packet,doc2vec_flows,test}, -f {basic_netflow,basic_packet_info,doc2vec_packet,doc2vec_flows,test}
                         Specifies the feature extractor that is used to
                         generate features from the raw network traffic.
                         (default: basic_netflow)
@@ -83,9 +83,9 @@ optional arguments:
   --decision-engine {one_class_svm,local_outlier_factor}
                         Choose which algorithm will be used for classifying
                         anomalies. (default: one_class_svm)
-  --dataset {cic-ids-2017}, -d {cic-ids-2017}
+  --dataset {cic-ids-2017,test}, -d {cic-ids-2017,test}
                         The name of the dataset. Choose one of: ['cic-
-                        ids-2017'] (default: cic-ids-2017)
+                        ids-2017', 'test'] (default: cic-ids-2017)
   --src DATASET_PATH    Path of the dataset (default: ./data/cic-ids-2017/)
 
 ```
