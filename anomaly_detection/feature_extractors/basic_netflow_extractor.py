@@ -101,7 +101,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         return features
 
     def _make_flows(self, traffic: TrafficSequence) -> t.List[NetFlow]:
-        netflow_gen = NetFlowGenerator()
+        netflow_gen = NetFlowGenerator(timeout=self.flow_timeout)
         mapping = []
         for packet in tqdm(traffic.packet_reader, total=len(traffic.ids), desc="Make netflows"):
             flow_index = netflow_gen.feed_packet(packet)
