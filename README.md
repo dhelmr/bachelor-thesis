@@ -29,11 +29,11 @@ There are various subcommands:
 ❯ ./main.py --help
 
 usage: main.py [-h]
-               {train,classify,evaluate,list-de,list-classifications,preprocess,list-models}
+               {train,classify,evaluate,list-de,list-classifications,list-fe,preprocess,list-models}
                ...
 
 positional arguments:
-  {train,classify,evaluate,list-de,list-classifications,preprocess,list-models}
+  {train,classify,evaluate,list-de,list-classifications,list-fe,preprocess,list-models}
     train               Creates a classification model from analyzing normal
                         traffic and stores it in the database.
     classify            Feed traffic from a dataset and detect anomalies.
@@ -43,6 +43,7 @@ positional arguments:
     list-classifications
                         Lists all anomaly classifications that were previously
                         run.
+    list-fe             Lists all available feature extractors
     preprocess          Preprocesses a dataset so that it can be used for
                         evaluation afterwards.
     list-models         List available models.

@@ -138,6 +138,13 @@ class CLIParser:
             action="store_true"
         )
 
+        parser_list_fe = self._create_subparser(
+            "list-fe", help="Lists all available feature extractors"
+        )
+        parser_list_fe.add_argument(
+            "--short", "-s", help="Only list the names of the decision engines, without usage details",
+            action="store_true")
+
         preprocess = self._create_subparser(
             "preprocess", help="Preprocesses a dataset so that it can be used for evaluation afterwards."
         )
@@ -224,6 +231,18 @@ class CommandExecutor:
                 _, de_parser_creator = DECISION_ENGINES[name]
                 print(f">>> {name} <<<")
                 parser = de_parser_creator(name)
+                parser.print_help()
+                print("\n")
+
+    def list_fe(self, args: argparse.Namespace, unknown: t.Sequence[str]):
+        self._check_unknown_args(unknown, expected_len=0)
+        for name in FEATURE_EXTRACTORS.keys():
+            if args.short:
+                print(name)
+            else:
+                print(f">>> {name} <<<")
+                parser = argparse.ArgumentParser()
+                FEATURE_EXTRACTORS[name].init_parser(parser)
                 parser.print_help()
                 print("\n")
 
