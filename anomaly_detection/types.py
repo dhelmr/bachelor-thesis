@@ -73,14 +73,10 @@ class TrafficReader(ABC):
 
     def __init__(self, directory: str, subset: str):
         self.dataset_dir = directory
-        self.subset = subset
+        self.subset_name = subset
 
     @abstractmethod
     def read_normal_data(self) -> TrafficSequence:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def __next__(self) -> TrafficSequence:
         raise NotImplementedError()
 
     @abstractmethod

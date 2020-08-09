@@ -167,6 +167,8 @@ class CLIParser:
         )
         subparser.add_argument("--src", dest="dataset_path",
                                help="Path of the dataset", default=DATASET_PATH)
+        subparser.add_argument("--subset", dest="dataset_subset",
+                               help="Predefined subset of the dataset", default="default")
 
     def _add_decision_engine_param(self, subparser):
         subparser.add_argument(
@@ -198,7 +200,7 @@ class CommandExecutor:
         self.cli_parser: CLIParser = cli_parser
 
     def train(self, args: argparse.Namespace, unknown: t.Sequence[str]):
-        reader = self._get_dataset_utils(args.dataset).traffic_reader(args.dataset_path)
+        reader = self._get_dataset_reader(args)
         db = DBConnector(db_path=args.db)
         transformers = self._build_transformers(args.transformers)
         feature_extractor, de = self._create_fe_and_de(de_name=args.decision_engine,
@@ -210,14 +212,14 @@ class CommandExecutor:
 
     def classify(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)
-        reader = self._get_dataset_utils(args.dataset).traffic_reader(args.dataset_path)
+        reader = self._get_dataset_reader(args)
         db = DBConnector(db_path=args.db)
         simulator = Classifier(db, reader, model_id=args.model_id)
         simulator.start_classification(args.id)
 
     def evaluate(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)
-        reader = self._get_dataset_utils(args.dataset).traffic_reader(args.dataset_path)
+        reader = self._get_dataset_reader(args)
         db = DBConnector(db_path=args.db)
         evaluator = Evaluator(db, reader, args.output, args.force_overwrite)
         evaluator.evaluate(classification_id=args.id, filter_traffic_names=args.filter_names)
@@ -279,6 +281,9 @@ class CommandExecutor:
             print("<None>")
             return
         print(df.to_string())
+
+    def _get_dataset_reader(self, args: argparse.Namespace):
+        return self._get_dataset_utils(args.dataset).traffic_reader(args.dataset_path, args.dataset_subset)
 
     def _create_fe_and_de(self, fe_name: str,
                           de_name: str, args: t.Sequence[str]) -> t.Tuple[FeatureExtractor, DecisionEngine]:

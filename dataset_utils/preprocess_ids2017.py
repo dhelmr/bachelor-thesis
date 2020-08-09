@@ -1,6 +1,7 @@
 import socket
 import typing as t
 from datetime import datetime
+from enum import Enum
 
 import dpkt as dpkt
 

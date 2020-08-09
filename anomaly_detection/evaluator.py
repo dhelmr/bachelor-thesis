@@ -47,9 +47,9 @@ class Evaluator:
         logging.info("Start evaluation of %s (%i records)",
                      name, len(true_labels))
         # Convert traffic type to zero and ones
-        labels = true_labels.map(lambda x: x.value)
+        labels = true_labels.map(lambda x: x.value).reindex(pred_labels.index.values).dropna()
         y_true = labels.values
-        y_pred = pred_labels.loc[labels.index.values].values
+        y_pred = pred_labels.reindex(labels.index.values).values
         # create confusion matrix and extract true/false positives/negatives from it
         cm = confusion_matrix(y_true, y_pred)
         if cm.shape == (1, 1):
