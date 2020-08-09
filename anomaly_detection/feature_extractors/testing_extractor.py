@@ -44,8 +44,8 @@ class TestingFeatureExtractor(FeatureExtractor):
 
 class DummyTrafficGenerator(TrafficReader):
 
-    def __init__(self, *args, **kwargs):
-        pass
+    def __init__(self, directory: str, subset: str, *args, **kwargs):
+        super().__init__(directory, subset)
 
     def read_normal_data(self) -> TrafficSequence:
         length = 3000

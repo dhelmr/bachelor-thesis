@@ -71,6 +71,10 @@ class TrafficSequence(NamedTuple):
 class TrafficReader(ABC):
     __metaclass__ = ABCMeta
 
+    def __init__(self, directory: str, subset: str):
+        self.dataset_dir = directory
+        self.subset = subset
+
     @abstractmethod
     def read_normal_data(self) -> TrafficSequence:
         raise NotImplementedError()
@@ -129,5 +133,5 @@ class DatasetPreprocessor:
 
 
 class DatasetUtils(NamedTuple):
-    traffic_reader: t.Callable[[str], TrafficReader]
+    traffic_reader: t.Callable[[str, str], TrafficReader]
     preprocessor: t.Callable[[], DatasetPreprocessor]

@@ -5,22 +5,31 @@ from datetime import datetime
 import dpkt as dpkt
 
 from anomaly_detection.types import DatasetPreprocessor
-from dataset_utils import pcap_utils
 from dataset_utils.cic_ids_2017 import *
 
-FILES = {
-    "PCAPs/Monday-WorkingHours.pcap": ["labels/Monday-WorkingHours.pcap_ISCX.csv"],
-    "PCAPs/Wednesday-WorkingHours.pcap": ["labels/Wednesday-workingHours.pcap_ISCX.csv"],
-    "PCAPs/Tuesday-WorkingHours.pcap": ["labels/Tuesday-WorkingHours.pcap_ISCX.csv"],
-    "PCAPs/Thursday-WorkingHours.pcap": ["labels/Thursday-WorkingHours-Morning-WebAttacks.pcap_ISCX.csv",
-                                         "labels/Thursday-WorkingHours-Afternoon-Infilteration.pcap_ISCX.csv"],
-    "PCAPs/Friday-WorkingHours.pcap": ["labels/Friday-WorkingHours-Morning.pcap_ISCX.csv",
-                                       "labels/Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv",
-                                       "labels/Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv",
-                                       ]
+
+class PcapFiles(Enum):
+    MONDAY = "PCAPs/Monday-WorkingHours.pcap"
+    TUESDAY = "PCAPs/Tuesday-WorkingHours.pcap"
+    WEDNESDAY = "PCAPs/Wednesday-WorkingHours.pcap"
+    THURSDAY = "PCAPs/Thursday-WorkingHours.pcap"
+    FRIDAY = "PCAPs/Friday-WorkingHours.pcap"
+
+
+PCAP_LABEL_FILES = {
+    PcapFiles.MONDAY: ["labels/Monday-WorkingHours.pcap_ISCX.csv"],
+    PcapFiles.TUESDAY: ["labels/Tuesday-WorkingHours.pcap_ISCX.csv"],
+    PcapFiles.WEDNESDAY: ["labels/Wednesday-workingHours.pcap_ISCX.csv"],
+    PcapFiles.THURSDAY: ["labels/Thursday-WorkingHours-Morning-WebAttacks.pcap_ISCX.csv",
+                         "labels/Thursday-WorkingHours-Afternoon-Infilteration.pcap_ISCX.csv"],
+    PcapFiles.FRIDAY: ["labels/Friday-WorkingHours-Morning.pcap_ISCX.csv",
+                       "labels/Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv",
+                       "labels/Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv",
+                       ]
 }
 
 PacketID = str
+
 
 def make_flow_ids(ts, buf):
     eth = dpkt.ethernet.Ethernet(buf)
@@ -98,7 +107,7 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
         df = pandas.DataFrame()
         for flow_file in flow_files:
             logging.info("Read labels from %s", flow_file)
-            df_part = read_csv(flow_file)
+            df_part = read_labels_csv(flow_file)
             df = df.append(df_part)
         attacks = df.loc[df["Label"] != BENIGN_LABEL]
         benigns = df.loc[df["Label"] == BENIGN_LABEL]
@@ -118,7 +127,7 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
 
     def get_abs_paths(self, dataset_path: str) -> t.Dict[str, t.List[str]]:
         absolute_paths = dict()
-        for pcap_file, label_files in FILES.items():
+        for pcap_file, label_files in PCAP_LABEL_FILES.items():
             abs_pcap = os.path.join(dataset_path, pcap_file)
             abs_label_files = [os.path.join(dataset_path, label_file) for label_file in label_files]
             absolute_paths[abs_pcap] = abs_label_files

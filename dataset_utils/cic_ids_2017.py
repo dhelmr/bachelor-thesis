@@ -6,16 +6,37 @@ import pandas
 
 from anomaly_detection.types import TrafficType, TrafficSequence, TrafficReader
 from dataset_utils import pcap_utils
+from dataset_utils.preprocess_ids2017 import PcapFiles
 
-BENIGN_DATA_FILE = "Monday-WorkingHours.pcap"
+BENIGN_DATA_FILE = PcapFiles.MONDAY
 TRAFFIC_FILE_PATTERN = re.compile(".*.pcap")
 
 LABEL_COLUMN_NAME = "Label"
 PCAPS_SUBDIR = "PCAPs"
 BENIGN_LABEL = "BENIGN"
 
+SMALL_SUBSET = {
+    "benign": {
+        PcapFiles.MONDAY: [
+            (0, 10_000),
+            (50_000, 1_500_000),
+            (4_000_000, "end")
+        ],
+    },
+    "unknown": {
+        PcapFiles.FRIDAY: [
+            (400, 5000),
+            (50000, 90000),
+            (5_000_000, "end")
+        ],
+        PcapFiles.TUESDAY: [
+            (999, 999999)
+        ]
+    }
+}
 
-def read_csv(file, nrows=None):
+
+def read_labels_csv(file, nrows=None):
     df = pandas.read_csv(file, sep=",", low_memory=False, nrows=nrows, index_col="Flow ID", encoding="cp1252")
     # remove spaces from column labels
     df.rename(columns=lambda x: x.strip(), inplace=True)
@@ -24,41 +45,13 @@ def read_csv(file, nrows=None):
     return df
 
 
-def preprocess(df: pandas.DataFrame, id_prefix: str):
-    # TODO these columns include Infinity values, handle
-    df.drop(df.columns[[14, 15]], axis=1, inplace=True)
-    uuids = [id_prefix + "_" + str(i) for i in range(len(df))]
-    df.insert(0, "id", uuids)
-    df.set_index("id", inplace=True)
-
-
-def label_to_traffic_type(label_text: str):
-    if BENIGN_LABEL == label_text.upper():
-        return TrafficType.BENIGN
-    else:
-        return TrafficType.ATTACK
-
-
-def load_label_csv(pcap_file: str):
-    csv_file = os.path.basename(pcap_file) + "_ISCX.csv"
-    csv_path = os.path.join(os.path.dirname(pcap_file), "..", "labels", csv_file)
-    return read_csv(csv_path)
-
-
-def get_csv_timestamp(timestamp: int):
-    # dt.datetime.fromtimestamp(timestamp)
-    pass
-
-
 class CIC2017TrafficReader(TrafficReader):
-    def __init__(self, directory: str, number_of_records=None):
+    def __init__(self, directory: str, subset: str):
+        super().__init__(directory, subset)
         self.pcap_directory = os.path.join(directory, "PCAPs")
         self.pcap_file_iterator = iter(os.listdir(self.pcap_directory))
-        self.number_of_records = number_of_records
-        self.dataset_dir = directory
 
     def get_traffic_labels(self, pcap_file: str) -> pandas.Series:
-        i = 0
         packet_labels = os.path.join(self.dataset_dir, os.path.basename(pcap_file) + "_packet_labels.csv")
         if not os.path.exists(packet_labels):
             raise FileNotFoundError("Cannot find %s. Did you preprocess the dataset first?" % packet_labels)
@@ -67,9 +60,9 @@ class CIC2017TrafficReader(TrafficReader):
         return df["label"]
 
     def read_normal_data(self) -> TrafficSequence:
-        return self.make_traffic_sequence(BENIGN_DATA_FILE)
+        return self._make_traffic_sequence(BENIGN_DATA_FILE)
 
-    def make_traffic_sequence(self, pcap_file) -> TrafficSequence:
+    def _make_traffic_sequence(self, pcap_file) -> TrafficSequence:
         full_pcap_path = os.path.join(self.pcap_directory, pcap_file)
         labels = self.get_traffic_labels(full_pcap_path)
         ids = labels.index.values.tolist()
@@ -91,5 +84,5 @@ class CIC2017TrafficReader(TrafficReader):
             return self.__next__()
 
         logging.debug("Load data for file %s", file)
-        traffic_sequence = self.make_traffic_sequence(file)
+        traffic_sequence = self._make_traffic_sequence(file)
         return traffic_sequence
