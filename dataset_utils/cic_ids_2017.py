@@ -139,7 +139,7 @@ class CIC2017TrafficReader(TrafficReader):
         full_pcap_path = os.path.join(self.dataset_dir, pcap_file.value)
         labels = self.read_traffic_labels(full_pcap_path)
         ids = self._ranges_of_list(labels.index.values.tolist(), ranges)
-        name = f"{pcap_file}@CIC-IDS-2017:{self.subset_name}"
+        name = f"{pcap_file.name}@CIC-IDS-2017:{self.subset_name}"
         packet_reader = SubsetPacketReader(full_pcap_path, ranges)
         return TrafficSequence(name=name, packet_reader=packet_reader, labels=labels, ids=ids)
 

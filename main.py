@@ -115,8 +115,8 @@ class CLIParser:
         parser_evaluate = self._create_subparser(
             "evaluate", help="Generate an evaluation report in JSON format from a prediction log.")
         parser_evaluate.add_argument(
-            "--output", "-o", type=str, required=True,
-            help="File where the report will be written into. It is not allowed to exist yet."
+            "--output", "-o", type=str, required=False, default=None,
+            help="File where the report will be written into. It is not allowed to exist yet if force overwrite is not set."
         )
         parser_evaluate.add_argument(
             "--id", type=str, required=True, help="Id of the classification that will be evaluated."

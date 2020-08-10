@@ -10,11 +10,11 @@ from anomaly_detection.types import TrafficReader
 
 
 class Evaluator:
-    def __init__(self, db: DBConnector, traffic_reader: TrafficReader, report_file: str, force_overwrite: bool = False):
+    def __init__(self, db: DBConnector, traffic_reader: TrafficReader, report_file=None, force_overwrite: bool = False):
         self.traffic_reader = traffic_reader
         self.db: DBConnector = db
         self.report_file = report_file
-        if os.path.exists(report_file):
+        if report_file is not None and os.path.exists(report_file):
             if not force_overwrite:
                 raise FileExistsError(f"File already exists! {report_file}")
             else:
@@ -33,15 +33,17 @@ class Evaluator:
             raise ValueError(f"Classification with id '{classification_id}' does not exist!")
         logging.info(f"Prediction log for classification with id {classification_id} loaded")
         evaluation_dict = dict()
-        for name, _, _, true_labels in self.traffic_reader:
+        for sequence in self.traffic_reader:
+            name = sequence.name
             if filter_traffic_names is not None and name not in filter_traffic_names:
                 logging.debug("Ignore %s", name)
                 continue
-            evaluation_dict[name] = self.evaluate_traffic_sequence(name, pred, true_labels)
+            evaluation_dict[name] = self.evaluate_traffic_sequence(name, pred, true_labels=sequence.labels)
         evaluation_dict["total"] = self.calc_total_metrics(evaluation_dict)
-        self.write_report(json.dumps(
-            evaluation_dict, indent=4, sort_keys=True))
-        logging.info("Report written into %s", self.report_file)
+        if self.report_file is not None:
+            self.write_report(json.dumps(
+                evaluation_dict, indent=4, sort_keys=True))
+        self.store_in_db(evaluation_dict, classification_id)
 
     def evaluate_traffic_sequence(self, name, pred_labels, true_labels):
         logging.info("Start evaluation of %s (%i records)",
@@ -115,8 +117,13 @@ class Evaluator:
         return total
 
     def write_report(self, text: str):
-        file = open(self.report_file, "w")
-        if not text.endswith("\n"):
-            text += "\n"
-        file.write(text)
-        file.close()
+        with open(self.report_file, "w") as f:
+            f.write(text)
+        logging.info("Report written into %s", self.report_file)
+
+    def store_in_db(self, evaluation_dict, classification_id):
+        for sequence_name, metrics in evaluation_dict.items():
+            try:
+                self.db.store_evaluation(classification_id, sequence_name, metrics)
+            except Exception as e:
+                logging.error("Cannot store %s in db: %s", sequence_name, e)

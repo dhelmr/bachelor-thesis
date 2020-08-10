@@ -56,6 +56,31 @@ class DBConnector:
                 PRIMARY KEY (fe_id, traffic_name)
             );
         """)
+        c.execute("""
+            CREATE TABLE evaluations (
+                classification_id TEXT REFERENCES classification_info(classification_id),
+                traffic_name TEXT,
+                accuracy REAL,
+                balanced_accuracy REAL,
+                f1_score REAL,
+                false_negatives INT,
+                false_positives INT,
+                fdr REAL,
+                fnr REAL,
+                for REAL,
+                fpr REAL,
+                negatives INT,
+                positives INT,
+                npv REAL,
+                precision REAL,
+                recall REAL,
+                support INT,
+                tnr REAL,
+                true_negatives INT,
+                true_positives INT,
+                PRIMARY KEY (classification_id, traffic_name)
+            );
+        """)
         self.conn.commit()
 
     def save_model_info(self, model_id: str, decision_engine: str, transformers: t.Sequence[str],
@@ -154,5 +179,17 @@ class DBConnector:
         c = self.conn.cursor()
         c.execute("INSERT INTO extracted_features (fe_id, traffic_name, pickle_features, model_id) VALUES (?,?,?,?);",
                   (fe_id, traffic_name, pickle_dump, model_id))
+        self.conn.commit()
+        c.close()
+
+    def store_evaluation(self, classification_id, traffic_name, metrics):
+        c = self.conn.cursor()
+        c.execute(
+            "INSERT INTO evaluations (classification_id, traffic_name, accuracy, balanced_accuracy, f1_score, false_negatives, false_positives, fdr, fnr, for, fpr, negatives, positives, npv, precision, recall, support, tnr, true_negatives, true_positives) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);",
+            (classification_id, traffic_name, metrics["accuracy"], metrics["balanced_accuracy"], metrics["f1_score"],
+             metrics["false_negatives"], metrics["false_positives"], metrics["fdr"], metrics["fnr"], metrics["for"],
+             metrics["fpr"], metrics["negatives"], metrics["positives"], metrics["npv"], metrics["precision"],
+             metrics["recall"], metrics["support"], metrics["tnr"], metrics["true_negatives"],
+             metrics["true_positives"]))
         self.conn.commit()
         c.close()
