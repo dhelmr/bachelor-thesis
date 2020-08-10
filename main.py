@@ -24,7 +24,7 @@ from anomaly_detection.feature_extractors.testing_extractor import TestingFeatur
 from anomaly_detection.model_trainer import ModelTrainer
 from anomaly_detection.transformers import StandardScalerTransformer, MinxMaxScalerTransformer
 from anomaly_detection.types import DatasetUtils, FeatureExtractor, DecisionEngine
-from dataset_utils.preprocess_ids2017 import CICIDS2017Preprocessor
+from dataset_utils.cic_ids_2017 import CICIDS2017Preprocessor
 
 DATASET_PATH = os.path.join(os.path.dirname(
     __file__), "data/cic-ids-2017/")
