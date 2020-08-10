@@ -13,7 +13,7 @@ class Classifier:
         self.traffic_reader: TrafficReader = traffic_reader
         self.model_id: str = model_id
         self.db: DBConnector = db
-        self.ad: AnomalyDetectorModel = self._load_model(model_id)
+        self.ad: AnomalyDetectorModel = self.db.load_model(model_id)
 
     def start_classification(self, classification_id=CLASSIFICATION_ID_AUTO_GENERATE):
         if classification_id == CLASSIFICATION_ID_AUTO_GENERATE:
@@ -36,14 +36,6 @@ class Classifier:
         db.save_classification_info(
             classification_id=classification_id, model_id=self.model_id)
 
-    def _load_model(self, model_id: str):
-        df = self.db.get_model_info(model_id)
-        if len(df) == 0:
-            raise ValueError(f"Model with id {model_id} cannot be found.")
-        else:
-            pickle_str = df["pickle_dump"][0]
-            model = AnomalyDetectorModel.deserialize(pickle_str)
-            return model
 
     def _generate_new_id(self):
         db = self.db

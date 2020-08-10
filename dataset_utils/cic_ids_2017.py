@@ -130,7 +130,7 @@ class CIC2017TrafficReader(TrafficReader):
         for traffic_sequence in traffic_sequences:
             joined_labels = joined_labels.append(traffic_sequence.labels)
         joined_reader = itertools.chain(*map(lambda seq: seq.packet_reader, traffic_sequences))
-        return TrafficSequence(name=f"normal@{self.subset_name}",
+        return TrafficSequence(name=f"benign@CIC-IDS-2017:{self.subset_name}",
                                labels=joined_labels,
                                packet_reader=joined_reader,
                                ids=joined_ids)
@@ -139,7 +139,7 @@ class CIC2017TrafficReader(TrafficReader):
         full_pcap_path = os.path.join(self.dataset_dir, pcap_file.value)
         labels = self.read_traffic_labels(full_pcap_path)
         ids = self._ranges_of_list(labels.index.values.tolist(), ranges)
-        name = os.path.basename(full_pcap_path)
+        name = f"{pcap_file}@CIC-IDS-2017:{self.subset_name}"
         packet_reader = SubsetPacketReader(full_pcap_path, ranges)
         return TrafficSequence(name=name, packet_reader=packet_reader, labels=labels, ids=ids)
 

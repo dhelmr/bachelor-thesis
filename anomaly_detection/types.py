@@ -66,6 +66,7 @@ class TrafficSequence(NamedTuple):
     packet_reader: PacketReader
     ids: t.List[str]
     labels: pd.Series
+    is_consistent: bool = True
 
 
 class TrafficReader(ABC):
@@ -102,6 +103,9 @@ class FeatureExtractor:
     @abstractmethod
     def get_name(self) -> str:
         raise NotImplementedError()
+
+    def get_id(self) -> str:
+        return str(self.__hash__())
 
     @staticmethod
     @abstractmethod

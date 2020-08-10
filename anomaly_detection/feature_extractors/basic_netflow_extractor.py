@@ -92,6 +92,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         self.flow_timeout = flow_timeout
         self.subflow_timeout = subflow_timeout
 
+
     def fit_extract(self, traffic: TrafficSequence) -> np.ndarray:
         return self.extract_features(traffic)
 
@@ -219,6 +220,11 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
 
     def __str__(self):
         return f"BasicNetflowFeatureExtractor"
+
+    def get_id(self) -> str:
+        return "_".join([
+            self.get_name(), str(self.flow_timeout), self.subflow_timeout.__str__()
+        ])
 
 
 class NetFlowGenerator:

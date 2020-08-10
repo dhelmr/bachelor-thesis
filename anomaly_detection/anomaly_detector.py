@@ -15,9 +15,12 @@ class AnomalyDetectorModel:
         self.decision_engine: DecisionEngine = decision_engine
         self.feature_extractor: FeatureExtractor = feature_extractor
 
-    def build_profile(self, traffic: TrafficSequence):
+    def fit_extract_features(self, traffic: TrafficSequence) -> np.ndarray:
         logging.info("Extract features...")
         features = self.feature_extractor.fit_extract(traffic)
+        return features
+
+    def build_profile(self, features: np.ndarray):
         logging.info("Apply feature transformations...")
         self._fit_transformers(features)
         transformed = self._apply_transformers(features)

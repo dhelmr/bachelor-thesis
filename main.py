@@ -86,6 +86,12 @@ class CLIParser:
         parser_train.add_argument('--feature-extractor', '-f', type=str, dest="feature_extractor",
                                   choices=list(FEATURE_EXTRACTORS.keys()), default=list(FEATURE_EXTRACTORS.keys())[0],
                                   help="Specifies the feature extractor that is used to generate features from the raw network traffic.")
+        parser_train.add_argument("--store-features", dest="store_features", action="store_true",
+                                  help="Stores the extraced features in the database, so that they can be reused later.")
+        parser_train.add_argument("--load-features", dest="load_features", action="store_true",
+                                  help="Loads features from a previous run, instead of executing the feature extractor."
+                                       "This is only possible if the feature extractor ran before with this exact"
+                                       " configuration and the traffic input is consistent.")
 
         parser_train.add_argument(
             "--model-id", "-m",
@@ -208,7 +214,7 @@ class CommandExecutor:
                                                        args=unknown)
         ad = AnomalyDetectorModel(de, feature_extractor, transformers)
         trainer = ModelTrainer(db, reader, anomaly_detector=ad, model_id=args.model_id)
-        trainer.start_training()
+        trainer.start_training(store_features=args.store_features, load_features=args.load_features)
 
     def classify(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)

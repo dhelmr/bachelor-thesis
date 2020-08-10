@@ -1,9 +1,12 @@
 import os.path
+import pickle
 import sqlite3
 import typing as t
 
 import pandas as pd
+from numpy.core.records import ndarray
 
+from anomaly_detection.anomaly_detector import AnomalyDetectorModel
 from anomaly_detection.types import ClassificationResults
 
 
@@ -45,9 +48,12 @@ class DBConnector:
             );
         """)
         c.execute("""
-            CREATE TABLE simulation_info (
-                classification_id TEXT REFERENCES classification_info(classification_id) PRIMARY KEY,
-                dataset_id TEXT
+            CREATE TABLE extracted_features (
+                fe_id TEXT,
+                traffic_name TEXT,
+                pickle_features TEXT,
+                model_id REFERENCES model(model_id),
+                PRIMARY KEY (fe_id, traffic_name)
             );
         """)
         self.conn.commit()
@@ -62,10 +68,15 @@ class DBConnector:
         self.conn.commit()
         c.close()
 
-    def get_model_info(self, model_id: str) -> pd.DataFrame:
+    def load_model(self, model_id: str) -> AnomalyDetectorModel:
         df = pd.read_sql_query("SELECT * FROM model WHERE model_id = ?;",
                                params=(model_id,), con=self.conn, index_col="model_id")
-        return df
+        if len(df) == 0:
+            raise ValueError(f"Model with id {model_id} cannot be found in db.")
+
+        pickle_str = df["pickle_dump"][0]
+        model = AnomalyDetectorModel.deserialize(pickle_str)
+        return model
 
     def save_classification_info(self, classification_id, model_id):
         c = self.conn.cursor()
@@ -115,3 +126,33 @@ class DBConnector:
     def exists_model(self, model_id: str) -> bool:
         df = pd.read_sql_query("SELECT model_id FROM model WHERE model_id = ?;", con=self.conn, params=(model_id,))
         return len(df) > 0
+
+    def exist_features(self, fe_id: str, traffic_name: str):
+        df = pd.read_sql_query("SELECT fe_id FROM extracted_features "
+                               "WHERE fe_id = ? and traffic_name=?;", con=self.conn, params=(fe_id, traffic_name))
+        return len(df) > 0
+
+    def load_features(self, fe_id, traffic_name) -> ndarray:
+        df = pd.read_sql_query("SELECT pickle_features FROM extracted_features "
+                               "WHERE fe_id = ? and traffic_name=?;", con=self.conn, params=(fe_id, traffic_name))
+        if len(df) == 0:
+            raise ValueError("Features for %s and %s do not exist in db!" % (fe_id, traffic_name))
+        obj = pickle.loads(df["pickle_features"][0])
+        if type(obj) is not ndarray:
+            raise ValueError("Stored features in database have wrong type! Found %s" % type(obj))
+        return obj
+
+    def load_model_by_fe_id(self, fe_id, traffic_name):
+        df = pd.read_sql_query("SELECT model_id FROM extracted_features "
+                               "WHERE fe_id = ? and traffic_name=?;", con=self.conn, params=(fe_id, traffic_name))
+        if len(df) == 0:
+            raise ValueError("Features for %s and %s do not exist in db!" % (fe_id, traffic_name))
+        return self.load_model(df["model_id"][0])
+
+    def store_features(self, fe_id, traffic_name, features: ndarray, model_id: str):
+        pickle_dump = pickle.dumps(features)
+        c = self.conn.cursor()
+        c.execute("INSERT INTO extracted_features (fe_id, traffic_name, pickle_features, model_id) VALUES (?,?,?,?);",
+                  (fe_id, traffic_name, pickle_dump, model_id))
+        self.conn.commit()
+        c.close()

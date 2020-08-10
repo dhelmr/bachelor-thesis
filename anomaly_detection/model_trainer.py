@@ -18,14 +18,33 @@ class ModelTrainer:
             self.model_id = self._auto_generate_id()
             logging.info("Use model id %s" % self.model_id)
 
-    def start_training(self):
+    def start_training(self, store_features=False, load_features=False):
         if self.db.exists_model(self.model_id):
             raise ValueError("Model with id '%s' already exists!" % self.model_id)
         traffic = self.traffic_reader.read_normal_data()
         name = traffic[0]
         logging.info(
             "Start training of normal profile (%s)", name)
-        self.ad.build_profile(traffic)
+        fe_id = self.ad.feature_extractor.get_id()
+        features_loaded = False
+        if load_features and traffic.is_consistent and self.db.exist_features(fe_id, traffic.name):
+            logging.info("Load features from database...")
+            features = self.db.load_features(fe_id, traffic.name)
+            previous_model = self.db.load_model_by_fe_id(fe_id, traffic.name)
+            self.ad.feature_extractor = previous_model.feature_extractor
+            features_loaded = True
+        elif load_features:
+            logging.info("Cannot load features from db... Start feature extraction...")
+        if not features_loaded:
+            features = self.ad.fit_extract_features(traffic)
+
+        if store_features and not features_loaded:
+            logging.info("Store extracted features in database...")
+            try:
+                self.db.store_features(fe_id, traffic.name, features, self.model_id)
+            except Exception as e:
+                logging.error("Cannot store features in database: ", e)
+        self.ad.build_profile(features)
         logging.info("Training with normal profile done")
         self._save_model()
 

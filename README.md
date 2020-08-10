@@ -61,6 +61,7 @@ For help of the subcommands just type `--help`, for example:
 usage: main.py train [-h] [--db DB] [--debug]
                      [--transformers {minmax_scaler,standard_scaler} [{minmax_scaler,standard_scaler} ...]]
                      [--feature-extractor {basic_netflow,basic_packet_info,doc2vec_packet,doc2vec_flows,test}]
+                     [--store-features] [--load-features]
                      [--model-id MODEL_ID]
                      [--decision-engine {one_class_svm,local_outlier_factor}]
                      [--dataset {cic-ids-2017,test}] [--src DATASET_PATH]
@@ -79,6 +80,13 @@ optional arguments:
                         Specifies the feature extractor that is used to
                         generate features from the raw network traffic.
                         (default: basic_netflow)
+  --store-features      Stores the extraced features in the database, so that
+                        they can be reused later. (default: False)
+  --load-features       Loads features from a previous run, instead of
+                        executing the feature extractor.This is only possible
+                        if the feature extractor ran before with this exact
+                        configuration and the traffic input is consistent.
+                        (default: False)
   --model-id MODEL_ID, -m MODEL_ID
                         ID of the model. If auto is used, the model ID will be
                         auto-generated. (default: auto)
