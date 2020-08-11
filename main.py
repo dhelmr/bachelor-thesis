@@ -247,7 +247,7 @@ class CommandExecutor:
         self._print_dataframe(info)
 
     def hypertune(self, args: argparse.Namespace, unknown: t.Sequence[str]):
-        db = DBConnector(db_path=args.db, init_if_not_exists=False)
+        db = DBConnector(db_path=args.db, init_if_not_exists=True)
         reader = self._get_dataset_reader(args)
         hypertuner = Hypertuner(db, reader)
         hypertuner.start(args.file)
