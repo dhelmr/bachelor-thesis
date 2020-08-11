@@ -2,55 +2,20 @@
 
 import argparse
 import logging
-import os
 import typing as t
 
 import pandas
 
-import anomaly_detection.local_outlier_factor as local_outlier_factor
-import anomaly_detection.one_class_svm as one_class_svm
-import dataset_utils.cic_ids_2017 as cic2017
+import resource_loaders
 from anomaly_detection import model_trainer
 from anomaly_detection.anomaly_detector import AnomalyDetectorModel
 from anomaly_detection.classifier import Classifier, CLASSIFICATION_ID_AUTO_GENERATE
 from anomaly_detection.db import DBConnector
 from anomaly_detection.evaluator import Evaluator
-from anomaly_detection.feature_extractors.basic_netflow_extractor import BasicNetflowFeatureExtractor
-from anomaly_detection.feature_extractors.basic_packet_feature_extractor import BasicPacketFeatureExtractor
-from anomaly_detection.feature_extractors.doc2vec_packets import PacketDoc2Vec
-from anomaly_detection.feature_extractors.netflow_doc2vec import NetflowDoc2Vec
-from anomaly_detection.feature_extractors.testing_extractor import TestingFeatureExtractor, DummyPreprocessor, \
-    DummyTrafficGenerator
+from anomaly_detection.hypertuner import Hypertuner
 from anomaly_detection.model_trainer import ModelTrainer
-from anomaly_detection.transformers import StandardScalerTransformer, MinxMaxScalerTransformer
-from anomaly_detection.types import DatasetUtils, FeatureExtractor, DecisionEngine
-from dataset_utils.cic_ids_2017 import CICIDS2017Preprocessor
-
-DATASET_PATH = os.path.join(os.path.dirname(
-    __file__), "data/cic-ids-2017/")
-
-DECISION_ENGINES = {
-    "one_class_svm": (one_class_svm.OneClassSVMDE, one_class_svm.create_parser),
-    "local_outlier_factor": (local_outlier_factor.LocalOutlierFactorDE, local_outlier_factor.create_parser)
-}
-
-TRANSFORMERS = {
-    "minmax_scaler": MinxMaxScalerTransformer,
-    "standard_scaler": StandardScalerTransformer
-}
-
-FEATURE_EXTRACTORS = {
-    "basic_netflow": BasicNetflowFeatureExtractor,
-    "basic_packet_info": BasicPacketFeatureExtractor,
-    "doc2vec_packet": PacketDoc2Vec,
-    "doc2vec_flows": NetflowDoc2Vec,
-    "test": TestingFeatureExtractor
-}
-
-DATASET_UTILS = {
-    "cic-ids-2017": DatasetUtils(cic2017.CIC2017TrafficReader, CICIDS2017Preprocessor),
-    "test": DatasetUtils(DummyTrafficGenerator, DummyPreprocessor)
-}
+from anomaly_detection.types import DatasetUtils, ParsingException
+from resource_loaders import DATASET_PATH, DECISION_ENGINES, TRANSFORMERS, FEATURE_EXTRACTORS, DATASET_UTILS
 
 
 def main():
@@ -158,6 +123,14 @@ class CLIParser:
 
         parser_list_models = self._create_subparser("list-models", help="List available models.")
 
+        hypertune = self._create_subparser(
+            "hypertune", help="Hypertunes parameters of decision engine and feature extractor by running "
+                              "the train->classify->evaluate pipeline multiple times. "
+        )
+        self._add_dataset_path_param(hypertune)
+        hypertune.add_argument("-f", "--file", type=str, required=True,
+                               help="Json file that specified which parameters are hypertuned.")
+
     def _create_subparser(self, name: str, help: str):
         sp = self.subparsers.add_parser(
             name, help=help, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -208,10 +181,11 @@ class CommandExecutor:
     def train(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         reader = self._get_dataset_reader(args)
         db = DBConnector(db_path=args.db)
-        transformers = self._build_transformers(args.transformers)
-        feature_extractor, de = self._create_fe_and_de(de_name=args.decision_engine,
-                                                       fe_name=args.feature_extractor,
-                                                       args=unknown)
+        transformers = resource_loaders.build_transformers(args.transformers)
+        feature_extractor, de, unknown, subparsers = resource_loaders.create_fe_and_de(de_name=args.decision_engine,
+                                                                                       fe_name=args.feature_extractor,
+                                                                                       args=unknown)
+        self._check_unknown_args(unknown, expected_len=0, subparsers=subparsers)
         ad = AnomalyDetectorModel(de, feature_extractor, transformers)
         trainer = ModelTrainer(db, reader, anomaly_detector=ad, model_id=args.model_id)
         trainer.start_training(store_features=args.store_features, load_features=args.load_features)
@@ -220,8 +194,8 @@ class CommandExecutor:
         self._check_unknown_args(unknown, expected_len=0)
         reader = self._get_dataset_reader(args)
         db = DBConnector(db_path=args.db)
-        simulator = Classifier(db, reader, model_id=args.model_id)
-        simulator.start_classification(args.id)
+        classifier = Classifier(db, reader, model_id=args.model_id)
+        classifier.start_classification(args.id)
 
     def evaluate(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)
@@ -272,6 +246,12 @@ class CommandExecutor:
         info.drop(columns=["pickle_dump", "decision_engine", "feature_extractor"], inplace=True)
         self._print_dataframe(info)
 
+    def hypertune(self, args: argparse.Namespace, unknown: t.Sequence[str]):
+        db = DBConnector(db_path=args.db, init_if_not_exists=False)
+        reader = self._get_dataset_reader(args)
+        hypertuner = Hypertuner(db, reader)
+        hypertuner.start(args.file)
+
     def _format_model_dump(self, dump: str) -> str:
         try:
             model = AnomalyDetectorModel.deserialize(dump)
@@ -290,36 +270,6 @@ class CommandExecutor:
 
     def _get_dataset_reader(self, args: argparse.Namespace):
         return self._get_dataset_utils(args.dataset).traffic_reader(args.dataset_path, args.dataset_subset)
-
-    def _create_fe_and_de(self, fe_name: str,
-                          de_name: str, args: t.Sequence[str]) -> t.Tuple[FeatureExtractor, DecisionEngine]:
-        if fe_name not in FEATURE_EXTRACTORS:
-            raise ParsingException(
-                f"{fe_name} is not a valid feature extractor. Please specify one of: {FEATURE_EXTRACTORS.keys()}")
-        feature_extractor_class = FEATURE_EXTRACTORS[fe_name]
-        fe_parser = argparse.ArgumentParser(prog=f"Feature Extractor ({fe_name})")
-        feature_extractor_class.init_parser(fe_parser)
-        parsed, unknown = fe_parser.parse_known_args(args)
-        feature_extractor = feature_extractor_class.init_by_parsed(parsed)
-
-        if de_name not in DECISION_ENGINES:
-            raise ParsingException(
-                f"{de_name} is not a valid decision engine. Please specify one of: {DECISION_ENGINES.keys()}")
-        de_class, de_create_parser = DECISION_ENGINES[de_name]
-        de_parser = de_create_parser(prog_name=f"Decision Engine ({de_name})")
-        parsed, unknown = de_parser.parse_known_args(unknown)
-        self._check_unknown_args(unknown, expected_len=0, subparsers=[fe_parser, de_parser])
-        decision_engine_instance = de_class(parsed)
-        return feature_extractor, decision_engine_instance
-
-    def _build_transformers(self, names: t.Sequence[str]):
-        transformers = list()
-        for name in names:
-            if name not in TRANSFORMERS:
-                raise ParsingException(
-                    f"{name} is not a valid transformer. Please specify one of: {TRANSFORMERS.keys()}")
-            transformers.append(TRANSFORMERS[name]())
-        return transformers
 
     def _get_dataset_utils(self, dataset_name: str) -> DatasetUtils:
         if dataset_name not in DATASET_UTILS:
@@ -358,10 +308,6 @@ class CommandExecutor:
                 subparser_name=parsed_args.command)
             subparser.print_usage()
             print("\n", str(e))
-
-
-class ParsingException(Exception):
-    pass
 
 
 if __name__ == "__main__":

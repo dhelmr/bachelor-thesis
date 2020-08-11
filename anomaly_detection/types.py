@@ -135,3 +135,7 @@ class DatasetPreprocessor:
 class DatasetUtils(NamedTuple):
     traffic_reader: t.Callable[[str, str], TrafficReader]
     preprocessor: t.Callable[[], DatasetPreprocessor]
+
+
+class ParsingException(Exception):
+    pass

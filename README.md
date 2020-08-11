@@ -29,11 +29,11 @@ There are various subcommands:
 ❯ ./main.py --help
 
 usage: main.py [-h]
-               {train,classify,evaluate,list-de,list-classifications,list-fe,preprocess,list-models}
+               {train,classify,evaluate,list-de,list-classifications,list-fe,preprocess,list-models,hypertune}
                ...
 
 positional arguments:
-  {train,classify,evaluate,list-de,list-classifications,list-fe,preprocess,list-models}
+  {train,classify,evaluate,list-de,list-classifications,list-fe,preprocess,list-models,hypertune}
     train               Creates a classification model from analyzing normal
                         traffic and stores it in the database.
     classify            Feed traffic from a dataset and detect anomalies.
@@ -47,6 +47,9 @@ positional arguments:
     preprocess          Preprocesses a dataset so that it can be used for
                         evaluation afterwards.
     list-models         List available models.
+    hypertune           Hypertunes parameters of decision engine and feature
+                        extractor by running the train->classify->evaluate
+                        pipeline multiple times.
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -96,7 +99,8 @@ optional arguments:
   --dataset {cic-ids-2017,test}, -d {cic-ids-2017,test}
                         The name of the dataset. Choose one of: ['cic-
                         ids-2017', 'test'] (default: cic-ids-2017)
-  --src DATASET_PATH    Path of the dataset (default: ./data/cic-ids-2017/)
+  --src DATASET_PATH    Path of the dataset (default:
+                        /mnt/data/ba/code/data/cic-ids-2017/)
   --subset DATASET_SUBSET
                         Predefined subset of the dataset (default: default)
 

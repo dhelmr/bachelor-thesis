@@ -26,6 +26,7 @@ class Classifier:
                 classification_id,
                 traffic=traffic)
             self.db.save_classifications(classification_results)
+        return classification_id
 
     def _init_db_for_classification(self, classification_id):
         db = self.db
