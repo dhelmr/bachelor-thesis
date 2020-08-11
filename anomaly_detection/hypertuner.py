@@ -30,7 +30,6 @@ class Hypertuner:
 
     def start(self, path: str):
         settings = self._load_file(path)
-        print(settings)
         transformers = settings["transformers"]
         fe_name = settings["feature_extractor"]["name"]
         de_name = settings["decision_engine"]["name"]
