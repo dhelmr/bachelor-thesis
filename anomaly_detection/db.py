@@ -10,11 +10,11 @@ from numpy.core.records import ndarray
 from anomaly_detection.anomaly_detector import AnomalyDetectorModel
 from anomaly_detection.types import ClassificationResults
 
+db_locked = False
 
 class DBConnector:
     def __init__(self, db_path: str, init_if_not_exists: bool = True):
         self.db_path = db_path
-        self.locked = False
         must_init = False
         if not os.path.exists(db_path):
             if init_if_not_exists:
@@ -27,18 +27,20 @@ class DBConnector:
 
     @contextmanager
     def get_conn(self):
-        while self.locked:
+        global db_locked  # The usage of a global variable seems to be
+        # necessary here for working with multiple processes
+        while db_locked:
             pass
-        self.locked = True
+        db_locked = True
         try:
             if self._conn is None:
                 self._conn = sqlite3.connect(self.db_path)
             yield self._conn
         except:
-            self.locked = False
+            db_locked = False
             raise
         else:
-            self.locked = False
+            db_locked = False
 
     @contextmanager
     def get_cursor(self):
