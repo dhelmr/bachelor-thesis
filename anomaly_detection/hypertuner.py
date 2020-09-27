@@ -45,6 +45,8 @@ class Hypertuner:
         with ProcessPoolExecutor(self.max_workers) as executor:
             last_future = None
             for args in itertools.product(*param_lists):
+                # flatten the parameters to a cli-like list
+                # e.g.: [("kernel": "poly"), ("c":1)] => ["kernel","poly","c","1"]
                 flat_args = []
                 for arg in args:
                     flat_args += [arg[0], str(arg[1])]
