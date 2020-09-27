@@ -40,13 +40,16 @@ class ModelTrainer:
         self.ad.build_profile(features)
 
         logging.info("Training with normal profile done.")
-        self._save_model()
+        try:
+            self._save_model()
+        except Exception as e:
+            logging.error("Could not store model in database: %s ", e)
         if store_features and not features_loaded:
             logging.info("Store extracted features in database...")
             try:
                 self.db.store_features(fe_id, traffic.name, features, self.model_id)
             except Exception as e:
-                logging.error("Cannot store features in database: ", e)
+                logging.error("Cannot store features in database: %s", e)
 
     def _save_model(self):
         pickle_dump = self.ad.serialize()
