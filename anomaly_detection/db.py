@@ -11,9 +11,13 @@ from anomaly_detection.anomaly_detector import AnomalyDetectorModel
 from anomaly_detection.types import ClassificationResults
 
 db_locked = False
+_conn = None
 
 class DBConnector:
     def __init__(self, db_path: str, init_if_not_exists: bool = True):
+        global _conn
+        if conn is not None:
+            raise RuntimeError("Only one database connector is allowed. Abort.")
         self.db_path = db_path
         must_init = False
         if not os.path.exists(db_path):
@@ -21,21 +25,21 @@ class DBConnector:
                 must_init = True
             else:
                 raise ValueError(f"Database path '{db_path}' does not exist.")
-        self._conn = None
         if must_init and init_if_not_exists:
             self.init_db()
 
     @contextmanager
     def get_conn(self):
+        global _conn
         global db_locked  # The usage of a global variable seems to be
         # necessary here for working with multiple processes
         while db_locked:
             pass
         db_locked = True
         try:
-            if self._conn is None:
-                self._conn = sqlite3.connect(self.db_path)
-            yield self._conn
+            if _conn is None:
+                _conn = sqlite3.connect(self.db_path)
+            yield _conn
         except:
             db_locked = False
             raise
