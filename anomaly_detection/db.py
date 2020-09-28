@@ -16,7 +16,7 @@ _conn = None
 class DBConnector:
     def __init__(self, db_path: str, init_if_not_exists: bool = True):
         global _conn
-        if conn is not None:
+        if _conn is not None:
             raise RuntimeError("Only one database connector is allowed. Abort.")
         self.db_path = db_path
         must_init = False
