@@ -2,7 +2,8 @@ import argparse
 import os
 import typing as t
 
-from anomaly_detection import one_class_svm as one_class_svm, local_outlier_factor as local_outlier_factor
+from anomaly_detection.decision_engines import local_outlier_factor as local_outlier_factor, \
+    one_class_svm as one_class_svm
 from anomaly_detection.feature_extractors.basic_netflow_extractor import BasicNetflowFeatureExtractor
 from anomaly_detection.feature_extractors.basic_packet_feature_extractor import BasicPacketFeatureExtractor
 from anomaly_detection.feature_extractors.doc2vec_packets import PacketDoc2Vec
