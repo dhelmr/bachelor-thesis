@@ -3,6 +3,7 @@ import pickle
 import sqlite3
 import typing as t
 from contextlib import contextmanager
+from multiprocessing import Lock
 
 import pandas as pd
 from numpy.core.records import ndarray
@@ -10,14 +11,14 @@ from numpy.core.records import ndarray
 from anomaly_detection.anomaly_detector import AnomalyDetectorModel
 from anomaly_detection.types import ClassificationResults
 
-db_locked = False
-_conn = None
+lock = Lock()
 
 class DBConnector:
     def __init__(self, db_path: str, init_if_not_exists: bool = True):
-        global _conn
-        if _conn is not None:
-            raise RuntimeError("Only one database connector is allowed. Abort.")
+        # global _conn
+        # if _conn is not None:
+        #    raise RuntimeError("Only one database connector is allowed. Abort.")
+        self._conn = None
         self.db_path = db_path
         must_init = False
         if not os.path.exists(db_path):
@@ -28,23 +29,19 @@ class DBConnector:
         if must_init and init_if_not_exists:
             self.init_db()
 
+
     @contextmanager
     def get_conn(self):
-        global _conn
-        global db_locked  # The usage of a global variable seems to be
-        # necessary here for working with multiple processes
-        while db_locked:
-            pass
-        db_locked = True
+        lock.acquire()
         try:
-            if _conn is None:
-                _conn = sqlite3.connect(self.db_path)
-            yield _conn
+            if self._conn is None:
+                self._conn = sqlite3.connect(self.db_path, timeout=99999999)
+            yield self._conn
         except:
-            db_locked = False
+            lock.release()
             raise
         else:
-            db_locked = False
+            lock.release()
 
     @contextmanager
     def get_cursor(self):
@@ -233,3 +230,4 @@ class DBConnector:
                     metrics["fpr"], metrics["negatives"], metrics["positives"], metrics["npv"], metrics["precision"],
                     metrics["recall"], metrics["support"], metrics["tnr"], metrics["true_negatives"],
                     metrics["true_positives"]))
+

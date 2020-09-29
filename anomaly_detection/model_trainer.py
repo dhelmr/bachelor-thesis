@@ -1,4 +1,6 @@
+import datetime
 import logging
+from typing import Optional
 
 from anomaly_detection.anomaly_detector import AnomalyDetectorModel
 from anomaly_detection.db import DBConnector
@@ -13,7 +15,7 @@ class ModelTrainer:
         self.traffic_reader: TrafficReader = traffic_reader
         self.db: DBConnector = db
         self.ad: AnomalyDetectorModel = anomaly_detector
-        self.model_id: str = model_id
+        self.model_id: Optional[str] = None
 
     def start_training(self, store_features=False, load_features=False):
         if self.db.exists_model(self.model_id):
@@ -67,7 +69,8 @@ class ModelTrainer:
         base_name = "%s-%s" % (self.ad.feature_extractor.get_name(), self.ad.decision_engine.get_name())
         i = 0
         while True:
-            new_id = f"{base_name}-{i:01d}"
-            i += 1
+            random_part = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
+            new_id = f"{base_name}-{random_part}"
             if not self.db.exists_model(new_id):
                 return new_id
+            i += 1
