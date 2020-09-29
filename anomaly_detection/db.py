@@ -12,13 +12,10 @@ from anomaly_detection.anomaly_detector import AnomalyDetectorModel
 from anomaly_detection.types import ClassificationResults
 
 lock = Lock()
+conn = None
 
 class DBConnector:
     def __init__(self, db_path: str, init_if_not_exists: bool = True):
-        # global _conn
-        # if _conn is not None:
-        #    raise RuntimeError("Only one database connector is allowed. Abort.")
-        self._conn = None
         self.db_path = db_path
         must_init = False
         if not os.path.exists(db_path):
@@ -32,11 +29,14 @@ class DBConnector:
 
     @contextmanager
     def get_conn(self):
+        global conn
         lock.acquire()
         try:
-            if self._conn is None:
-                self._conn = sqlite3.connect(self.db_path, timeout=99999999)
-            yield self._conn
+            # TODO this could cause unexpected behaviour with different databases; but
+            # currently only one database is used at the same time
+            if conn is None:
+                conn = sqlite3.connect(self.db_path, timeout=99999999)
+            yield conn
         except:
             lock.release()
             raise
