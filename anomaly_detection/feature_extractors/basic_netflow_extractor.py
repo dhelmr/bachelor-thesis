@@ -215,7 +215,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                             help="Flow timeout in milliseconds")
         parser.add_argument("--subflow-timeout", type=float, dest="subflow_timeout", default=500,
                             help="Activity timeout (for subflows) in milliseconds")
-        parser.add_argument("--verbose", action="store_true", type=bool, default=False)
+        parser.add_argument("--verbose", action="store_true", default=False)
 
     @staticmethod
     def init_by_parsed(args: argparse.Namespace):
