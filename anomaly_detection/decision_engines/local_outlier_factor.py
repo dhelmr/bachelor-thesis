@@ -18,7 +18,7 @@ def create_parser(prog_name: str):
 
 
 class LocalOutlierFactorDE(DecisionEngine):
-    def __init__(self, args):
+    def __init__(self, parsed_args):
         self.lof = LocalOutlierFactor(novelty=True)
         logging.debug("Initialized LOF %s", self.lof)
         self._set_normal_traffic_type(TrafficType.BENIGN)

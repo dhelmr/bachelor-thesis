@@ -49,11 +49,21 @@ class AnomalyDetectorModel:
         return transformed
 
     def serialize(self):
-        return pickle.dumps(self)
+        serialization_info = {
+            "transformers": self.transformers,
+            "decision_engine_class": self.decision_engine.__class__,
+            "decision_engine_data": self.decision_engine.serialize(),
+            "feature_extractor": self.feature_extractor
+        }
+        return pickle.dumps(serialization_info)
 
     @staticmethod
     def deserialize(s) -> "AnomalyDetectorModel":
-        obj = pickle.loads(s)
-        if type(obj) is not AnomalyDetectorModel:
-            raise ValueError("Invalid type of deserialized object (must be AnomalyDetector)! %s" % str(type(obj)))
-        return obj
+        serialization_info = pickle.loads(s)
+        de_class = serialization_info["decision_engine_class"]
+        de_instance = de_class.deserialize(serialization_info["decision_engine_data"])
+        return AnomalyDetectorModel(
+            transformers=serialization_info["transformers"],
+            feature_extractor=serialization_info["feature_extractor"],
+            decision_engine=de_instance
+        )

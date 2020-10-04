@@ -1,4 +1,5 @@
 import argparse
+import pickle
 import typing as t
 from abc import ABC, abstractmethod, ABCMeta
 from enum import Enum
@@ -37,9 +38,13 @@ class DecisionEngine(ABC):
     def get_name(self) -> str:
         raise NotImplementedError()
 
-    @abstractmethod
     def serialize(self) -> str:
-        raise NotImplementedError()
+        return pickle.dumps(self)
+
+    @staticmethod
+    def deserialize(serialized):
+        return pickle.loads(serialized)
+
 
 class Transformer(ABC):
     __metaclass__ = ABCMeta

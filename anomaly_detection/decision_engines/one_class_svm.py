@@ -40,9 +40,11 @@ def create_parser(prog_name):
 
 
 class OneClassSVMDE(DecisionEngine):
-    def __init__(self, args: argparse.Namespace):
-        self.svm = OneClassSVM(cache_size=args.cache_size, coef0=args.coef0, kernel=args.kernel, gamma=args.gamma,
-                               max_iter=args.max_iter, nu=args.nu, shrinking=args.shrinking, tol=args.tolerance,
+    def __init__(self, parsed_args: argparse.Namespace):
+        self.svm = OneClassSVM(cache_size=parsed_args.cache_size, coef0=parsed_args.coef0, kernel=parsed_args.kernel,
+                               gamma=parsed_args.gamma,
+                               max_iter=parsed_args.max_iter, nu=parsed_args.nu, shrinking=parsed_args.shrinking,
+                               tol=parsed_args.tolerance,
                                verbose=True)
         logging.debug("Initialized OneClassSVM %s", self.svm)
         self._set_normal_traffic_type(TrafficType.BENIGN)

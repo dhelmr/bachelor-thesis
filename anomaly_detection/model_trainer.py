@@ -15,7 +15,7 @@ class ModelTrainer:
         self.traffic_reader: TrafficReader = traffic_reader
         self.db: DBConnector = db
         self.ad: AnomalyDetectorModel = anomaly_detector
-        self.model_id: Optional[str] = None
+        self.model_id: Optional[str] = model_id
 
     def start_training(self, store_features=False, load_features=False):
         if self.db.exists_model(self.model_id):

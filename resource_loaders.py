@@ -3,7 +3,8 @@ import os
 import typing as t
 
 from anomaly_detection.decision_engines import local_outlier_factor as local_outlier_factor, \
-    one_class_svm as one_class_svm
+    one_class_svm as one_class_svm, autoencoder
+from anomaly_detection.decision_engines.autoencoder import AutoencoderDE
 from anomaly_detection.feature_extractors.basic_netflow_extractor import BasicNetflowFeatureExtractor
 from anomaly_detection.feature_extractors.basic_packet_feature_extractor import BasicPacketFeatureExtractor
 from anomaly_detection.feature_extractors.doc2vec_packets import PacketDoc2Vec
@@ -35,7 +36,7 @@ def create_fe_and_de(fe_name: str,
     de_class, de_create_parser = DECISION_ENGINES[de_name]
     de_parser = de_create_parser(prog_name=f"Decision Engine ({de_name})")
     parsed, unknown = de_parser.parse_known_args(unknown)
-    decision_engine_instance = de_class(parsed)
+    decision_engine_instance = de_class(parsed_args=parsed)
     return feature_extractor, decision_engine_instance, unknown, [fe_parser, de_parser]
 
 
@@ -53,7 +54,8 @@ DATASET_PATH = os.path.join(os.path.dirname(
     __file__), "data/cic-ids-2017/")
 DECISION_ENGINES = {
     "one_class_svm": (one_class_svm.OneClassSVMDE, one_class_svm.create_parser),
-    "local_outlier_factor": (local_outlier_factor.LocalOutlierFactorDE, local_outlier_factor.create_parser)
+    "local_outlier_factor": (local_outlier_factor.LocalOutlierFactorDE, local_outlier_factor.create_parser),
+    "autoencoder": (AutoencoderDE, autoencoder.create_parser)
 }
 TRANSFORMERS = {
     "minmax_scaler": MinxMaxScalerTransformer,

@@ -16,12 +16,13 @@ class Classifier:
         self.ad: AnomalyDetectorModel = self.db.load_model(model_id)
 
     def start_classification(self, classification_id=CLASSIFICATION_ID_AUTO_GENERATE):
-        if classification_id == CLASSIFICATION_ID_AUTO_GENERATE:
-            classification_id = self._generate_new_id()
+
         self._init_db_for_classification(classification_id)
         for traffic in self.traffic_reader:
             name = traffic[0]
             logging.info("Detect anomalies in %s.", name)
+            if classification_id == CLASSIFICATION_ID_AUTO_GENERATE:
+                classification_id = self._generate_new_id()
             classification_results = self.ad.feed_traffic(
                 classification_id,
                 traffic=traffic)
