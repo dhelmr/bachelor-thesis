@@ -66,7 +66,7 @@ usage: main.py train [-h] [--db DB] [--debug]
                      [--feature-extractor {basic_netflow,basic_packet_info,doc2vec_packet,doc2vec_flows,test}]
                      [--store-features] [--load-features]
                      [--model-id MODEL_ID]
-                     [--decision-engine {one_class_svm,local_outlier_factor,autoencoder}]
+                     [--decision-engine {one_class_svm,local_outlier_factor}]
                      [--dataset {cic-ids-2017,test}] [--src DATASET_PATH]
                      [--subset DATASET_SUBSET]
 
@@ -93,7 +93,7 @@ optional arguments:
   --model-id MODEL_ID, -m MODEL_ID
                         ID of the model. If auto is used, the model ID will be
                         auto-generated. (default: auto)
-  --decision-engine {one_class_svm,local_outlier_factor,autoencoder}
+  --decision-engine {one_class_svm,local_outlier_factor}
                         Choose which algorithm will be used for classifying
                         anomalies. (default: one_class_svm)
   --dataset {cic-ids-2017,test}, -d {cic-ids-2017,test}
@@ -115,7 +115,6 @@ The decision engine implements the algorithm to detect the anomalies. You can li
 
 one_class_svm
 local_outlier_factor
-autoencoder
 
 ```
 

@@ -86,11 +86,12 @@ def packet_length_stats(packets: t.List[Packet]) -> PacketLengthStats:
 
 class BasicNetflowFeatureExtractor(FeatureExtractor):
 
-    def __init__(self, flow_timeout: int = 12_000, subflow_timeout: int = 500):
+    def __init__(self, flow_timeout: int = 12_000, subflow_timeout: int = 500, verbose: bool = True):
         # Stores the mapping "packet index -> flow index" for each traffic sequence name
         self.packets_to_flows: t.Dict[str, t.List[int]] = dict()
         self.flow_timeout = flow_timeout
         self.subflow_timeout = subflow_timeout
+        self.verbose = verbose
 
 
     def fit_extract(self, traffic: TrafficSequence) -> np.ndarray:
@@ -104,7 +105,8 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
     def _make_flows(self, traffic: TrafficSequence) -> t.List[NetFlow]:
         netflow_gen = NetFlowGenerator(timeout=self.flow_timeout)
         mapping = []
-        for packet in tqdm(traffic.packet_reader, total=len(traffic.ids), desc="Make netflows"):
+        for packet in tqdm(traffic.packet_reader, total=len(traffic.ids), desc="Make netflows",
+                           disable=(not self.verbose)):
             flow_index = netflow_gen.feed_packet(packet)
             mapping.append(flow_index)
         netflow_gen.close_all()
@@ -126,7 +128,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
 
     def _extract_flow_features(self, flows: t.List[NetFlow]) -> np.ndarray:
         features = []
-        for f in tqdm(flows, desc="Extract statistical flow features"):
+        for f in tqdm(flows, desc="Extract statistical flow features", disable=(not self.verbose)):
             duration = f.duration()
             forward_packets = f.get_packets_in_direction(FlowDirection.FORWARDS)
             backward_packets = f.get_packets_in_direction(FlowDirection.BACKWARDS)
@@ -213,10 +215,15 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                             help="Flow timeout in milliseconds")
         parser.add_argument("--subflow-timeout", type=float, dest="subflow_timeout", default=500,
                             help="Activity timeout (for subflows) in milliseconds")
+        parser.add_argument("--verbose", action="store_true", type=bool, default=False)
 
     @staticmethod
     def init_by_parsed(args: argparse.Namespace):
-        return BasicNetflowFeatureExtractor(flow_timeout=args.flow_timeout, subflow_timeout=args.subflow_timeout)
+        return BasicNetflowFeatureExtractor(
+            flow_timeout=args.flow_timeout,
+            subflow_timeout=args.subflow_timeout,
+            verbose=args.verbose
+        )
 
     def __str__(self):
         return f"BasicNetflowFeatureExtractor"
