@@ -13,8 +13,9 @@ from anomaly_detection.types import DecisionEngine, TrafficType
 
 class AutoencoderDE(DecisionEngine):
     def __init__(self, **kwargs):
-        self.training_epochs = 50
-        self.training_batch = 256
+        self.training_epochs = kwargs["training_epochs"]
+        self.training_batch = kwargs["training_batch"]
+        self.verbose = kwargs["verbose"]
         self.threshold = None
         self.autoencoder = None
         if "threshold" in kwargs:
@@ -38,7 +39,7 @@ class AutoencoderDE(DecisionEngine):
         self.autoencoder.fit(traffic_data, traffic_data,
                              epochs=self.training_epochs,
                              batch_size=self.training_batch,
-                             shuffle=True)
+                             shuffle=True, verbose=self._get_keras_verbose())
         # Get train MAE loss.
         pred = self.autoencoder.predict(traffic_data)
         train_mae_loss = np.mean(np.abs(pred - traffic_data), axis=1)
@@ -54,6 +55,12 @@ class AutoencoderDE(DecisionEngine):
                            else TrafficType.BENIGN
                            for loss in test_mae_loss]
         return classifications
+
+    def _get_keras_verbose(self):
+        if self.verbose:
+            return 1
+        else:
+            return 0
 
     def get_name(self) -> str:
         return "autoencoder"  # TODO incorporate params
@@ -79,4 +86,7 @@ def create_parser(prog_name):
     parser = argparse.ArgumentParser(
         prog=prog_name,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("--training_epochs", type=int, default=50)
+    parser.add_argument("--training_batch", type=int, default=256)
+    parser.add_argument("--verbose", action="store_true", default=False)
     return parser
