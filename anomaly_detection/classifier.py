@@ -1,4 +1,5 @@
 import logging
+import uuid
 
 from anomaly_detection.anomaly_detector import AnomalyDetectorModel
 from anomaly_detection.db import DBConnector
@@ -16,13 +17,12 @@ class Classifier:
         self.ad: AnomalyDetectorModel = self.db.load_model(model_id)
 
     def start_classification(self, classification_id=CLASSIFICATION_ID_AUTO_GENERATE):
-
+        if classification_id == CLASSIFICATION_ID_AUTO_GENERATE:
+            classification_id = self._generate_new_id()
         self._init_db_for_classification(classification_id)
         for traffic in self.traffic_reader:
             name = traffic[0]
             logging.info("Detect anomalies in %s.", name)
-            if classification_id == CLASSIFICATION_ID_AUTO_GENERATE:
-                classification_id = self._generate_new_id()
             classification_results = self.ad.feed_traffic(
                 classification_id,
                 traffic=traffic)
@@ -38,15 +38,10 @@ class Classifier:
         db.save_classification_info(
             classification_id=classification_id, model_id=self.model_id)
 
-
     def _generate_new_id(self):
-        db = self.db
-        known_ids = set(db.get_all_classifications(with_count=False).index.values.tolist())
+        known_ids = set(self.db.get_all_classifications(with_count=False).index.values.tolist())
         base_name = self.model_id
-        i = 0
         while True:
-            new_id = f"{base_name}-{i:01d}"
-            i += 1
+            new_id = f"{base_name}/{uuid.uuid4().__str__()[:4]}"
             if new_id not in known_ids:
-                break
-        return new_id
+                return new_id

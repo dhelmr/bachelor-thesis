@@ -12,7 +12,6 @@ from anomaly_detection.anomaly_detector import AnomalyDetectorModel
 from anomaly_detection.types import ClassificationResults
 
 lock = Lock()
-conn = None
 
 class DBConnector:
     def __init__(self, db_path: str, init_if_not_exists: bool = True):
@@ -29,18 +28,19 @@ class DBConnector:
 
     @contextmanager
     def get_conn(self):
-        global conn
+        global lock
         lock.acquire()
         try:
             # TODO this could cause unexpected behaviour with different databases; but
             # currently only one database is used at the same time
-            if conn is None:
-                conn = sqlite3.connect(self.db_path, timeout=99999999)
+            conn = sqlite3.connect(self.db_path, timeout=999)
             yield conn
         except:
+            conn.close()
             lock.release()
             raise
         else:
+            conn.close()
             lock.release()
 
     @contextmanager
@@ -181,10 +181,17 @@ class DBConnector:
                 params=(classification_id,), con=conn)
         return len(df) > 0
 
-    def exists_model(self, model_id: str) -> bool:
-        with self.get_conn() as conn:
-            df = pd.read_sql_query("SELECT model_id FROM model WHERE model_id = ?;", con=conn, params=(model_id,))
-        return len(df) > 0
+    def exists_model(self, model_id: str, try_count: int = 0) -> bool:
+        try:
+            with self.get_conn() as conn:
+                df = pd.read_sql_query("SELECT model_id FROM model WHERE model_id = ?;", con=conn, params=(model_id,))
+            return len(df) > 0
+        except sqlite3.OperationalError as e:
+            if try_count > 3:
+                raise e
+            else:
+                # Due to some bug, the database is sometimes still locked
+                return self.exists_model(model_id, try_count=try_count + 1)
 
     def exist_features(self, fe_id: str, traffic_name: str):
         with self.get_conn() as conn:

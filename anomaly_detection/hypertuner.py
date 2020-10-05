@@ -16,7 +16,6 @@ from anomaly_detection.types import TrafficReader
 class HypertuneSettings(dict):
     pass
 
-
 class Hypertuner:
     def __init__(self, db: DBConnector, traffic_reader: TrafficReader, max_workers=2):
         self.db = db
@@ -42,32 +41,34 @@ class Hypertuner:
         for fe_parameter, values in settings["feature_extractor"]["parameters"].items():
             param_lists.append(list(itertools.product([fe_parameter], values)))
 
-        with ProcessPoolExecutor(self.max_workers) as executor:
-            last_future = None
+        with ProcessPoolExecutor(max_workers=self.max_workers) as executor:
             for args in itertools.product(*param_lists):
                 # flatten the parameters to a cli-like list
                 # e.g.: [("kernel": "poly"), ("c":1)] => ["kernel","poly","c","1"]
                 flat_args = []
                 for arg in args:
                     flat_args += [arg[0], str(arg[1])]
-                last_future = executor.submit(self.exec_hyperparam_config, de_name, fe_name, transformers, flat_args)
-            last_future.result()
+                executor.submit(Hypertuner.exec_hyperparam_config, self, de_name, fe_name, transformers, flat_args)
 
     def exec_hyperparam_config(self, de_name, fe_name, transformers: List[str], train_args: List[str]):
-        logging.info("Exec %s" % train_args)
-        fe, de, unknown_args, subparsers = resource_loaders.create_fe_and_de(
-            de_name=de_name, fe_name=fe_name, args=train_args)
-        if len(unknown_args) != 0:
-            raise ValueError("Wrong parameters! %s" % unknown_args)
-        transformers = resource_loaders.build_transformers(transformers)
-        ad_model = AnomalyDetectorModel(de, fe, transformers)
-        model_trainer = ModelTrainer(self.db, self.traffic_reader, ad_model)
+        try:
+            fe, de, unknown_args, subparsers = resource_loaders.create_fe_and_de(
+                de_name=de_name, fe_name=fe_name, args=train_args)
+            if len(unknown_args) != 0:
+                raise ValueError("Wrong parameters! %s" % unknown_args)
+            transformers = resource_loaders.build_transformers(transformers)
+            logging.info("Start executing %s", train_args)
+            ad_model = AnomalyDetectorModel(de, fe, transformers)
+            model_trainer = ModelTrainer(self.db, self.traffic_reader, ad_model)
 
-        model_trainer.start_training(store_features=True, load_features=True)
+            model_trainer.start_training(store_features=True, load_features=True)
 
-        model_id = model_trainer.model_id
-        classifier = Classifier(self.db, self.traffic_reader, model_id=model_id)
-        classification_id = classifier.start_classification()
+            model_id = model_trainer.model_id
+            classifier = Classifier(self.db, self.traffic_reader, model_id=model_id)
+            classification_id = classifier.start_classification()
 
-        evaluator = Evaluator(self.db, self.traffic_reader)
-        evaluator.evaluate(classification_id)
+            evaluator = Evaluator(self.db, self.traffic_reader)
+            evaluator.evaluate(classification_id)
+            logging.info("Finished %s", train_args)
+        except Exception as e:
+            logging.error("Error occured for %s: %s", train_args, e)

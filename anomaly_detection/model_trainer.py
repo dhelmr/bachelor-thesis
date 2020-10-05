@@ -1,5 +1,5 @@
-import datetime
 import logging
+import uuid
 from typing import Optional
 
 from anomaly_detection.anomaly_detector import AnomalyDetectorModel
@@ -67,10 +67,8 @@ class ModelTrainer:
 
     def _auto_generate_id(self) -> str:
         base_name = "%s-%s" % (self.ad.feature_extractor.get_name(), self.ad.decision_engine.get_name())
-        i = 0
         while True:
-            random_part = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
+            random_part = uuid.uuid4().__str__()[:8]
             new_id = f"{base_name}-{random_part}"
             if not self.db.exists_model(new_id):
                 return new_id
-            i += 1
