@@ -16,15 +16,15 @@ class AnomalyDetectorModel:
         self.feature_extractor: FeatureExtractor = feature_extractor
 
     def fit_extract_features(self, traffic: TrafficSequence) -> np.ndarray:
-        logging.info("Extract features...")
+        logging.debug("Extract features...")
         features = self.feature_extractor.fit_extract(traffic)
         return features
 
     def build_profile(self, features: np.ndarray):
-        logging.info("Apply feature transformations...")
+        logging.debug("Apply feature transformations...")
         self._fit_transformers(features)
         transformed = self._apply_transformers(features)
-        logging.info("Start decision engine training with features of shape %s ...", transformed.shape)
+        logging.debug("Start decision engine training with features of shape %s ...", transformed.shape)
         self.decision_engine.fit(transformed, traffic_type=TrafficType.BENIGN)
 
     def feed_traffic(self, classification_id: str, traffic: TrafficSequence):
