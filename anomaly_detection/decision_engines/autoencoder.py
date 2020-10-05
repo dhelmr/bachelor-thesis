@@ -10,7 +10,7 @@ from tensorflow.keras import layers
 
 from anomaly_detection.types import DecisionEngine, TrafficType
 
-tf.logging.set_verbosity(tf.logging.ERROR)
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 class AutoencoderDE(DecisionEngine):
     def __init__(self, **kwargs):
