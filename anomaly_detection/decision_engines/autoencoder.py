@@ -10,12 +10,16 @@ from tensorflow.keras import layers
 
 from anomaly_detection.types import DecisionEngine, TrafficType
 
+tf.logging.set_verbosity(tf.logging.ERROR)
 
 class AutoencoderDE(DecisionEngine):
     def __init__(self, **kwargs):
-        self.training_epochs = kwargs["training_epochs"]
-        self.training_batch = kwargs["training_batch"]
-        self.verbose = kwargs["verbose"]
+        self.verbose = False
+        if "parsed_args" in kwargs:
+            parsed = kwargs["parsed_args"]
+            self.training_epochs = parsed.training_epochs
+            self.training_batch = parsed.training_batch
+            self.verbose = parsed.verbose
         self.threshold = None
         self.autoencoder = None
         if "threshold" in kwargs:

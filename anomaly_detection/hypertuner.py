@@ -2,6 +2,7 @@ import itertools
 import json
 import logging
 from concurrent.futures.process import ProcessPoolExecutor
+from json.decoder import JSONDecodeError
 from typing import List
 
 import resource_loaders
@@ -24,7 +25,10 @@ class Hypertuner:
 
     def _load_file(self, path: str) -> HypertuneSettings:
         with open(path, "r") as f:
-            obj = json.load(f)
+            try:
+                obj = json.load(f)
+            except JSONDecodeError as e:
+                raise ValueError("Invalid json, cannot read hypertune settings from %s" % path) from e
         return HypertuneSettings(obj)
 
     def start(self, path: str):
