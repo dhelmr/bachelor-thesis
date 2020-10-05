@@ -84,15 +84,22 @@ def packet_length_stats(packets: t.List[Packet]) -> PacketLengthStats:
     )
 
 
+class FeatureSet(Enum):
+    SUBFLOWS_DETAILED = "subflows_detailed"
+    SUBFLOWS_SIMPLE = "subflows_simple"
+    NO_SUBFLOWS = "no_subflows"
+
+
 class BasicNetflowFeatureExtractor(FeatureExtractor):
 
-    def __init__(self, flow_timeout: int = 12_000, subflow_timeout: int = 500, verbose: bool = True):
+    def __init__(self, flow_timeout: int = 12_000, subflow_timeout: int = 500, verbose: bool = True,
+                 mode: FeatureSet = FeatureSet.SUBFLOWS_SIMPLE):
         # Stores the mapping "packet index -> flow index" for each traffic sequence name
         self.packets_to_flows: t.Dict[str, t.List[int]] = dict()
         self.flow_timeout = flow_timeout
         self.subflow_timeout = subflow_timeout
         self.verbose = verbose
-
+        self.mode = mode
 
     def fit_extract(self, traffic: TrafficSequence) -> np.ndarray:
         return self.extract_features(traffic)
@@ -135,11 +142,15 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             total = self._extract_packet_list_features(f.packets)
             forward = self._extract_packet_list_features(forward_packets)
             backward = self._extract_packet_list_features(backward_packets)
-            subflows = self._extract_sub_flows_features(f.packets)
-            subflows_forward = self._extract_sub_flows_features(forward_packets)
-            subflows_backward = self._extract_sub_flows_features(backward_packets)
-            features_row = total + forward + backward + subflows + subflows_forward + subflows_backward + [
+            features_row = total + forward + backward + [
                 duration, f.src_ip, f.dest_ip, f.src_port, f.dest_port, f.protocol.value]
+            if self.mode is FeatureSet.SUBFLOWS_SIMPLE or self.mode is FeatureSet.SUBFLOWS_DETAILED:
+                subflows = self._extract_sub_flows_features(f.packets)
+                features_row += subflows
+            if self.mode is FeatureSet.SUBFLOWS_DETAILED:
+                subflows_forward = self._extract_sub_flows_features(forward_packets)
+                subflows_backward = self._extract_sub_flows_features(backward_packets)
+                features_row += subflows_forward + subflows_backward
             features.append(features_row)
         return np.array(features)
 
@@ -165,13 +176,14 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 continue
             features += [len(time_list), min(time_list), max(time_list), sum(time_list), statistics.pstdev(time_list),
                          statistics.mean(time_list)]
-        subflow_features = [self._extract_packet_list_features(subflow) for subflow in subflows]
-        by_features = list(zip(*subflow_features))
-        for feature_list in by_features:
-            if len(feature_list) == 0:
-                features += [0, 0, 0, 0]
-            features += [max(feature_list), min(feature_list), statistics.mean(feature_list),
-                         statistics.pstdev(feature_list)]
+        # TODO this seems to result in garbage
+        # subflow_features = [self._extract_packet_list_features(subflow) for subflow in subflows]
+        # by_features = list(zip(*subflow_features))
+        # for feature_list in by_features:
+        #     if len(feature_list) == 0:
+        #         features += [0, 0, 0, 0]
+        #     features += [max(feature_list), min(feature_list), statistics.mean(feature_list),
+        #                  statistics.pstdev(feature_list)]
         return features
 
     def _make_subflows(self, flow: t.List[Packet]) -> t.List[t.List[Packet]]:
@@ -207,7 +219,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         return [*length_stats] + [n_packets, packets_per_millisecond, bytes_per_millisecond]
 
     def get_name(self) -> str:
-        return "basic_netflow_extractor"
+        return "basic_netflow"
 
     @staticmethod
     def init_parser(parser: argparse.ArgumentParser):
@@ -216,6 +228,8 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         parser.add_argument("--subflow-timeout", type=float, dest="subflow_timeout", default=500,
                             help="Activity timeout (for subflows) in milliseconds")
         parser.add_argument("--verbose", action="store_true", default=False)
+        parser.add_argument("--mode", choices=list(FeatureSet), type=lambda f: FeatureSet(f),
+                            help="Feature Selection Mode")
 
     @staticmethod
     def init_by_parsed(args: argparse.Namespace):
@@ -229,9 +243,11 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         return f"BasicNetflowFeatureExtractor"
 
     def get_id(self) -> str:
-        return "_".join([
-            self.get_name(), str(self.flow_timeout), self.subflow_timeout.__str__()
-        ])
+        base = "_".join([self.get_name(), str(self.flow_timeout), self.mode.value])
+        if self.mode is FeatureSet.NO_SUBFLOWS:
+            return base
+        else:
+            return "%s_%s" % (base, self.subflow_timeout)
 
 
 class NetFlowGenerator:

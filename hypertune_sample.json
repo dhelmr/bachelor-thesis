@@ -2,6 +2,9 @@
   "feature_extractor": {
     "name": "basic_netflow",
     "parameters": {
+      "--mode": [
+        "subflows_simple"
+      ],
       "--flow-timeout": [
         1000,
         6000,
