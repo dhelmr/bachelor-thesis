@@ -9,13 +9,11 @@ from anomaly_detection.feature_extractors.basic_netflow_extractor import BasicNe
 from anomaly_detection.feature_extractors.basic_packet_feature_extractor import BasicPacketFeatureExtractor
 from anomaly_detection.feature_extractors.doc2vec_packets import PacketDoc2Vec
 from anomaly_detection.feature_extractors.netflow_doc2vec import NetflowDoc2Vec
-from anomaly_detection.feature_extractors.testing_extractor import TestingFeatureExtractor, DummyTrafficGenerator, \
-    DummyPreprocessor
+from anomaly_detection.feature_extractors.testing_extractor import TestingFeatureExtractor, DummyDataset
 from anomaly_detection.transformers import MinxMaxScalerTransformer, StandardScalerTransformer
-from anomaly_detection.types import DatasetUtils
 from anomaly_detection.types import FeatureExtractor, DecisionEngine, ParsingException
-from dataset_utils import cic_ids_2017 as cic2017
-from dataset_utils.cic_ids_2017 import CICIDS2017Preprocessor
+from dataset_utils.cic_ids_2017 import CICIDS2017
+from dataset_utils.unsw_nb15 import UNSWNB15
 
 
 def create_fe_and_de(fe_name: str,
@@ -68,7 +66,9 @@ FEATURE_EXTRACTORS = {
     "doc2vec_flows": NetflowDoc2Vec,
     "test": TestingFeatureExtractor
 }
+
 DATASET_UTILS = {
-    "cic-ids-2017": DatasetUtils(cic2017.CIC2017TrafficReader, CICIDS2017Preprocessor),
-    "test": DatasetUtils(DummyTrafficGenerator, DummyPreprocessor)
+    "cic-ids-2017": CICIDS2017,
+    "unsw-nb15": UNSWNB15,
+    "test": DummyDataset
 }

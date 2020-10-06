@@ -67,8 +67,8 @@ usage: main.py train [-h] [--db DB] [--debug]
                      [--store-features] [--load-features]
                      [--model-id MODEL_ID]
                      [--decision-engine {one_class_svm,local_outlier_factor,autoencoder}]
-                     [--dataset {cic-ids-2017,test}] [--src DATASET_PATH]
-                     [--subset DATASET_SUBSET]
+                     [--dataset {cic-ids-2017,unsw-nb15,test}]
+                     [--src DATASET_PATH] [--subset DATASET_SUBSET]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -96,9 +96,10 @@ optional arguments:
   --decision-engine {one_class_svm,local_outlier_factor,autoencoder}
                         Choose which algorithm will be used for classifying
                         anomalies. (default: one_class_svm)
-  --dataset {cic-ids-2017,test}, -d {cic-ids-2017,test}
+  --dataset {cic-ids-2017,unsw-nb15,test}, -d {cic-ids-2017,unsw-nb15,test}
                         The name of the dataset. Choose one of: ['cic-
-                        ids-2017', 'test'] (default: cic-ids-2017)
+                        ids-2017', 'unsw-nb15', 'test'] (default: cic-
+                        ids-2017)
   --src DATASET_PATH    Path of the dataset (default:
                         /mnt/data/ba/code/data/cic-ids-2017/)
   --subset DATASET_SUBSET

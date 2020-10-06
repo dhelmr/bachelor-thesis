@@ -2,17 +2,16 @@ import itertools
 import logging
 import os
 import re
-import socket
 import typing as t
 from datetime import datetime
 from enum import Enum
 
-import dpkt as dpkt
 import pandas
 from pandas import Series
 
-from anomaly_detection.types import TrafficType, TrafficSequence, TrafficReader, DatasetPreprocessor
+from anomaly_detection.types import TrafficType, TrafficSequence, TrafficReader, DatasetPreprocessor, DatasetUtils
 from dataset_utils import pcap_utils
+from dataset_utils.pcap_utils import FlowIDFormatter
 
 
 class PcapFiles(Enum):
@@ -61,11 +60,11 @@ TINY_SUBSET = {
     },
     "unknown": {
         PcapFiles.THURSDAY: [
-            (999, 99_999)
+            (999, 12_000)
         ],
         PcapFiles.WEDNESDAY: [
-            (1_000_001, 1_000_004),
-            (2_000_001, 2_010_004),
+            (99, 1000),
+            (2099, 10_000),
         ]
     }
 }
@@ -103,6 +102,12 @@ PCAP_LABEL_FILES = {
                        ]
 }
 PacketID = str
+
+PROTOCOL_ENCODINGS = {  # used in csv files
+    "udp": 17,
+    "tcp": 6,
+    "unknown": 0
+}
 
 
 def read_labels_csv(file, nrows=None):
@@ -190,44 +195,10 @@ class SubsetPacketReader:
             yield packet
 
 
-def make_flow_ids(ts, buf):
-    eth = dpkt.ethernet.Ethernet(buf)
-    if type(eth.data) is not dpkt.ip.IP:
-        return None
-    src_ip = socket.inet_ntoa(eth.ip.src)
-    dest_ip = socket.inet_ntoa(eth.ip.dst)
-    if type(eth.ip.data) is dpkt.tcp.TCP:
-        src_port = int(eth.ip.tcp.sport)
-        dest_port = int(eth.ip.tcp.dport)
-        protocol = 6
-    elif type(eth.ip.data) is dpkt.udp.UDP:
-        src_port = int(eth.ip.udp.sport)
-        dest_port = int(eth.ip.udp.dport)
-        protocol = 17
-    else:
-        src_port = 0
-        dest_port = 0
-        protocol = 0
-    return [format_flow_id(src_ip, dest_ip, src_port, dest_port, protocol),
-            format_flow_id(src_ip, dest_ip, src_port, dest_port, protocol, reverse=False)]
-
-
-def format_flow_id(src_ip, dest_ip, src_port, dest_port, protocol, reverse=False):
-    if not reverse:
-        return "%s-%s-%s-%s-%s" % (src_ip, dest_ip, src_port, dest_port, protocol)
-    return "%s-%s-%s-%s-%s" % (dest_ip, src_ip, dest_port, src_port, protocol)
-
-
-def get_packet_id(timestamp, buf, flow_ids: t.List[str] = None) -> PacketID:
-    if flow_ids is None:
-        flow_ids = make_flow_ids(timestamp, buf)
-    if flow_ids is None:
-        return "<no-ip>-%s" % timestamp
-    else:
-        return "%s-%s" % (flow_ids[0], timestamp)
-
-
 class CICIDS2017Preprocessor(DatasetPreprocessor):
+
+    def __init__(self):
+        self.flow_formatter = FlowIDFormatter(PROTOCOL_ENCODINGS)
 
     def preprocess(self, dataset_path: str):
         for pcap_file, label_files in self.get_abs_paths(dataset_path).items():
@@ -245,14 +216,14 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
         labelled_packets: t.List[t.Tuple[PacketID, TrafficType]] = list()
         progress = 0
         for timestamp, buf in packets:
-            flow_ids = make_flow_ids(timestamp, buf)
-            packet_id = get_packet_id(timestamp, buf, flow_ids)
+            flow_ids = self.flow_formatter.make_flow_ids(timestamp, buf)
+            packet_id = self.get_packet_id(timestamp, buf, flow_ids)
             packet_id = "%s_%s" % (progress, packet_id)  # TODO hack to make the packet ids unique
             if (flow_ids is None) or \
                     not (flow_ids[0] in attack_times.index or flow_ids[1] in attack_times.index):
                 traffic_type = TrafficType.BENIGN
             else:
-                # check for attack times
+                # TODO!!! check for attack times
                 traffic_type = TrafficType.ATTACK
             entry = (packet_id, traffic_type.value)
             labelled_packets.append(entry)
@@ -275,6 +246,7 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
         in_both_reversed_id = pandas.merge(attacks, benigns, how="inner", left_on="reverse_flow_id", right_index=True)
         in_both = pandas.concat([in_both, in_both_reversed_id])
         benign_times = in_both["Timestamp_y"].groupby(in_both.index).apply(
+            # Timestamp_y is the benign's flow timestamp
             lambda elements: [self.date_to_timestamp(formatted_date) for formatted_date in list(elements)]
         )
         attack_times = attacks["Timestamp"].groupby(attacks.index).apply(
@@ -292,13 +264,12 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
             absolute_paths[abs_pcap] = abs_label_files
         return absolute_paths
 
-    @staticmethod
-    def reverse_flow_id(flow_id: str):
+    def reverse_flow_id(self, flow_id: str):
         splitted = flow_id.split("-")
         if len(splitted) != 5:
             return "<invalid flow>"
         src_ip, dest_ip, src_port, dest_port, protocol = splitted
-        return format_flow_id(src_ip, dest_ip, src_port, dest_port, protocol, reverse=True)
+        return self.flow_formatter.format_flow_id(src_ip, dest_ip, src_port, dest_port, protocol, reverse=True)
 
     def date_to_timestamp(self, datestr: str):
         date_part, time_part = datestr.split(" ")
@@ -313,3 +284,14 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
         datestr = f"{date_part} {time_part}"
         result = datetime.strptime(datestr, "%d/%m/%Y %I:%M")  # example "5/7/2017 8:42" = 5th of July 2017
         return result
+
+    def get_packet_id(self, timestamp, buf, flow_ids: t.List[str] = None) -> PacketID:
+        if flow_ids is None:
+            flow_ids = self.flow_formatter.make_flow_ids(timestamp, buf)
+        if flow_ids is None:
+            return "<no-ip>-%s" % timestamp
+        else:
+            return "%s-%s" % (flow_ids[0], timestamp)
+
+
+CICIDS2017 = DatasetUtils(CIC2017TrafficReader, CICIDS2017Preprocessor)
