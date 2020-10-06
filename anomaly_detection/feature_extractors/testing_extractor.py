@@ -4,7 +4,8 @@ import typing as t
 import numpy as np
 import pandas
 
-from anomaly_detection.types import TrafficSequence, FeatureExtractor, TrafficType, TrafficReader, DatasetPreprocessor
+from anomaly_detection.types import TrafficSequence, FeatureExtractor, TrafficType, TrafficReader, DatasetPreprocessor, \
+    DatasetUtils
 
 
 class TestingFeatureExtractor(FeatureExtractor):
@@ -94,3 +95,6 @@ class DummyPreprocessor(DatasetPreprocessor):
 
     def preprocess(self, dataset_path: str):
         pass
+
+
+DummyDataset = DatasetUtils(DummyPacketReader, DummyPreprocessor)
