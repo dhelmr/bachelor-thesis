@@ -2,10 +2,12 @@ import logging
 import os
 import re
 from enum import Enum
+from typing import Optional
 
+import dpkt
 import pandas
 
-from anomaly_detection.types import DatasetPreprocessor, TrafficReader, TrafficSequence, DatasetUtils
+from anomaly_detection.types import DatasetPreprocessor, TrafficReader, TrafficSequence, DatasetUtils, TrafficType
 from dataset_utils import pcap_utils
 from dataset_utils.encoding_utils import get_encoding_for_csv
 
@@ -62,7 +64,7 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
             self._read_flow_labels_csv(os.path.join(dataset_path, CSV_FOLDER, csv), column_names)
             for csv in CSV_FILES
         ], ignore_index=True)
-        flow_features.set_index("flow_id")
+        flow_features.set_index("flow_id", inplace=True)
 
         for pcap in self._iter_pcaps(dataset_path):
             self._generate_pcap_labels(pcap, flow_features)
@@ -83,6 +85,7 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
         df = pandas.read_csv(csv_file, sep=",", low_memory=False, header=None, names=column_names,
                              encoding=encoding, nrows=nrows)
         df.dropna(how="all", inplace=True)  # drop all empty rows (some csv are miss-formatted)
+        df[FlowCsvColumns.LABEL.value] = df[FlowCsvColumns.LABEL.value].apply(self._label_to_traffic_type)
         # make flow ids
         df["flow_id"] = df[FlowCsvColumns.SRC_IP.value] + "-" + df[FlowCsvColumns.DEST_IP.value] + "-" + \
                         df[FlowCsvColumns.SRC_PORT.value].astype(str) + "-" + df[FlowCsvColumns.DEST_PORT.value].astype(
@@ -101,14 +104,41 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
 
     def _generate_pcap_labels(self, pcap_file, flow_features):
         reader = pcap_utils.read_pcap_pcapng(pcap_file, print_progress_after=100)
-        for ts, buf in reader:
-            ids = self.flow_formatter.make_flow_ids(ts, buf)
+        labelled_packets = []
+        for timestamp, buf in reader:
+            ids = self.flow_formatter.make_flow_ids(timestamp, buf, packet_type=dpkt.sll.SLL)
             if ids is None:
-                packet_id = "%s-<no_ip>" % ts
+                packet_id = "%s-<no_ip>" % timestamp
+                packet_type = TrafficType.BENIGN
             else:
                 flow_id, reverse_id = ids
-                packet_id = "%s-%s" % (flow_id, ts)
-                potential_flows = flow_features
+                packet_id = "%s-%s" % (flow_id, timestamp)
+                potential_flows = flow_features.loc[flow_features.index.isin([flow_id, reverse_id])]
+                if len(potential_flows) == 0:
+                    packet_type = TrafficType.BENIGN
+                elif len(potential_flows) == 1:
+                    packet_type = potential_flows.iloc[0][FlowCsvColumns.LABEL.value]
+                else:
+                    flow = self._select_flow(potential_flows, timestamp)
+                    if flow is None:
+                        logging.warning("Found potential flows for packet, but none matches its timestamp=%s!",
+                                        timestamp)
+                        packet_type = TrafficType.BENIGN
+                    else:
+                        packet_type = flow[FlowCsvColumns.LABEL.value]
+            labelled_packets.append((packet_id, packet_type))
 
+    def _label_to_traffic_type(self, label):
+        if label == 0:
+            return TrafficType.BENIGN
+        else:
+            return TrafficType.ATTACK
+
+    def _select_flow(self, potential_flows: pandas.DataFrame, timestamp) -> Optional[pandas.Series]:
+        """Selects the flow that contains the given timestamp"""
+        for _, flow in potential_flows.iterrows():
+            if flow[FlowCsvColumns.START_TIME.value] <= timestamp <= flow[FlowCsvColumns.END_TIME.value]:
+                return flow
+        return None
 
 UNSWNB15 = DatasetUtils(UNSWNB15TrafficReader, UNSWNB15Preprocessor)

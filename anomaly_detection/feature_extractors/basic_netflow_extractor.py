@@ -8,6 +8,7 @@ import numpy as np
 from tqdm import tqdm
 
 from anomaly_detection.types import FeatureExtractor, TrafficType, Packet, TrafficSequence
+from dataset_utils.pcap_utils import get_ip_packet
 
 
 class Protocol(Enum):
@@ -304,18 +305,18 @@ class NetFlowGenerator:
 
     def read_packet_infos(self, packet: Packet) -> t.Optional[t.Tuple]:
         ts, buf = packet
-        eth = dpkt.ethernet.Ethernet(buf)
-        if type(eth.data) is not dpkt.ip.IP:
+        ip = get_ip_packet(buf)
+        if ip is None:
             return None
-        src_ip = int.from_bytes(eth.ip.src, "big")
-        dest_ip = int.from_bytes(eth.ip.dst, "big")
-        if type(eth.ip.data) is dpkt.tcp.TCP:
-            src_port = int(eth.ip.tcp.sport)
-            dest_port = int(eth.ip.tcp.dport)
+        src_ip = int.from_bytes(ip.src, "big")
+        dest_ip = int.from_bytes(ip.dst, "big")
+        if type(ip.data) is dpkt.tcp.TCP:
+            src_port = int(ip.tcp.sport)
+            dest_port = int(ip.tcp.dport)
             protocol = Protocol.TCP
-        elif type(eth.ip.data) is dpkt.udp.UDP:
-            src_port = int(eth.ip.udp.sport)
-            dest_port = int(eth.ip.udp.dport)
+        elif type(ip.data) is dpkt.udp.UDP:
+            src_port = int(ip.udp.sport)
+            dest_port = int(ip.udp.dport)
             protocol = Protocol.UDP
         else:
             src_port = 0

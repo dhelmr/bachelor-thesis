@@ -1,5 +1,6 @@
 import logging
 import socket
+from typing import Optional
 
 import dpkt as dpkt
 
@@ -20,23 +21,36 @@ def read_pcap_pcapng(file, print_progress_after=None):
             logging.info("%s: Processed %s packets", file, progress)
 
 
+def get_ip_packet(buf, linklayer_hint=None) -> Optional[dpkt.ip.IP]:
+    if linklayer_hint is not None:
+        pkt = linklayer_hint(buf)
+        if type(pkt.data) is dpkt.ip.IP:
+            return pkt.data
+    else:
+        for linklayer_proto in [dpkt.ethernet.Ethernet, dpkt.sll.SLL]:
+            pkt = linklayer_proto(buf)
+            if type(pkt.data) is dpkt.ip.IP:
+                return pkt.data
+    return None
+
+
 class FlowIDFormatter:
     def __init__(self, protocol_encodings):
         self.protocol_encodings = protocol_encodings
 
-    def make_flow_ids(self, ts, buf):
-        eth = dpkt.ethernet.Ethernet(buf)
-        if type(eth.data) is not dpkt.ip.IP:
+    def make_flow_ids(self, ts, buf, packet_type=dpkt.ethernet.Ethernet):
+        ip = get_ip_packet(buf, linklayer_hint=packet_type)
+        if ip is None:
             return None
-        src_ip = socket.inet_ntoa(eth.ip.src)
-        dest_ip = socket.inet_ntoa(eth.ip.dst)
-        if type(eth.ip.data) is dpkt.tcp.TCP:
-            src_port = int(eth.ip.tcp.sport)
-            dest_port = int(eth.ip.tcp.dport)
+        src_ip = socket.inet_ntoa(ip.src)
+        dest_ip = socket.inet_ntoa(ip.dst)
+        if type(ip.data) is dpkt.tcp.TCP:
+            src_port = int(ip.tcp.sport)
+            dest_port = int(ip.tcp.dport)
             protocol = self.protocol_encodings["tcp"]
-        elif type(eth.ip.data) is dpkt.udp.UDP:
-            src_port = int(eth.ip.udp.sport)
-            dest_port = int(eth.ip.udp.dport)
+        elif type(ip.data) is dpkt.udp.UDP:
+            src_port = int(ip.udp.sport)
+            dest_port = int(ip.udp.dport)
             protocol = self.protocol_encodings["udp"]
         else:
             src_port = 0

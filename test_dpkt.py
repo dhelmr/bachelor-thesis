@@ -2,7 +2,9 @@ import dpkt
 
 # pcap_file = "data/unsw-nb15/01/1.pcap"
 pcap_file = "test.pcap"
-# pcap_file = "data/unsw-nb15/fixed/1.pcapng"
+# pcap_file = "data/unsw-nb15/fixed/1.pcap"
+
+
 reader = dpkt.pcap.Reader(open(pcap_file, "rb"))
 
 non_ip_count = 0
