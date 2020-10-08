@@ -108,7 +108,7 @@ optional arguments:
 
 ## List decision engines and feature extractors
 
-A anomaly detection model consists of:
+An anomaly detection model consists of:
 
 1. a feature extractor, which processes raw pcap files and maps them to numerical values
 2. one or more transformers, which map the extracted features to other numerical values (e.g. standardization)

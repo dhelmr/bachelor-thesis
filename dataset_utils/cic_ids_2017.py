@@ -81,6 +81,16 @@ SUBSETS = {
     "small": SMALL_SUBSET,
     "tiny": TINY_SUBSET
 }
+for pcap_file in PcapFiles:
+    if pcap_file is BENIGN_PCAP_FILE:
+        continue
+    SUBSETS[pcap_file.name.lower()] = {
+        "benign": {
+            BENIGN_PCAP_FILE: [(0, "end")]
+        },
+        "unknown": {pcap_file: [(0, "end")]}
+    }
+
 PCAP_LABEL_FILES = {
     PcapFiles.MONDAY: ["labels/Monday-WorkingHours.pcap_ISCX.csv"],
     PcapFiles.TUESDAY: ["labels/Tuesday-WorkingHours.pcap_ISCX.csv"],
