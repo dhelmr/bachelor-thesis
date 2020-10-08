@@ -213,7 +213,7 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
                     not (flow_ids[0] in attack_times.index or flow_ids[1] in attack_times.index):
                 traffic_type = TrafficType.BENIGN
             else:
-                # check for attack times
+                # TODO!!! check for attack times
                 traffic_type = TrafficType.ATTACK
             entry = (packet_id, traffic_type.value)
             labelled_packets.append(entry)
@@ -236,6 +236,7 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
         in_both_reversed_id = pandas.merge(attacks, benigns, how="inner", left_on="reverse_flow_id", right_index=True)
         in_both = pandas.concat([in_both, in_both_reversed_id])
         benign_times = in_both["Timestamp_y"].groupby(in_both.index).apply(
+            # Timestamp_y is the benign's flow timestamp
             lambda elements: [self.date_to_timestamp(formatted_date) for formatted_date in list(elements)]
         )
         attack_times = attacks["Timestamp"].groupby(attacks.index).apply(

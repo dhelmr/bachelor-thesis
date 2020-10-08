@@ -1,4 +1,6 @@
+import csv
 import logging
+import math
 import os
 import re
 from enum import Enum
@@ -65,9 +67,14 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
             for csv in CSV_FILES
         ], ignore_index=True)
         flow_features.set_index("flow_id", inplace=True)
+        attack_times = self._get_attack_flow_ids(flow_features)
 
         for pcap in self._iter_pcaps(dataset_path):
-            self._generate_pcap_labels(pcap, flow_features)
+            self._write_pcap_labels(pcap, attack_times)
+
+    # with ThreadPoolExecutor(max_workers = 10) as pool:
+    #     args = [(pcap, attack_times) for pcap in self._iter_pcaps(dataset_path)]
+    #     pool.map(self._write_pcap_labels, args)
 
     def _load_column_names(self, csv_file):
         df = pandas.read_csv(csv_file, sep=",", encoding="latin1")
@@ -91,6 +98,11 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
                         df[FlowCsvColumns.SRC_PORT.value].astype(str) + "-" + df[FlowCsvColumns.DEST_PORT.value].astype(
             str) + "-" + \
                         df[FlowCsvColumns.PROTOCOL.value]
+        df["reverse_flow_id"] = df[FlowCsvColumns.DEST_IP.value] + "-" + df[FlowCsvColumns.SRC_IP.value] + "-" + \
+                                df[FlowCsvColumns.DEST_PORT.value].astype(str) + "-" + df[
+                                    FlowCsvColumns.SRC_PORT.value].astype(
+            str) + "-" + \
+                                df[FlowCsvColumns.PROTOCOL.value]
         return df
 
     def _iter_pcaps(self, dataset_path: str):
@@ -102,31 +114,82 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
                 else:
                     logging.warning("Cannot find %s; skip", path)
 
-    def _generate_pcap_labels(self, pcap_file, flow_features):
+    def _write_pcap_labels(self, pcap_file, attack_times):
         reader = pcap_utils.read_pcap_pcapng(pcap_file, print_progress_after=100)
-        labelled_packets = []
-        for timestamp, buf in reader:
-            ids = self.flow_formatter.make_flow_ids(timestamp, buf, packet_type=dpkt.sll.SLL)
-            if ids is None:
-                packet_id = "%s-<no_ip>" % timestamp
-                packet_type = TrafficType.BENIGN
-            else:
-                flow_id, reverse_id = ids
-                packet_id = "%s-%s" % (flow_id, timestamp)
-                potential_flows = flow_features.loc[flow_features.index.isin([flow_id, reverse_id])]
-                if len(potential_flows) == 0:
+        attack_flow_ids = set(attack_times.index.values)
+        output_file = "%s_packet_labels.csv" % pcap_file
+        with open(output_file, 'w') as csvfile:
+            # creating a csv writer object
+            csvwriter = csv.writer(csvfile)
+            csvwriter.writerow(["packet_id", "traffic_type"])
+            index = 0
+            for timestamp, buf in reader:
+                ids = self.flow_formatter.make_flow_ids(timestamp, buf, packet_type=dpkt.sll.SLL)
+                if ids is None:
+                    packet_id = "%s-%s-<no_ip>" % (index, timestamp)
                     packet_type = TrafficType.BENIGN
-                elif len(potential_flows) == 1:
-                    packet_type = potential_flows.iloc[0][FlowCsvColumns.LABEL.value]
                 else:
-                    flow = self._select_flow(potential_flows, timestamp)
-                    if flow is None:
-                        logging.warning("Found potential flows for packet, but none matches its timestamp=%s!",
-                                        timestamp)
+                    flow_id, reverse_id = ids
+                    packet_id = "%s-%s-%s" % (index, flow_id, timestamp)
+                    if flow_id not in attack_flow_ids and reverse_id not in attack_flow_ids:
                         packet_type = TrafficType.BENIGN
                     else:
-                        packet_type = flow[FlowCsvColumns.LABEL.value]
-            labelled_packets.append((packet_id, packet_type))
+                        potential_attack_flows = attack_times.loc[attack_times.index.isin([flow_id, reverse_id])]
+                        attacks = potential_attack_flows["attack"].values[0]
+                        benigns = potential_attack_flows["benign"].values[0]
+                        if type(benigns) is float and math.isnan(benigns):
+                            packet_type = TrafficType.ATTACK
+                        elif type(attacks) is float and math.isnan(attacks):
+                            packet_type = TrafficType.BENIGN
+                        else:
+                            packet_type = self.get_traffic_type(timestamp, attacks, benigns)
+                            if packet_type is None:
+                                logging.error("Could not associate packet %s", flow_id)
+                                packet_type = TrafficType.BENIGN
+                csvwriter.writerow([packet_id, packet_type.value])
+
+    def get_traffic_type(self, ts, attack_times, benign_times):
+        ts = round(ts)
+        last_type = None
+        while len(attack_times) != 0 or len(benign_times) != 0:
+            if len(benign_times) == 0:
+                if ts < attack_times[0]:
+                    return last_type
+                else:
+                    return TrafficType.ATTACK
+            if len(attack_times) == 0:
+                if ts < benign_times[0]:
+                    return last_type
+                else:
+                    return TrafficType.BENIGN
+            if attack_times[0] < benign_times[0]:
+                time = attack_times.pop(0)
+                if ts < time:
+                    return last_type
+                last_type = TrafficType.ATTACK
+            else:
+                time = benign_times.pop(0)
+                if ts < time:
+                    return last_type
+                last_type = TrafficType.BENIGN
+        return last_type
+
+    def _get_attack_flow_ids(self, flows):
+        attacks = flows.loc[flows[FlowCsvColumns.LABEL.value] == TrafficType.ATTACK]
+        benigns = flows.loc[flows[FlowCsvColumns.LABEL.value] == TrafficType.BENIGN]
+        in_both = pandas.merge(attacks, benigns, how="inner", left_index=True, right_index=True)
+        in_both_reversed_id = pandas.merge(attacks, benigns, how="inner", left_on="reverse_flow_id", right_index=True)
+        in_both = pandas.concat([in_both, in_both_reversed_id])
+        benign_times = in_both[f"{FlowCsvColumns.START_TIME.value}_y"].groupby(in_both.index).apply(
+            lambda elements: sorted(list(elements))
+        )
+        attack_times = attacks[FlowCsvColumns.START_TIME.value].groupby(attacks.index).apply(
+            lambda elements: sorted(list(elements))
+        )
+        result_df = pandas.merge(attack_times, benign_times, how="left", right_index=True, left_index=True)
+        result_df.rename(columns={f"{FlowCsvColumns.START_TIME.value}_y": "benign",
+                                  FlowCsvColumns.START_TIME.value: "attack"}, inplace=True)
+        return result_df
 
     def _label_to_traffic_type(self, label):
         if label == 0:
