@@ -211,13 +211,24 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             duration = packet_list[-1][0] - packet_list[0][0]
         n_packets = len(packet_list)
         length_stats = packet_length_stats(packet_list)
+        ip_stats = self._extract_ip_stats(packet_list)
         if duration == 0:
             packets_per_millisecond = n_packets
             bytes_per_millisecond = length_stats.total
         else:
             packets_per_millisecond = n_packets / duration
             bytes_per_millisecond = length_stats.total / duration
-        return [*length_stats] + [n_packets, packets_per_millisecond, bytes_per_millisecond]
+        return [*length_stats] + [n_packets, packets_per_millisecond, bytes_per_millisecond] + ip_stats
+
+    def _extract_ip_stats(self, packet_list: t.List[Packet]):
+        ttls = []
+        for packet in packet_list:
+            _, buf = packet
+            ip = get_ip_packet(buf)  # TODO refactor with NetFlowGenerator
+            if ip is None:
+                continue
+            ttls.append(ip.ttl)
+        return [sum(ttls) / len(ttls)]
 
     def get_name(self) -> str:
         return "basic_netflow"
