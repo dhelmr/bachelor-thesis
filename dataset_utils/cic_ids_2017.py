@@ -12,6 +12,7 @@ from pandas import Series
 from anomaly_detection.types import TrafficType, TrafficSequence, TrafficReader, DatasetPreprocessor, DatasetUtils
 from dataset_utils import pcap_utils
 from dataset_utils.pcap_utils import FlowIDFormatter
+from dataset_utils.unsw_nb15 import packet_is_attack
 
 
 class PcapFiles(Enum):
@@ -80,6 +81,7 @@ SUBSETS = {
     "small": SMALL_SUBSET,
     "tiny": TINY_SUBSET
 }
+# create one subset for each attack day (training day is monday)
 for pcap_file in PcapFiles:
     if pcap_file is BENIGN_PCAP_FILE:
         continue
@@ -212,7 +214,7 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
     def generate_labels(self, pcap_file: str, attack_times: pandas.DataFrame) \
             -> t.List[t.Tuple[PacketID, TrafficType]]:
         logging.info("Process file %s", pcap_file)
-        packets = pcap_utils.read_pcap_pcapng(pcap_file)
+        packets = pcap_utils.read_pcap_pcapng(pcap_file, print_progress_after=50_000)
         labelled_packets: t.List[t.Tuple[PacketID, TrafficType]] = list()
         progress = 0
         for timestamp, buf in packets:
@@ -223,12 +225,9 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
                     not (flow_ids[0] in attack_times.index or flow_ids[1] in attack_times.index):
                 traffic_type = TrafficType.BENIGN
             else:
-                # TODO!!! check for attack times
-                traffic_type = TrafficType.ATTACK
+                traffic_type = packet_is_attack(flow_ids, timestamp, attack_times)
             entry = (packet_id, traffic_type.value)
             labelled_packets.append(entry)
-            if progress % 50000 == 0:
-                logging.info("%s: Processed %s packets...", pcap_file, progress)
             progress += 1
         return labelled_packets
 

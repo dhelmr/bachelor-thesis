@@ -134,45 +134,8 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
                     if flow_id not in attack_flow_ids and reverse_id not in attack_flow_ids:
                         packet_type = TrafficType.BENIGN
                     else:
-                        potential_attack_flows = attack_times.loc[attack_times.index.isin([flow_id, reverse_id])]
-                        attacks = potential_attack_flows["attack"].values[0]
-                        benigns = potential_attack_flows["benign"].values[0]
-                        if type(benigns) is float and math.isnan(benigns):
-                            packet_type = TrafficType.ATTACK
-                        elif type(attacks) is float and math.isnan(attacks):
-                            packet_type = TrafficType.BENIGN
-                        else:
-                            packet_type = self.get_traffic_type(timestamp, attacks, benigns)
-                            if packet_type is None:
-                                logging.error("Could not associate packet %s", flow_id)
-                                packet_type = TrafficType.BENIGN
+                        packet_type = packet_is_attack(ids, timestamp, attack_times)
                 csvwriter.writerow([packet_id, packet_type.value])
-
-    def get_traffic_type(self, ts, attack_times, benign_times):
-        ts = round(ts)
-        last_type = None
-        while len(attack_times) != 0 or len(benign_times) != 0:
-            if len(benign_times) == 0:
-                if ts < attack_times[0]:
-                    return last_type
-                else:
-                    return TrafficType.ATTACK
-            if len(attack_times) == 0:
-                if ts < benign_times[0]:
-                    return last_type
-                else:
-                    return TrafficType.BENIGN
-            if attack_times[0] < benign_times[0]:
-                time = attack_times.pop(0)
-                if ts < time:
-                    return last_type
-                last_type = TrafficType.ATTACK
-            else:
-                time = benign_times.pop(0)
-                if ts < time:
-                    return last_type
-                last_type = TrafficType.BENIGN
-        return last_type
 
     def _get_attack_flow_ids(self, flows):
         attacks = flows.loc[flows[FlowCsvColumns.LABEL.value] == TrafficType.ATTACK]
@@ -203,5 +166,49 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
             if flow[FlowCsvColumns.START_TIME.value] <= timestamp <= flow[FlowCsvColumns.END_TIME.value]:
                 return flow
         return None
+
+
+def packet_is_attack(flow_ids, timestamp, attack_times: pandas.DataFrame) -> TrafficType:
+    potential_attack_flows = attack_times.loc[attack_times.index.isin(flow_ids)]
+    attacks = potential_attack_flows["attack"].values[0]
+    benigns = potential_attack_flows["benign"].values[0]
+    if type(benigns) is float and math.isnan(benigns):
+        return TrafficType.ATTACK
+    elif type(attacks) is float and math.isnan(attacks):
+        return TrafficType.BENIGN
+
+    packet_type = get_traffic_type(timestamp, attacks, benigns)
+    if packet_type is None:
+        logging.error("Could not associate packet %s", flow_ids[0])
+        packet_type = TrafficType.BENIGN
+    return packet_type
+
+
+def get_traffic_type(ts, attack_times, benign_times):
+    ts = round(ts)
+    last_type = None
+    while len(attack_times) != 0 or len(benign_times) != 0:
+        if len(benign_times) == 0:
+            if ts < attack_times[0]:
+                return last_type
+            else:
+                return TrafficType.ATTACK
+        if len(attack_times) == 0:
+            if ts < benign_times[0]:
+                return last_type
+            else:
+                return TrafficType.BENIGN
+        if attack_times[0] < benign_times[0]:
+            time = attack_times.pop(0)
+            if ts < time:
+                return last_type
+            last_type = TrafficType.ATTACK
+        else:
+            time = benign_times.pop(0)
+            if ts < time:
+                return last_type
+            last_type = TrafficType.BENIGN
+    return last_type
+
 
 UNSWNB15 = DatasetUtils(UNSWNB15TrafficReader, UNSWNB15Preprocessor)
