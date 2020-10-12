@@ -63,3 +63,26 @@ class FlowIDFormatter:
         if not reverse:
             return "%s-%s-%s-%s-%s" % (src_ip, dest_ip, src_port, dest_port, protocol)
         return "%s-%s-%s-%s-%s" % (dest_ip, src_ip, dest_port, src_port, protocol)
+
+
+class SubsetPacketReader:
+    def __init__(self, pcap_path: str, ranges):
+        self.pcap_path = pcap_path
+        self.ranges = ranges
+
+    def __iter__(self):
+        reader = read_pcap_pcapng(self.pcap_path)
+        i = -1
+        range_index = 0
+        start, end = self.ranges[range_index]
+        for packet in reader:
+            i += 1
+            if i < start:
+                continue
+            if end != "end" and i >= end:
+                range_index += 1
+                if len(self.ranges) <= range_index:
+                    break
+                start, end = self.ranges[range_index]
+                continue
+            yield packet

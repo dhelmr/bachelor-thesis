@@ -11,8 +11,8 @@ from pandas import Series
 
 from anomaly_detection.types import TrafficType, TrafficSequence, TrafficReader, DatasetPreprocessor, DatasetUtils
 from dataset_utils import pcap_utils
-from dataset_utils.pcap_utils import FlowIDFormatter
-from dataset_utils.unsw_nb15 import packet_is_attack
+from dataset_utils.pcap_utils import FlowIDFormatter, SubsetPacketReader
+from dataset_utils.reader_utils import packet_is_attack, ranges_of_list
 
 
 class PcapFiles(Enum):
@@ -155,7 +155,7 @@ class CIC2017TrafficReader(TrafficReader):
     def _make_traffic_sequence(self, pcap_file: PcapFiles, ranges) -> TrafficSequence:
         full_pcap_path = os.path.join(self.dataset_dir, pcap_file.value)
         labels = self.read_traffic_labels(full_pcap_path)
-        ids = self._ranges_of_list(labels.index.values.tolist(), ranges)
+        ids = ranges_of_list(labels.index.values.tolist(), ranges)
         name = f"{pcap_file.name}@CIC-IDS-2017:{self.subset_name}"
         packet_reader = SubsetPacketReader(full_pcap_path, ranges)
         return TrafficSequence(name=name, packet_reader=packet_reader, labels=labels, ids=ids)
@@ -163,38 +163,6 @@ class CIC2017TrafficReader(TrafficReader):
     def __iter__(self):
         for pcap_file, ranges in self.subset["unknown"].items():
             yield self._make_traffic_sequence(pcap_file, ranges)
-
-    def _ranges_of_list(self, input_list, ranges):
-        output_list = []
-        for start, end in ranges:
-            if end == "end":
-                output_list += input_list[start:]
-            else:
-                output_list += input_list[start:end]
-        return output_list
-
-
-class SubsetPacketReader:
-    def __init__(self, pcap_path: str, ranges):
-        self.pcap_path = pcap_path
-        self.ranges = ranges
-
-    def __iter__(self):
-        reader = pcap_utils.read_pcap_pcapng(self.pcap_path)
-        i = -1
-        range_index = 0
-        start, end = self.ranges[range_index]
-        for packet in reader:
-            i += 1
-            if i < start:
-                continue
-            if end != "end" and i >= end:
-                range_index += 1
-                if len(self.ranges) <= range_index:
-                    break
-                start, end = self.ranges[range_index]
-                continue
-            yield packet
 
 
 class CICIDS2017Preprocessor(DatasetPreprocessor):

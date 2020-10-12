@@ -1,17 +1,21 @@
 import csv
+import itertools
+import json
 import logging
-import math
 import os
 import re
 from enum import Enum
-from typing import Optional
+from typing import Optional, List
 
 import dpkt
 import pandas
+from pandas import Series
 
 from anomaly_detection.types import DatasetPreprocessor, TrafficReader, TrafficSequence, DatasetUtils, TrafficType
 from dataset_utils import pcap_utils
 from dataset_utils.encoding_utils import get_encoding_for_csv
+from dataset_utils.pcap_utils import SubsetPacketReader
+from dataset_utils.reader_utils import packet_is_attack, ranges_of_list
 
 CSV_FOLDER = "UNSW-NB15 - CSV Files"
 CSV_FILES = [
@@ -19,12 +23,14 @@ CSV_FILES = [
 ]
 CSV_FEATURE_NAMES_FILE = "NUSW-NB15_features.csv"
 FEATURE_NAME_COLUMN_FIELD = "Name"  # name of the column which specified the feature name in NUSW-NB15_features.csv
+RANGES_FILE = "ranges.json"
 
 PCAP_FILES = {  # TODO use same names as when downloaded properly
     "01": [f"{i}.pcap" for i in range(1, 53)],
     "02": [f"{i}.pcap" for i in range(1, 27)]
 }
 
+BENIGN_INDEX_UNTIL = 10  # the first n pcap files are used for the benign dataset part (training set)
 
 class FlowCsvColumns(Enum):
     SRC_IP = "srcip"
@@ -40,12 +46,70 @@ class FlowCsvColumns(Enum):
 
 class UNSWNB15TrafficReader(TrafficReader):
 
+    def __init__(self, directory: str, subset: str):
+        super().__init__(directory, subset)
+        self.ranges = self._load_ranges()
+        self.subset = self._load_subset(self.subset_name, ranges=self.ranges)
+
     def read_normal_data(self) -> TrafficSequence:
-        pass
+        # TODO refactor with cic-ids-2017
+        traffic_sequences = [self._make_traffic_sequence(pcap_file, ranges) for pcap_file, ranges in
+                             self.subset["benign"].items()]
+        if len(traffic_sequences) == 1:
+            return traffic_sequences[0]
+        # if more than one traffic sequences are present, join them into one.
+        joined_ids = [id_item for id_item in itertools.chain(*map(lambda seq: seq.ids, traffic_sequences))]
+        joined_labels = Series()
+        for traffic_sequence in traffic_sequences:
+            joined_labels = joined_labels.append(traffic_sequence.labels)
+        joined_reader = itertools.chain(*map(lambda seq: seq.packet_reader, traffic_sequences))
+        return TrafficSequence(name=f"benign@UNSW-NB15:{self.subset_name}",
+                               labels=joined_labels,
+                               packet_reader=joined_reader,
+                               ids=joined_ids)
 
     def __iter__(self):
-        pass
+        for pcap_file, ranges in self.subset["unknown"].items():
+            yield self._make_traffic_sequence(pcap_file, ranges)
 
+    def _make_traffic_sequence(self, pcap_file: str, ranges) -> TrafficSequence:
+        labels = read_packet_labels(pcap_file)["traffic_type"]
+        ids = ranges_of_list(labels.index.values.tolist(), ranges)
+        name = f"{pcap_file}@UNSW-NB15:{self.subset_name}"
+        packet_reader = SubsetPacketReader(pcap_file, ranges)
+        return TrafficSequence(name=name, packet_reader=packet_reader, labels=labels, ids=ids)
+
+    def _load_ranges(self):
+        path = os.path.join(self.dataset_dir, RANGES_FILE)
+        with open(path, "r") as f:
+            return json.load(f)
+
+    def _load_subset(self, subset_name: str, ranges):
+        if subset_name == "all":
+            return ranges
+        # else: subset name must be of parttern "[test split]/[attack file1],[attack file2],..."
+        benign, unknown = subset_name.split("/")
+        benign_pcaps = self.select_pcaps(benign.split(","))
+        unknown_pcaps = self.select_pcaps(unknown.split(","))
+        return {
+            "benign": {pcap: r for pcap, r in ranges["benign"].items() if pcap in benign_pcaps},
+            "unknown": {pcap: r for pcap, r in ranges["unknown"].items() if pcap in unknown_pcaps},
+        }
+
+    def select_pcaps(self, patterns: List[str]):
+        selected = []
+        for pattern in patterns:
+            if "-" in pattern:
+                start, end = pattern.split("-")
+                indexes = range(int(start), int(end) + 1)
+            else:
+                indexes = [int(pattern)]
+            index = 1
+            for pcap in iter_pcaps(self.dataset_dir, skip_not_found=False):
+                if index in indexes:
+                    selected.append(pcap)
+                index += 1
+        return selected
 
 PROTOCOL_ENCODINGS = {
     "udp": "udp",
@@ -69,12 +133,13 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
         flow_features.set_index("flow_id", inplace=True)
         attack_times = self._get_attack_flow_ids(flow_features)
 
-        for pcap in self._iter_pcaps(dataset_path):
+        for pcap in iter_pcaps(dataset_path):
             self._write_pcap_labels(pcap, attack_times)
 
-    # with ThreadPoolExecutor(max_workers = 10) as pool:
-    #     args = [(pcap, attack_times) for pcap in self._iter_pcaps(dataset_path)]
-    #     pool.map(self._write_pcap_labels, args)
+        ranges = self._make_ranges(dataset_path)
+        ranges_path = os.path.join(dataset_path, RANGES_FILE)
+        with open(ranges_path, "w") as f:
+            json.dump(ranges, f)
 
     def _load_column_names(self, csv_file):
         df = pandas.read_csv(csv_file, sep=",", encoding="latin1")
@@ -92,7 +157,7 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
         df = pandas.read_csv(csv_file, sep=",", low_memory=False, header=None, names=column_names,
                              encoding=encoding, nrows=nrows)
         df.dropna(how="all", inplace=True)  # drop all empty rows (some csv are miss-formatted)
-        df[FlowCsvColumns.LABEL.value] = df[FlowCsvColumns.LABEL.value].apply(self._label_to_traffic_type)
+        df[FlowCsvColumns.LABEL.value] = df[FlowCsvColumns.LABEL.value].apply(label_to_traffic_type)
         # make flow ids
         df["flow_id"] = df[FlowCsvColumns.SRC_IP.value] + "-" + df[FlowCsvColumns.DEST_IP.value] + "-" + \
                         df[FlowCsvColumns.SRC_PORT.value].astype(str) + "-" + df[FlowCsvColumns.DEST_PORT.value].astype(
@@ -105,19 +170,10 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
                                 df[FlowCsvColumns.PROTOCOL.value]
         return df
 
-    def _iter_pcaps(self, dataset_path: str):
-        for folder, pcap_files in PCAP_FILES.items():
-            for pcap_file in pcap_files:
-                path = os.path.join(dataset_path, folder, pcap_file)
-                if os.path.exists(path):
-                    yield path
-                else:
-                    logging.warning("Cannot find %s; skip", path)
-
     def _write_pcap_labels(self, pcap_file, attack_times):
         reader = pcap_utils.read_pcap_pcapng(pcap_file, print_progress_after=100)
         attack_flow_ids = set(attack_times.index.values)
-        output_file = "%s_packet_labels.csv" % pcap_file
+        output_file = packet_label_file(pcap_file)
         with open(output_file, 'w') as csvfile:
             # creating a csv writer object
             csvwriter = csv.writer(csvfile)
@@ -154,12 +210,6 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
                                   FlowCsvColumns.START_TIME.value: "attack"}, inplace=True)
         return result_df
 
-    def _label_to_traffic_type(self, label):
-        if label == 0:
-            return TrafficType.BENIGN
-        else:
-            return TrafficType.ATTACK
-
     def _select_flow(self, potential_flows: pandas.DataFrame, timestamp) -> Optional[pandas.Series]:
         """Selects the flow that contains the given timestamp"""
         for _, flow in potential_flows.iterrows():
@@ -167,48 +217,64 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
                 return flow
         return None
 
+    def _make_ranges(self, dataset_path) -> dict:
+        ranges = {
+            "benign": {},
+            "unknown": {}
+        }
+        index = 0
+        for pcap in iter_pcaps(dataset_path, skip_not_found=False):
+            if index < BENIGN_INDEX_UNTIL:
+                if os.path.exists(pcap):
+                    ranges["benign"][pcap] = self.find_ranges_of_type(pcap, TrafficType.BENIGN)
+                else:
+                    raise FileNotFoundError("%s not found" % pcap)
+            else:
+                ranges["unknown"][pcap] = [0, "end"]
+        return ranges
 
-def packet_is_attack(flow_ids, timestamp, attack_times: pandas.DataFrame) -> TrafficType:
-    potential_attack_flows = attack_times.loc[attack_times.index.isin(flow_ids)]
-    attacks = potential_attack_flows["attack"].values[0]
-    benigns = potential_attack_flows["benign"].values[0]
-    if type(benigns) is float and math.isnan(benigns):
-        return TrafficType.ATTACK
-    elif type(attacks) is float and math.isnan(attacks):
+    def find_ranges_of_type(self, pcap, traffic_type) -> list:
+        """ finds consecutive sequences of packets inside the pcap that belong to a specific traffic type"""
+        labels = read_packet_labels(pcap)
+        current_start = None
+        ranges = []
+        index = 0
+        for _, row in labels.iterrows():
+            if row["traffic_type"] is traffic_type and current_start is None:
+                current_start = index
+            elif row["traffic_type"] is not traffic_type and current_start is not None:
+                ranges.append([current_start, index])
+                current_start = None
+            index += 1
+        return ranges
+
+
+def iter_pcaps(dataset_path: str, skip_not_found=True):
+    for folder, pcap_files in PCAP_FILES.items():
+        for pcap_file in pcap_files:
+            path = os.path.join(dataset_path, folder, pcap_file)
+            if not skip_not_found or os.path.exists(path):
+                yield path
+            else:
+                logging.warning("Cannot find %s; skip", path)
+
+
+def read_packet_labels(pcap) -> pandas.DataFrame:
+    csv_file = packet_label_file(pcap)
+    label_rows = pandas.read_csv(csv_file, sep=",", index_col=0)
+    label_rows["traffic_type"] = label_rows["traffic_type"].apply(lambda cell: TrafficType(cell))
+    return label_rows
+
+
+def label_to_traffic_type(label):
+    if label == 0:
         return TrafficType.BENIGN
-
-    packet_type = get_traffic_type(timestamp, attacks, benigns)
-    if packet_type is None:
-        logging.error("Could not associate packet %s", flow_ids[0])
-        packet_type = TrafficType.BENIGN
-    return packet_type
+    else:
+        return TrafficType.ATTACK
 
 
-def get_traffic_type(ts, attack_times, benign_times):
-    ts = round(ts)
-    last_type = None
-    while len(attack_times) != 0 or len(benign_times) != 0:
-        if len(benign_times) == 0:
-            if ts < attack_times[0]:
-                return last_type
-            else:
-                return TrafficType.ATTACK
-        if len(attack_times) == 0:
-            if ts < benign_times[0]:
-                return last_type
-            else:
-                return TrafficType.BENIGN
-        if attack_times[0] < benign_times[0]:
-            time = attack_times.pop(0)
-            if ts < time:
-                return last_type
-            last_type = TrafficType.ATTACK
-        else:
-            time = benign_times.pop(0)
-            if ts < time:
-                return last_type
-            last_type = TrafficType.BENIGN
-    return last_type
+def packet_label_file(pcap_file):
+    return "%s_packet_labels.csv" % pcap_file
 
 
 UNSWNB15 = DatasetUtils(UNSWNB15TrafficReader, UNSWNB15Preprocessor)
