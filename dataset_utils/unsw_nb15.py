@@ -191,6 +191,7 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
                     if flow_id not in attack_flow_ids and reverse_id not in attack_flow_ids:
                         packet_type = TrafficType.BENIGN
                     else:
+                        timestamp = round(timestamp)
                         packet_type = packet_is_attack(ids, timestamp, attack_times)
                 csvwriter.writerow([packet_id, packet_type.value])
 

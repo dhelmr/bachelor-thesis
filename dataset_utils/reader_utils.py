@@ -35,7 +35,6 @@ def ranges_of_list(input_list, ranges):
 
 
 def get_traffic_type(ts, attack_times, benign_times):
-    ts = round(ts)
     last_type = None
     while len(attack_times) != 0 or len(benign_times) != 0:
         if len(benign_times) == 0:
