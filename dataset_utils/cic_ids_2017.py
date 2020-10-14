@@ -188,7 +188,7 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
         for timestamp, buf in packets:
             flow_ids = self.flow_formatter.make_flow_ids(timestamp, buf)
             packet_id = self.get_packet_id(timestamp, buf, flow_ids)
-            packet_id = "%s_%s" % (progress, packet_id)  # TODO hack to make the packet ids unique
+            packet_id = "%s_%s" % (progress, packet_id)
             if (flow_ids is None) or \
                     not (flow_ids[0] in attack_times.index or flow_ids[1] in attack_times.index):
                 traffic_type = TrafficType.BENIGN
@@ -214,10 +214,10 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
         in_both = pandas.concat([in_both, in_both_reversed_id])
         benign_times = in_both["Timestamp_y"].groupby(in_both.index).apply(
             # Timestamp_y is the benign's flow timestamp
-            lambda elements: [self.date_to_timestamp(formatted_date) for formatted_date in list(elements)]
+            lambda elements: sorted([self.date_to_timestamp(formatted_date) for formatted_date in list(elements)])
         )
         attack_times = attacks["Timestamp"].groupby(attacks.index).apply(
-            lambda elements: [self.date_to_timestamp(formatted_date) for formatted_date in list(elements)]
+            lambda elements: sorted([self.date_to_timestamp(formatted_date) for formatted_date in list(elements)])
         )
         result_df = pandas.merge(attack_times, benign_times, how="left", right_index=True, left_index=True)
         result_df.rename(columns={"Timestamp_y": "benign", "Timestamp": "attack"}, inplace=True)

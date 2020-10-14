@@ -1,3 +1,4 @@
+import datetime
 import logging
 import math
 
@@ -6,7 +7,7 @@ import pandas
 from anomaly_detection.types import TrafficType
 
 
-def packet_is_attack(flow_ids, timestamp, attack_times: pandas.DataFrame) -> TrafficType:
+def packet_is_attack(flow_ids, timestamp: float, attack_times: pandas.DataFrame) -> TrafficType:
     potential_attack_flows = attack_times.loc[attack_times.index.isin(flow_ids)]
     attacks = potential_attack_flows["attack"].values[0]
     benigns = potential_attack_flows["benign"].values[0]
@@ -15,6 +16,7 @@ def packet_is_attack(flow_ids, timestamp, attack_times: pandas.DataFrame) -> Tra
     elif type(attacks) is float and math.isnan(attacks):
         return TrafficType.BENIGN
 
+    timestamp = datetime.datetime.utcfromtimestamp(timestamp)
     packet_type = get_traffic_type(timestamp, attacks, benigns)
     if packet_type is None:
         logging.error("Could not associate packet %s", flow_ids[0])

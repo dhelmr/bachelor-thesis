@@ -123,7 +123,7 @@ Feature extractors can be listed with:
 >>> basic_netflow <<<
 usage: main.py [-h] [--flow-timeout FLOW_TIMEOUT]
                [--subflow-timeout SUBFLOW_TIMEOUT] [--verbose]
-               [--mode {FeatureSet.SUBFLOWS_DETAILED,FeatureSet.SUBFLOWS_SIMPLE,FeatureSet.NO_SUBFLOWS}]
+               [--mode {FeatureSetMode.SUBFLOWS_DETAILED,FeatureSetMode.SUBFLOWS_SIMPLE,FeatureSetMode.WITH_IP} [{FeatureSetMode.SUBFLOWS_DETAILED,FeatureSetMode.SUBFLOWS_SIMPLE,FeatureSetMode.WITH_IP} ...]]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -132,8 +132,8 @@ optional arguments:
   --subflow-timeout SUBFLOW_TIMEOUT
                         Activity timeout (for subflows) in milliseconds
   --verbose
-  --mode {FeatureSet.SUBFLOWS_DETAILED,FeatureSet.SUBFLOWS_SIMPLE,FeatureSet.NO_SUBFLOWS}
-                        Feature Selection Mode
+  --mode {FeatureSetMode.SUBFLOWS_DETAILED,FeatureSetMode.SUBFLOWS_SIMPLE,FeatureSetMode.WITH_IP} [{FeatureSetMode.SUBFLOWS_DETAILED,FeatureSetMode.SUBFLOWS_SIMPLE,FeatureSetMode.WITH_IP} ...]
+                        Feature Selection Modes
 
 
 >>> basic_packet_info <<<
@@ -153,7 +153,7 @@ optional arguments:
 >>> doc2vec_flows <<<
 usage: main.py [-h] [--flow-timeout FLOW_TIMEOUT]
                [--subflow-timeout SUBFLOW_TIMEOUT] [--verbose]
-               [--mode {FeatureSet.SUBFLOWS_DETAILED,FeatureSet.SUBFLOWS_SIMPLE,FeatureSet.NO_SUBFLOWS}]
+               [--mode {FeatureSetMode.SUBFLOWS_DETAILED,FeatureSetMode.SUBFLOWS_SIMPLE,FeatureSetMode.WITH_IP} [{FeatureSetMode.SUBFLOWS_DETAILED,FeatureSetMode.SUBFLOWS_SIMPLE,FeatureSetMode.WITH_IP} ...]]
                [--d2v-vector-size VECTOR_SIZE] [--d2v-workers WORKERS]
                [--d2v-window MIN_COUNT] [--d2v-min-count WINDOW]
 
@@ -164,8 +164,8 @@ optional arguments:
   --subflow-timeout SUBFLOW_TIMEOUT
                         Activity timeout (for subflows) in milliseconds
   --verbose
-  --mode {FeatureSet.SUBFLOWS_DETAILED,FeatureSet.SUBFLOWS_SIMPLE,FeatureSet.NO_SUBFLOWS}
-                        Feature Selection Mode
+  --mode {FeatureSetMode.SUBFLOWS_DETAILED,FeatureSetMode.SUBFLOWS_SIMPLE,FeatureSetMode.WITH_IP} [{FeatureSetMode.SUBFLOWS_DETAILED,FeatureSetMode.SUBFLOWS_SIMPLE,FeatureSetMode.WITH_IP} ...]
+                        Feature Selection Modes
   --d2v-vector-size VECTOR_SIZE
   --d2v-workers WORKERS
   --d2v-window MIN_COUNT

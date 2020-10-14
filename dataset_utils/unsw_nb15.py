@@ -1,4 +1,5 @@
 import csv
+import datetime
 import itertools
 import json
 import logging
@@ -85,7 +86,7 @@ class UNSWNB15TrafficReader(TrafficReader):
             return json.load(f)
 
     def _load_subset(self, subset_name: str, ranges):
-        if subset_name == "all":
+        if subset_name == "all" or subset_name == "default":
             return ranges
         # else: subset name must be of parttern "[test split]/[attack file1],[attack file2],..."
         benign, unknown = subset_name.split("/")
@@ -200,10 +201,10 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
         in_both_reversed_id = pandas.merge(attacks, benigns, how="inner", left_on="reverse_flow_id", right_index=True)
         in_both = pandas.concat([in_both, in_both_reversed_id])
         benign_times = in_both[f"{FlowCsvColumns.START_TIME.value}_y"].groupby(in_both.index).apply(
-            lambda elements: sorted(list(elements))
+            lambda elements: sorted([self.date_to_timestamp(e) for e in list(elements)])
         )
         attack_times = attacks[FlowCsvColumns.START_TIME.value].groupby(attacks.index).apply(
-            lambda elements: sorted(list(elements))
+            lambda elements: sorted([self.date_to_timestamp(e) for e in list(elements)])
         )
         result_df = pandas.merge(attack_times, benign_times, how="left", right_index=True, left_index=True)
         result_df.rename(columns={f"{FlowCsvColumns.START_TIME.value}_y": "benign",
@@ -247,6 +248,9 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
                 current_start = None
             index += 1
         return ranges
+
+    def date_to_timestamp(self, epoch_time):
+        return datetime.datetime.utcfromtimestamp(epoch_time)
 
 
 def iter_pcaps(dataset_path: str, skip_not_found=True):
