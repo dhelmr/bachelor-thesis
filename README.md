@@ -227,12 +227,17 @@ optional arguments:
 
 >>> autoencoder <<<
 usage: autoencoder [-h] [--training-epochs TRAINING_EPOCHS]
-                   [--training-batch TRAINING_BATCH] [--verbose]
+                   [--training-batch TRAINING_BATCH] [--layers LAYERS]
+                   [--activation {relu,sigmoid,softmax,softplus,softsign,tanh,selu,elu,exponential}]
+                   [--loss {mse,mae}] [--verbose]
 
 optional arguments:
   -h, --help            show this help message and exit
   --training-epochs TRAINING_EPOCHS
   --training-batch TRAINING_BATCH
+  --layers LAYERS
+  --activation {relu,sigmoid,softmax,softplus,softsign,tanh,selu,elu,exponential}
+  --loss {mse,mae}
   --verbose
 
 
