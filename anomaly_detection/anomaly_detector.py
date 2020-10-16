@@ -27,10 +27,14 @@ class AnomalyDetectorModel:
         logging.debug("Start decision engine training with features of shape %s ...", transformed.shape)
         self.decision_engine.fit(transformed, traffic_type=TrafficType.BENIGN)
 
-    def feed_traffic(self, classification_id: str, traffic: TrafficSequence):
+    def feed_traffic(self, classification_id: str, traffic: TrafficSequence) -> ClassificationResults:
+        logging.debug("Extract features...")
         features = self.feature_extractor.extract_features(traffic)
+        logging.debug("Feature have dimensions: ", features.ndim)
         transformed = self._apply_transformers(features)
+        logging.debug("Transformed features. Apply decision engine.")
         de_result = self.decision_engine.classify(transformed)
+        logging.debug("Finished classifications. Start backwards mapping to packet ids.")
         predictions = self.feature_extractor.map_backwards(traffic, de_result)
         return ClassificationResults(classification_id, traffic.ids, predictions)
 
