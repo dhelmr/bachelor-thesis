@@ -92,7 +92,7 @@ class AutoencoderDE(DecisionEngine):
         test_losses = self.loss_fn(pred, traffic_data)
         classifications = [TrafficType.ATTACK if loss > self.threshold
                            else TrafficType.BENIGN
-                           for loss in test_losses.numpy]
+                           for loss in test_losses]
         return classifications
 
     def _get_keras_verbose(self):
