@@ -123,7 +123,7 @@ Feature extractors can be listed with:
 >>> basic_netflow <<<
 usage: main.py [-h] [--flow-timeout FLOW_TIMEOUT]
                [--subflow-timeout SUBFLOW_TIMEOUT] [--verbose]
-               [--mode {FeatureSetMode.SUBFLOWS_DETAILED,FeatureSetMode.SUBFLOWS_SIMPLE,FeatureSetMode.WITH_IP} [{FeatureSetMode.SUBFLOWS_DETAILED,FeatureSetMode.SUBFLOWS_SIMPLE,FeatureSetMode.WITH_IP} ...]]
+               [--nf-mode {subflows_detailed,subflows_simple,with_ip} [{subflows_detailed,subflows_simple,with_ip} ...]]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -132,7 +132,7 @@ optional arguments:
   --subflow-timeout SUBFLOW_TIMEOUT
                         Activity timeout (for subflows) in milliseconds
   --verbose
-  --mode {FeatureSetMode.SUBFLOWS_DETAILED,FeatureSetMode.SUBFLOWS_SIMPLE,FeatureSetMode.WITH_IP} [{FeatureSetMode.SUBFLOWS_DETAILED,FeatureSetMode.SUBFLOWS_SIMPLE,FeatureSetMode.WITH_IP} ...]
+  --nf-mode {subflows_detailed,subflows_simple,with_ip} [{subflows_detailed,subflows_simple,with_ip} ...]
                         Feature Selection Modes
 
 
@@ -153,7 +153,7 @@ optional arguments:
 >>> doc2vec_flows <<<
 usage: main.py [-h] [--flow-timeout FLOW_TIMEOUT]
                [--subflow-timeout SUBFLOW_TIMEOUT] [--verbose]
-               [--mode {FeatureSetMode.SUBFLOWS_DETAILED,FeatureSetMode.SUBFLOWS_SIMPLE,FeatureSetMode.WITH_IP} [{FeatureSetMode.SUBFLOWS_DETAILED,FeatureSetMode.SUBFLOWS_SIMPLE,FeatureSetMode.WITH_IP} ...]]
+               [--nf-mode {subflows_detailed,subflows_simple,with_ip} [{subflows_detailed,subflows_simple,with_ip} ...]]
                [--d2v-vector-size VECTOR_SIZE] [--d2v-workers WORKERS]
                [--d2v-window MIN_COUNT] [--d2v-min-count WINDOW]
 
@@ -164,7 +164,7 @@ optional arguments:
   --subflow-timeout SUBFLOW_TIMEOUT
                         Activity timeout (for subflows) in milliseconds
   --verbose
-  --mode {FeatureSetMode.SUBFLOWS_DETAILED,FeatureSetMode.SUBFLOWS_SIMPLE,FeatureSetMode.WITH_IP} [{FeatureSetMode.SUBFLOWS_DETAILED,FeatureSetMode.SUBFLOWS_SIMPLE,FeatureSetMode.WITH_IP} ...]
+  --nf-mode {subflows_detailed,subflows_simple,with_ip} [{subflows_detailed,subflows_simple,with_ip} ...]
                         Feature Selection Modes
   --d2v-vector-size VECTOR_SIZE
   --d2v-workers WORKERS
@@ -226,13 +226,13 @@ optional arguments:
 
 
 >>> autoencoder <<<
-usage: autoencoder [-h] [--training_epochs TRAINING_EPOCHS]
-                   [--training_batch TRAINING_BATCH] [--verbose]
+usage: autoencoder [-h] [--training-epochs TRAINING_EPOCHS]
+                   [--training-batch TRAINING_BATCH] [--verbose]
 
 optional arguments:
   -h, --help            show this help message and exit
-  --training_epochs TRAINING_EPOCHS
-  --training_batch TRAINING_BATCH
+  --training-epochs TRAINING_EPOCHS
+  --training-batch TRAINING_BATCH
   --verbose
 
 

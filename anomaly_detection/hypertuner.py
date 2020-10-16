@@ -53,7 +53,13 @@ class Hypertuner:
                 # e.g.: [("kernel": "poly"), ("c":1)] => ["kernel","poly","c","1"]
                 flat_args = []
                 for arg in args:
-                    flat_args += [arg[0], str(arg[1])]
+                    if arg[1] is None:
+                        continue
+                    elif type(arg[1]) is list:
+                        for arg_value in arg[1]:
+                            flat_args += [arg[0], arg_value]
+                    else:
+                        flat_args += [arg[0], str(arg[1])]
                 executor.submit(Hypertuner.exec_hyperparam_config, self, de_name, fe_name, transformers, flat_args, i,
                                 total)
 
