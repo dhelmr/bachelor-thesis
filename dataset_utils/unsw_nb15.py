@@ -55,7 +55,7 @@ class UNSWNB15TrafficReader(TrafficReader):
     def read_normal_data(self) -> TrafficSequence:
         # TODO refactor with cic-ids-2017
         traffic_sequences = [self._make_traffic_sequence(pcap_file, ranges) for pcap_file, ranges in
-                             self.subset["benign"].items()]
+                             self.subset["benign"].items() if os.path.exists(pcap_file)]
         if len(traffic_sequences) == 1:
             return traffic_sequences[0]
         # if more than one traffic sequences are present, join them into one.
@@ -71,6 +71,8 @@ class UNSWNB15TrafficReader(TrafficReader):
 
     def __iter__(self):
         for pcap_file, ranges in self.subset["unknown"].items():
+            if not os.path.exists(pcap_file):
+                continue
             yield self._make_traffic_sequence(pcap_file, ranges)
 
     def _make_traffic_sequence(self, pcap_file: str, ranges) -> TrafficSequence:
@@ -194,6 +196,7 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
                         timestamp = round(timestamp)
                         packet_type = packet_is_attack(ids, timestamp, attack_times)
                 csvwriter.writerow([packet_id, packet_type.value])
+                index += 1
 
     def _get_attack_flow_ids(self, flows):
         attacks = flows.loc[flows[FlowCsvColumns.LABEL.value] == TrafficType.ATTACK]
@@ -230,9 +233,10 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
                 if os.path.exists(pcap):
                     ranges["benign"][pcap] = self.find_ranges_of_type(pcap, TrafficType.BENIGN)
                 else:
-                    raise FileNotFoundError("%s not found" % pcap)
+                    logging.info("%s not found", pcap)
             else:
-                ranges["unknown"][pcap] = [0, "end"]
+                ranges["unknown"][pcap] = [[0, "end"]]
+            index += 1
         return ranges
 
     def find_ranges_of_type(self, pcap, traffic_type) -> list:
