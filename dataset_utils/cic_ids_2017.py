@@ -125,7 +125,7 @@ class CIC2017TrafficReader(TrafficReader):
     def __init__(self, directory: str, subset: str):
         super().__init__(directory, subset)
         if subset not in SUBSETS:
-            raise ValueError("Subet %s is not valid" % subset)
+            raise ValueError("Subset %s is not valid" % subset)
         self.subset = SUBSETS[subset]
 
     def read_traffic_labels(self, pcap_file: str) -> pandas.Series:
