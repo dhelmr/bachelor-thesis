@@ -69,9 +69,9 @@ class AutoencoderDE(DecisionEngine):
             for i, n_nodes in enumerate(self.layers)
         ]
 
-    def loss_fn(self, *args, **kwargs):
+    def loss_fn(self, predicted, actual):
         loss_fn = keras.losses.get(self.loss)
-        return loss_fn(*args, **kwargs)
+        return loss_fn(predicted, actual)
 
     def fit(self, traffic_data: np.ndarray, traffic_type: TrafficType):
         dim = len(traffic_data[0])
@@ -90,10 +90,9 @@ class AutoencoderDE(DecisionEngine):
             raise RuntimeError("Autoencoder is not trained yet.")
         pred = self.autoencoder.predict(traffic_data)
         test_losses = self.loss_fn(pred, traffic_data)
-        test_losses = test_losses.reshape((-1))
         classifications = [TrafficType.ATTACK if loss > self.threshold
                            else TrafficType.BENIGN
-                           for loss in test_losses]
+                           for loss in test_losses.numpy]
         return classifications
 
     def _get_keras_verbose(self):
