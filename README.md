@@ -62,7 +62,7 @@ For help of the subcommands just type `--help`, for example:
 ❯ ./main.py train --help
 
 usage: main.py train [-h] [--db DB] [--debug]
-                     [--transformers {minmax_scaler,standard_scaler} [{minmax_scaler,standard_scaler} ...]]
+                     [--transformers {minmax_scaler,standard_scaler,onehot_encoder} [{minmax_scaler,standard_scaler,onehot_encoder} ...]]
                      [--feature-extractor {basic_netflow,basic_packet_info,doc2vec_packet,doc2vec_flows,test}]
                      [--store-features] [--load-features]
                      [--model-id MODEL_ID]
@@ -76,7 +76,7 @@ optional arguments:
                         (default: classifications.db)
   --debug, --verbose    Will produce verbose output that is useful for
                         debugging (default: False)
-  --transformers {minmax_scaler,standard_scaler} [{minmax_scaler,standard_scaler} ...], -t {minmax_scaler,standard_scaler} [{minmax_scaler,standard_scaler} ...]
+  --transformers {minmax_scaler,standard_scaler,onehot_encoder} [{minmax_scaler,standard_scaler,onehot_encoder} ...], -t {minmax_scaler,standard_scaler,onehot_encoder} [{minmax_scaler,standard_scaler,onehot_encoder} ...]
                         Specifies one or more transformers that are applied
                         before calling the decision engine. (default: [])
   --feature-extractor {basic_netflow,basic_packet_info,doc2vec_packet,doc2vec_flows,test}, -f {basic_netflow,basic_packet_info,doc2vec_packet,doc2vec_flows,test}

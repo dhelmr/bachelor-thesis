@@ -20,7 +20,7 @@ class Evaluator:
             else:
                 logging.info(f"File {report_file} already exists, will overwrite.")
 
-    def evaluate(self, classification_id: str, filter_traffic_names: t.Optional[t.List[str]] = None):
+    def evaluate(self, classification_id: str, filter_traffic_names: t.Optional[t.List[str]] = None) -> dict:
         """
         Generate a evaluation report from a previous classification. 
 
@@ -44,6 +44,7 @@ class Evaluator:
             self.write_report(json.dumps(
                 evaluation_dict, indent=4, sort_keys=True))
         self.store_in_db(evaluation_dict, classification_id)
+        return evaluation_dict
 
     def evaluate_traffic_sequence(self, name, pred_labels, true_labels):
         logging.info("Start evaluation of %s (%i records)",

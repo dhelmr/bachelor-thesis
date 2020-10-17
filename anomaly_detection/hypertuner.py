@@ -56,8 +56,7 @@ class Hypertuner:
                     if arg[1] is None:
                         continue
                     elif type(arg[1]) is list:
-                        for arg_value in arg[1]:
-                            flat_args += [arg[0], arg_value]
+                        flat_args += [arg[0]] + arg[1]
                     else:
                         flat_args += [arg[0], str(arg[1])]
                 executor.submit(Hypertuner.exec_hyperparam_config, self, de_name, fe_name, transformers, flat_args, i,
@@ -81,7 +80,7 @@ class Hypertuner:
             classification_id = classifier.start_classification()
 
             evaluator = Evaluator(self.db, self.traffic_reader)
-            evaluator.evaluate(classification_id)
-            logging.info("%Finished s/%s: %s", i, total, train_args)
+            results = evaluator.evaluate(classification_id)
+            logging.info("Finished %s/%s: %s Results: %s", i, total, train_args, results["total"])
         except Exception as e:
             logging.error("Error occured for %s: %s", train_args, e)
