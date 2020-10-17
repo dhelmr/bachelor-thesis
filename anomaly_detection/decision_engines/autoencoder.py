@@ -9,7 +9,7 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 
-from anomaly_detection.types import DecisionEngine, TrafficType
+from anomaly_detection.types import DecisionEngine, TrafficType, Features
 
 MODEL_FILE_PATH = ".autoencoders"
 POSSIBLE_ACTIVATIONS = ["relu", "sigmoid", "softmax", "softplus",
@@ -73,23 +73,24 @@ class AutoencoderDE(DecisionEngine):
         loss_fn = keras.losses.get(self.loss)
         return loss_fn(predicted, actual)
 
-    def fit(self, traffic_data: np.ndarray, traffic_type: TrafficType):
-        dim = len(traffic_data[0])
+    def fit(self, features: Features, traffic_type: TrafficType):
+        data = features.data
+        dim = len(data[0])
         self.init_model(input_dim=dim)
-        self.autoencoder.fit(traffic_data, traffic_data,
+        self.autoencoder.fit(data, data,
                              epochs=self.training_epochs,
                              batch_size=self.training_batch,
                              shuffle=True, verbose=self._get_keras_verbose())
         # Get train MAE loss.
-        pred = self.autoencoder.predict(traffic_data)
-        train_mae_loss = self.loss_fn(pred, traffic_data)
+        pred = self.autoencoder.predict(data)
+        train_mae_loss = self.loss_fn(pred, data)
         self.threshold = np.max(train_mae_loss)
 
-    def classify(self, traffic_data: np.ndarray) -> t.Sequence[TrafficType]:
+    def classify(self, features: Features) -> t.Sequence[TrafficType]:
         if self.autoencoder is None or self.threshold is None:
             raise RuntimeError("Autoencoder is not trained yet.")
-        pred = self.autoencoder.predict(traffic_data)
-        test_losses = self.loss_fn(pred, traffic_data)
+        pred = self.autoencoder.predict(features.data)
+        test_losses = self.loss_fn(pred, features.data)
         classifications = [TrafficType.ATTACK if loss > self.threshold
                            else TrafficType.BENIGN
                            for loss in test_losses]

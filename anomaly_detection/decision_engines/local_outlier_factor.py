@@ -4,7 +4,7 @@ import pickle
 
 from sklearn.neighbors import LocalOutlierFactor
 
-from anomaly_detection.types import TrafficType, DecisionEngine
+from anomaly_detection.types import TrafficType, DecisionEngine, Features
 
 PREDICTION_ANOMALY_VALUE = -1
 PREDICTION_NORMAL_VALUE = 1
@@ -23,16 +23,15 @@ class LocalOutlierFactorDE(DecisionEngine):
         logging.debug("Initialized LOF %s", self.lof)
         self._set_normal_traffic_type(TrafficType.BENIGN)
 
-    def classify(self, traffic_data):
-        predictions = self.lof.predict(traffic_data)
+    def classify(self, features: Features):
+        predictions = self.lof.predict(features.data)
         logging.info("Prediction done")
         traffic_type_labels = [
             self._prediction_to_traffic_type(p) for p in predictions]
         return traffic_type_labels
 
-    def fit(self, traffic_data, traffic_type: TrafficType):
-        # TODO handle traffic type (see one_class_svm)
-        self.lof.fit(traffic_data)
+    def fit(self, features: Features, traffic_type: TrafficType):
+        self.lof.fit(features.data)
 
     def _prediction_to_traffic_type(self, prediction_value: int):
         if prediction_value == PREDICTION_NORMAL_VALUE:

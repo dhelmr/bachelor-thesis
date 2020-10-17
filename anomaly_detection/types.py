@@ -6,6 +6,7 @@ from enum import Enum
 from typing import NamedTuple
 
 import numpy as np
+import pandas
 import pandas as pd
 
 
@@ -21,45 +22,6 @@ class TrafficType(Enum):
             return TrafficType.BENIGN
         else:
             return TrafficType.UNKNOWN
-
-
-class DecisionEngine(ABC):
-    __metaclass__ = ABCMeta
-
-    @abstractmethod
-    def classify(self, traffic_data: np.ndarray) -> t.Sequence[TrafficType]:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def fit(self, traffic_data: np.ndarray, traffic_type: TrafficType):
-        raise NotImplementedError()
-
-    @abstractmethod
-    def get_name(self) -> str:
-        raise NotImplementedError()
-
-    def serialize(self) -> str:
-        return pickle.dumps(self)
-
-    @staticmethod
-    def deserialize(serialized):
-        return pickle.loads(serialized)
-
-
-class Transformer(ABC):
-    __metaclass__ = ABCMeta
-
-    @abstractmethod
-    def fit(self, traffic_data: np.ndarray):
-        raise NotImplementedError()
-
-    @abstractmethod
-    def transform(self, traffic_data: np.ndarray):
-        raise NotImplementedError()
-
-    @abstractmethod
-    def get_name(self) -> str:
-        raise NotImplementedError()
 
 
 Packet = t.Tuple[float, bytes]
@@ -90,15 +52,54 @@ class TrafficReader(ABC):
         raise NotImplementedError()
 
 
+class FeatureType(Enum):
+    INT = 0
+    FLOAT = 1
+    CATEGORIAL = 2
+    BINARY = 3
+
+
+class Features(NamedTuple):
+    names: t.List[str]
+    types: t.List[FeatureType]
+    data: np.ndarray
+
+    def validate(self):
+        if len(self.names) != len(self.types) or len(self.data[0]) != len(self.types):
+            raise ValueError("Lengths of features names, feature types or data do not match!")
+
+    def as_pandas(self, copy: bool = False) -> pandas.DataFrame:
+        if copy is True:
+            data = self.data.copy()
+        else:
+            data = self.data
+        return pandas.DataFrame(data, columns=self.names)
+
+    @staticmethod
+    def from_pandas(df: pandas.DataFrame, types: t.List[FeatureType]) -> "Features":
+        return Features(
+            data=df.values,
+            types=types,
+            names=df.columns.tolist()
+        )
+
+    def with_data(self, data):
+        return Features(
+            data=data,
+            types=self.types,
+            names=self.names
+        )
+
+
 class FeatureExtractor:
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def fit_extract(self, traffic: TrafficSequence) -> np.ndarray:
+    def fit_extract(self, traffic: TrafficSequence) -> Features:
         raise NotImplementedError()
 
     @abstractmethod
-    def extract_features(self, traffic: TrafficSequence) -> np.ndarray:
+    def extract_features(self, traffic: TrafficSequence) -> Features:
         raise NotImplementedError()
 
     @abstractmethod
@@ -121,6 +122,45 @@ class FeatureExtractor:
     @abstractmethod
     def init_by_parsed(args: argparse.Namespace):
         raise NotImplementedError()
+
+
+class Transformer(ABC):
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def fit_transform(self, features: Features) -> Features:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def transform(self, traffic_data: Features) -> Features:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def get_name(self) -> str:
+        raise NotImplementedError()
+
+
+class DecisionEngine(ABC):
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def classify(self, features: Features, ) -> t.Sequence[TrafficType]:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def fit(self, features: Features, traffic_type: TrafficType):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def get_name(self) -> str:
+        raise NotImplementedError()
+
+    def serialize(self) -> t.Any:
+        return pickle.dumps(self)
+
+    @staticmethod
+    def deserialize(serialized):
+        return pickle.loads(serialized)
 
 
 class ClassificationResults(NamedTuple):

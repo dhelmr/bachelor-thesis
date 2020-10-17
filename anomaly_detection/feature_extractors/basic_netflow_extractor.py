@@ -3,18 +3,13 @@ import statistics
 import typing as t
 from enum import Enum
 
-import dpkt
 import numpy as np
 from tqdm import tqdm
 
-from anomaly_detection.types import FeatureExtractor, TrafficType, Packet, TrafficSequence
+from anomaly_detection.types import FeatureExtractor, TrafficType, Packet, TrafficSequence, Features, FeatureType
 from dataset_utils.pcap_utils import get_ip_packet
 
-
-class Protocol(Enum):
-    TCP = 0
-    UDP = 1
-    OTHER = 2
+Protocol = int
 
 
 class FlowIdentifier(t.NamedTuple):
@@ -102,10 +97,10 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         self.verbose = verbose
         self.modes = modes
 
-    def fit_extract(self, traffic: TrafficSequence) -> np.ndarray:
+    def fit_extract(self, traffic: TrafficSequence) -> Features:
         return self.extract_features(traffic)
 
-    def extract_features(self, traffic: TrafficSequence) -> np.ndarray:
+    def extract_features(self, traffic: TrafficSequence) -> Features:
         flows = self._make_flows(traffic)
         features = self._extract_flow_features(flows)
         return features
@@ -134,8 +129,9 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 packet_classifications.append(de_result[flow_index])
         return packet_classifications
 
-    def _extract_flow_features(self, flows: t.List[NetFlow]) -> np.ndarray:
+    def _extract_flow_features(self, flows: t.List[NetFlow]) -> Features:
         features = []
+        names, types = self._make_flow_names_types()
         for f in tqdm(flows, desc="Extract statistical flow features", disable=(not self.verbose)):
             duration = f.duration()
             forward_packets = f.get_packets_in_direction(FlowDirection.FORWARDS)
@@ -144,7 +140,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             forward = self._extract_packet_list_features(forward_packets)
             backward = self._extract_packet_list_features(backward_packets)
             features_row = total + forward + backward + [
-                duration, f.src_port, f.dest_port, f.protocol.value]
+                duration, f.src_port, f.dest_port, f.protocol]
             if FeatureSetMode.WITH_IP in self.modes:
                 features_row += [f.src_ip, f.dest_ip]
             if FeatureSetMode.SUBFLOWS_SIMPLE in self.modes:
@@ -155,7 +151,63 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 subflows_backward = self._extract_sub_flows_features(backward_packets)
                 features_row += subflows_forward + subflows_backward
             features.append(features_row)
-        return np.array(features)
+        return Features(data=np.array(features), names=names, types=types)
+
+    def _make_flow_names_types(self):
+        def packet_list_features(prefix):
+            return map(lambda item: (prefix + "_" + item[0], item[1]), [
+                ("sum_pkg_length", FeatureType.INT),
+                ("mean_pkg_length", FeatureType.FLOAT),
+                ("min_pkg_length", FeatureType.FLOAT),
+                ("max_pkg_length", FeatureType.FLOAT),
+                ("std_pkg_length", FeatureType.FLOAT),
+                ("n_packets", FeatureType.INT),
+                ("packets_per_ms", FeatureType.FLOAT),
+                ("bytes_per_ms", FeatureType.FLOAT),
+                ("avg_ttl", FeatureType.FLOAT)
+            ])
+
+        def subflow_features(prefix):
+            return map(lambda item: (prefix + "_" + item[0], item[1]), [
+                ("n_subflows", FeatureType.INT),
+                ("n_active_times", FeatureType.INT),
+                ("min_active_time", FeatureType.INT),
+                ("max_active_time", FeatureType.INT),
+                ("total_active_time", FeatureType.INT),
+                ("std_active_time", FeatureType.INT),
+                ("mean_active_time", FeatureType.INT),
+                ("n_idle_times", FeatureType.INT),
+                ("min_idle_time", FeatureType.INT),
+                ("max_idle_time", FeatureType.INT),
+                ("total_idle_time", FeatureType.INT),
+                ("std_idle_time", FeatureType.INT),
+                ("mean_idle_time", FeatureType.INT),
+            ])
+
+        names_types = [
+            *packet_list_features("total"),
+            *packet_list_features("forward"),
+            *packet_list_features("backward"),
+            ("duration", FeatureType.FLOAT),
+            ("src_port", FeatureType.INT),
+            ("dest_port", FeatureType.INT),
+            ("protocol", FeatureType.CATEGORIAL),
+        ]
+        if FeatureSetMode.WITH_IP in self.modes:
+            names_types += [
+                ("src_ip", FeatureType.INT),
+                ("dest_ip", FeatureType.INT)
+            ]
+        if FeatureSetMode.SUBFLOWS_SIMPLE in self.modes:
+            names_types += [
+                *subflow_features("subflows")
+            ]
+        if FeatureSetMode.SUBFLOWS_DETAILED in self.modes:
+            names_types += [
+                *subflow_features("subflows_fwd"),
+                *subflow_features("subflows_bwd")
+            ]
+        return list(zip(*names_types))
 
     def _extract_sub_flows_features(self, flow: t.List[Packet]):
         subflows = self._make_subflows(flow)
@@ -329,18 +381,9 @@ class NetFlowGenerator:
             return None
         src_ip = int.from_bytes(ip.src, "big")
         dest_ip = int.from_bytes(ip.dst, "big")
-        if type(ip.data) is dpkt.tcp.TCP:
-            src_port = int(ip.tcp.sport)
-            dest_port = int(ip.tcp.dport)
-            protocol = Protocol.TCP
-        elif type(ip.data) is dpkt.udp.UDP:
-            src_port = int(ip.udp.sport)
-            dest_port = int(ip.udp.dport)
-            protocol = Protocol.UDP
-        else:
-            src_port = 0
-            dest_port = 0
-            protocol = Protocol.OTHER  # TODO differentiate more protocols
+        protocol = ip.p
+        src_port = get_if_exists(ip.data, key="sport", default=0)
+        dest_port = get_if_exists(ip.data, key="dport", default=0)
         return src_ip, dest_ip, src_port, dest_port, protocol
 
     def make_flow_id(self, src_ip, dest_ip, src_port, dest_port, protocol) -> FlowIdentifier:
@@ -361,3 +404,10 @@ class NetFlowGenerator:
             return FlowDirection.FORWARDS
         else:
             return FlowDirection.BACKWARDS
+
+
+def get_if_exists(obj, key, default):
+    if hasattr(obj, key):
+        return obj[key]
+    else:
+        return default

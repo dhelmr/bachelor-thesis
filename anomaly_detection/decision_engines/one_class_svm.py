@@ -4,7 +4,7 @@ import pickle
 
 from sklearn.svm import OneClassSVM
 
-from anomaly_detection.types import TrafficType, DecisionEngine
+from anomaly_detection.types import TrafficType, DecisionEngine, Features
 
 # this is what the SVM yields if it classifies a traffic record as an anomaly
 PREDICTION_ANOMALY_VALUE = -1
@@ -49,9 +49,9 @@ class OneClassSVMDE(DecisionEngine):
         logging.debug("Initialized OneClassSVM %s", self.svm)
         self._set_normal_traffic_type(TrafficType.BENIGN)
 
-    def classify(self, traffic_data):
+    def classify(self, features: Features):
         logging.info("Start prediction of traffic data")
-        predictions = self.svm.predict(traffic_data)
+        predictions = self.svm.predict(features.data)
         logging.info("Prediction done")
         traffic_type_labels = [
             self._prediction_to_traffic_type(p) for p in predictions]
@@ -61,9 +61,9 @@ class OneClassSVMDE(DecisionEngine):
         self.normal_traffic_type = normal_traffic_type
         self.anomaly_traffic_type = normal_traffic_type.opposite_of()
 
-    def fit(self, traffic_data, traffic_type=TrafficType.BENIGN):
+    def fit(self, features: Features, traffic_type=TrafficType.BENIGN):
         self._set_normal_traffic_type(traffic_type)
-        return self.svm.fit(traffic_data)
+        return self.svm.fit(features.data)
 
     def _prediction_to_traffic_type(self, prediction_value: int):
         if prediction_value == PREDICTION_NORMAL_VALUE:

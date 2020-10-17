@@ -9,7 +9,7 @@ import pandas as pd
 from numpy.core.records import ndarray
 
 from anomaly_detection.anomaly_detector import AnomalyDetectorModel
-from anomaly_detection.types import ClassificationResults
+from anomaly_detection.types import ClassificationResults, Features
 
 lock = Lock()
 
@@ -206,7 +206,7 @@ class DBConnector:
         if len(df) == 0:
             raise ValueError("Features for %s and %s do not exist in db!" % (fe_id, traffic_name))
         obj = pickle.loads(df["pickle_features"][0])
-        if type(obj) is not ndarray:
+        if type(obj) is not Features:
             raise ValueError("Stored features in database have wrong type! Found %s" % type(obj))
         return obj
 

@@ -10,7 +10,8 @@ from anomaly_detection.feature_extractors.basic_packet_feature_extractor import 
 from anomaly_detection.feature_extractors.doc2vec_packets import PacketDoc2Vec
 from anomaly_detection.feature_extractors.netflow_doc2vec import NetflowDoc2Vec
 from anomaly_detection.feature_extractors.testing_extractor import TestingFeatureExtractor, DummyDataset
-from anomaly_detection.transformers import MinxMaxScalerTransformer, StandardScalerTransformer
+from anomaly_detection.transformers import StandardScalerTransformer, OneHotEncoder, \
+    MinMaxScalerTransformer
 from anomaly_detection.types import FeatureExtractor, DecisionEngine, ParsingException
 from dataset_utils.cic_ids_2017 import CICIDS2017
 from dataset_utils.unsw_nb15 import UNSWNB15
@@ -56,8 +57,9 @@ DECISION_ENGINES = {
     "autoencoder": (AutoencoderDE, autoencoder.create_parser)
 }
 TRANSFORMERS = {
-    "minmax_scaler": MinxMaxScalerTransformer,
-    "standard_scaler": StandardScalerTransformer
+    "minmax_scaler": MinMaxScalerTransformer,
+    "standard_scaler": StandardScalerTransformer,
+    "onehot_encoder": OneHotEncoder
 }
 FEATURE_EXTRACTORS = {
     "basic_netflow": BasicNetflowFeatureExtractor,
