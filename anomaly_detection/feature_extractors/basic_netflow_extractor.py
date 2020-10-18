@@ -165,6 +165,9 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         features = []
         for pkts in [forward_packets, backward_packets]:
             tcp_packets = [get_ip_packet(buf).data for _, buf in pkts]
+            if len(tcp_packets) == 0:
+                features += [0, 0, 0, 0, 0]
+                continue
             win_mean = statistics.mean([tcp.win for tcp in tcp_packets])
             total_urg = sum([tcp.flags & dpkt.tcp.TH_URG for tcp in tcp_packets])
             urg_fraction = total_urg / len(pkts)
