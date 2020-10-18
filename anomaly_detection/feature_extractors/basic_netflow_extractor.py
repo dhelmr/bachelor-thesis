@@ -3,13 +3,15 @@ import statistics
 import typing as t
 from enum import Enum
 
+import dpkt
 import numpy as np
 from tqdm import tqdm
 
 from anomaly_detection.types import FeatureExtractor, TrafficType, Packet, TrafficSequence, Features, FeatureType
 from dataset_utils.pcap_utils import get_ip_packet
 
-Protocol = int
+Protocol = int  # see https://en.wikipedia.org/wiki/List_of_IP_protocol_numbers
+TCP = Protocol(6)
 
 
 class FlowIdentifier(t.NamedTuple):
@@ -84,6 +86,7 @@ class FeatureSetMode(Enum):
     SUBFLOWS_DETAILED = "subflows_detailed"
     SUBFLOWS_SIMPLE = "subflows_simple"
     WITH_IP = "with_ip"
+    TCP = "tcp"
 
 
 class BasicNetflowFeatureExtractor(FeatureExtractor):
@@ -150,8 +153,27 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 subflows_forward = self._extract_sub_flows_features(forward_packets)
                 subflows_backward = self._extract_sub_flows_features(backward_packets)
                 features_row += subflows_forward + subflows_backward
+            if FeatureSetMode.TCP in self.modes:
+                features_row += self._make_tcp_features(f, forward_packets, backward_packets)
             features.append(features_row)
         return Features(data=np.array(features), names=names, types=types)
+
+    def _make_tcp_features(self, flow: NetFlow, forward_packets: t.Sequence[Packet],
+                           backward_packets: t.Sequence[Packet]):
+        if flow.protocol != TCP:
+            return 10 * [0]
+        features = []
+        for pkts in [forward_packets, backward_packets]:
+            tcp_packets = [get_ip_packet(buf).data for _, buf in pkts]
+            win_mean = statistics.mean([tcp.win for tcp in tcp_packets])
+            total_urg = sum([tcp.flags & dpkt.tcp.TH_URG for tcp in tcp_packets])
+            urg_fraction = total_urg / len(pkts)
+            total_syn = sum([tcp.flags & dpkt.tcp.TH_SYN for tcp in tcp_packets])
+            syn_fraction = total_syn / len(pkts)
+            features += [win_mean, total_urg, urg_fraction, total_syn, syn_fraction]
+
+        # TODO rtt, syn, synack times
+        return features
 
     def _make_flow_names_types(self):
         def packet_list_features(prefix):
@@ -206,6 +228,19 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             names_types += [
                 *subflow_features("subflows_fwd"),
                 *subflow_features("subflows_bwd")
+            ]
+        if FeatureSetMode.TCP in self.modes:
+            names_types += [
+                ("tcp_fwd_win_mean", FeatureType.FLOAT),
+                ("tcp_fwd_total_urg", FeatureType.INT),
+                ("tcp_fwd_fraction_urg", FeatureType.FLOAT),
+                ("tcp_fwd_total_syn", FeatureType.INT),
+                ("tcp_fwd_fraction_syn", FeatureType.FLOAT),
+                ("tcp_bwd_win_mean", FeatureType.FLOAT),
+                ("tcp_bwd_total_urg", FeatureType.INT),
+                ("tcp_bwd_fraction_urg", FeatureType.FLOAT),
+                ("tcp_bwd_total_syn", FeatureType.INT),
+                ("tcp_bwd_fraction_syn", FeatureType.FLOAT)
             ]
         return list(zip(*names_types))
 

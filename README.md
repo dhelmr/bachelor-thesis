@@ -123,7 +123,7 @@ Feature extractors can be listed with:
 >>> basic_netflow <<<
 usage: main.py [-h] [--flow-timeout FLOW_TIMEOUT]
                [--subflow-timeout SUBFLOW_TIMEOUT] [--verbose]
-               [--nf-mode {subflows_detailed,subflows_simple,with_ip} [{subflows_detailed,subflows_simple,with_ip} ...]]
+               [--nf-mode {subflows_detailed,subflows_simple,with_ip,tcp} [{subflows_detailed,subflows_simple,with_ip,tcp} ...]]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -132,7 +132,7 @@ optional arguments:
   --subflow-timeout SUBFLOW_TIMEOUT
                         Activity timeout (for subflows) in milliseconds
   --verbose
-  --nf-mode {subflows_detailed,subflows_simple,with_ip} [{subflows_detailed,subflows_simple,with_ip} ...]
+  --nf-mode {subflows_detailed,subflows_simple,with_ip,tcp} [{subflows_detailed,subflows_simple,with_ip,tcp} ...]
                         Feature Selection Modes
 
 
@@ -153,7 +153,7 @@ optional arguments:
 >>> doc2vec_flows <<<
 usage: main.py [-h] [--flow-timeout FLOW_TIMEOUT]
                [--subflow-timeout SUBFLOW_TIMEOUT] [--verbose]
-               [--nf-mode {subflows_detailed,subflows_simple,with_ip} [{subflows_detailed,subflows_simple,with_ip} ...]]
+               [--nf-mode {subflows_detailed,subflows_simple,with_ip,tcp} [{subflows_detailed,subflows_simple,with_ip,tcp} ...]]
                [--d2v-vector-size VECTOR_SIZE] [--d2v-workers WORKERS]
                [--d2v-window MIN_COUNT] [--d2v-min-count WINDOW]
 
@@ -164,7 +164,7 @@ optional arguments:
   --subflow-timeout SUBFLOW_TIMEOUT
                         Activity timeout (for subflows) in milliseconds
   --verbose
-  --nf-mode {subflows_detailed,subflows_simple,with_ip} [{subflows_detailed,subflows_simple,with_ip} ...]
+  --nf-mode {subflows_detailed,subflows_simple,with_ip,tcp} [{subflows_detailed,subflows_simple,with_ip,tcp} ...]
                         Feature Selection Modes
   --d2v-vector-size VECTOR_SIZE
   --d2v-workers WORKERS
