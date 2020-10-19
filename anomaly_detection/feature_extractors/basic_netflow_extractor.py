@@ -1,4 +1,5 @@
 import argparse
+import logging
 import statistics
 import typing as t
 from enum import Enum
@@ -91,7 +92,7 @@ class FeatureSetMode(Enum):
 
 class BasicNetflowFeatureExtractor(FeatureExtractor):
 
-    def __init__(self, flow_timeout: int = 12_000, subflow_timeout: int = 500, verbose: bool = True,
+    def __init__(self, flow_timeout: int = 12, subflow_timeout: int = 0.5, verbose: bool = True,
                  modes: t.List[FeatureSetMode] = list()):
         # Stores the mapping "packet index -> flow index" for each traffic sequence name
         self.packets_to_flows: t.Dict[str, t.List[int]] = dict()
@@ -109,15 +110,25 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         return features
 
     def _make_flows(self, traffic: TrafficSequence) -> t.List[NetFlow]:
-        netflow_gen = NetFlowGenerator(timeout=self.flow_timeout)
+        timeout_fn = None
+        if FeatureSetMode.TCP in self.modes:
+            timeout_fn = tcp_timeout_on_FIN
+        netflow_gen = NetFlowGenerator(timeout=self.flow_timeout, timeout_fn=timeout_fn)
         mapping = []
+        no_flows_count = 0
+        packet_count = 0
         for packet in tqdm(traffic.packet_reader, total=len(traffic.ids), desc="Make netflows",
                            disable=(not self.verbose)):
             flow_index = netflow_gen.feed_packet(packet)
+            if flow_index is None:
+                no_flows_count += 1
             mapping.append(flow_index)
+            packet_count += 1
         netflow_gen.close_all()
         flows = netflow_gen.flows
         self.packets_to_flows[traffic.name] = mapping
+        logging.debug(
+            "Reduced %s packets to %s flows; %s packets without flow" % (packet_count, len(flows), no_flows_count))
         return flows
 
     def map_backwards(self, traffic: TrafficSequence, de_result: t.Sequence[TrafficType]) -> t.Sequence[TrafficType]:
@@ -161,19 +172,21 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
     def _make_tcp_features(self, flow: NetFlow, forward_packets: t.Sequence[Packet],
                            backward_packets: t.Sequence[Packet]):
         if flow.protocol != TCP:
-            return 10 * [0]
+            return 14 * [0]
         features = []
         for pkts in [forward_packets, backward_packets]:
             tcp_packets = [get_ip_packet(buf).data for _, buf in pkts]
             if len(tcp_packets) == 0:
-                features += [0, 0, 0, 0, 0]
+                features += 7 * [0]
                 continue
             win_mean = statistics.mean([tcp.win for tcp in tcp_packets])
             total_urg = sum([tcp.flags & dpkt.tcp.TH_URG for tcp in tcp_packets])
-            urg_fraction = total_urg / len(pkts)
             total_syn = sum([tcp.flags & dpkt.tcp.TH_SYN for tcp in tcp_packets])
-            syn_fraction = total_syn / len(pkts)
-            features += [win_mean, total_urg, urg_fraction, total_syn, syn_fraction]
+            total_ack = sum([tcp.flags & dpkt.tcp.TH_ACK for tcp in tcp_packets])
+            total_fin = sum([tcp.flags & dpkt.tcp.TH_FIN for tcp in tcp_packets])
+            total_push = sum([tcp.flags & dpkt.tcp.TH_PUSH for tcp in tcp_packets])
+            total_rst = sum([tcp.flags & dpkt.tcp.TH_RST for tcp in tcp_packets])
+            features += [win_mean, total_urg, total_syn, total_ack, total_fin, total_push, total_rst]
 
         # TODO rtt, syn, synack times
         return features
@@ -236,14 +249,18 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             names_types += [
                 ("tcp_fwd_win_mean", FeatureType.FLOAT),
                 ("tcp_fwd_total_urg", FeatureType.INT),
-                ("tcp_fwd_fraction_urg", FeatureType.FLOAT),
                 ("tcp_fwd_total_syn", FeatureType.INT),
-                ("tcp_fwd_fraction_syn", FeatureType.FLOAT),
+                ("tcp_fwd_total_ack", FeatureType.INT),
+                ("tcp_fwd_total_fin", FeatureType.INT),
+                ("tcp_fwd_total_push", FeatureType.INT),
+                ("tcp_fwd_total_rst", FeatureType.INT),
                 ("tcp_bwd_win_mean", FeatureType.FLOAT),
                 ("tcp_bwd_total_urg", FeatureType.INT),
-                ("tcp_bwd_fraction_urg", FeatureType.FLOAT),
                 ("tcp_bwd_total_syn", FeatureType.INT),
-                ("tcp_bwd_fraction_syn", FeatureType.FLOAT)
+                ("tcp_bwd_total_ack", FeatureType.INT),
+                ("tcp_bwd_total_fin", FeatureType.INT),
+                ("tcp_bwd_total_push", FeatureType.INT),
+                ("tcp_bwd_total_rst", FeatureType.INT)
             ]
         return list(zip(*names_types))
 
@@ -360,11 +377,22 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         return "_".join(id_parts)
 
 
+def tcp_timeout_on_FIN(packet: Packet, flow: NetFlow):
+    if flow.protocol != TCP:
+        return None
+    ts, buf = packet
+    tcp = get_ip_packet(buf).data
+    if type(tcp) is not dpkt.tcp.TCP:
+        return None
+    return tcp.flags & dpkt.tcp.TH_FIN != 0
+
+
 class NetFlowGenerator:
-    def __init__(self, timeout: int = 10_000):
+    def __init__(self, timeout: int = 10_000, timeout_fn=None):
         self.flows: t.List[NetFlow] = list()
         self.open_flows: t.Dict[FlowIdentifier, int] = dict()
         self.timeout = timeout  # milliseconds
+        self.timeout_fn = timeout_fn
 
     def feed_packet(self, packet: Packet) -> t.Optional[int]:
         timestamp, buf = packet
@@ -377,13 +405,23 @@ class NetFlowGenerator:
         else:
             flow_index = self.open_flows[flow_id]
             flow = self.flows[flow_index]
-            if timestamp - flow.end_time() > self.timeout:
+            if self.is_timeout(packet, flow):
                 self.close_flow(flow_id)
                 flow_index = self.open_flow(packet, flow_id, packet_infos)
             else:
                 flow_direction = self.get_packet_direction(packet_infos, flow_id)
                 flow.add_packet(packet, flow_direction)
         return flow_index
+
+    def is_timeout(self, packet, flow):
+        if self.timeout_fn is None:
+            timestamp, _ = packet
+            return timestamp - flow.end_time() > self.timeout
+        is_timeout = self.timeout_fn(packet, flow)
+        if is_timeout is None:
+            timestamp, _ = packet
+            return timestamp - flow.end_time() > self.timeout
+        return is_timeout
 
     def open_flow(self, packet: Packet, flow_id: FlowIdentifier, packet_infos: t.Tuple) -> int:
         ts, _ = packet
