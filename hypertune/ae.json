@@ -1,0 +1,65 @@
+{
+  "feature_extractor": {
+    "name": "basic_netflow",
+    "parameters": {
+      "--mode": [
+        "subflows_simple",
+        "with_ip",
+        "tcp",
+        [
+          "subflows_simple",
+          "subflows_detailed"
+        ],
+        [
+          "subflows_simple",
+          "subflows_detailed",
+          "tcp",
+          "with_ip"
+        ]
+      ],
+      "--flow-timeout": [
+        6,
+        10,
+        12,
+        20,
+        60
+      ],
+      "--subflow-timeout": [
+        0.5,
+        1,
+        1.5,
+        2
+      ]
+    }
+  },
+  "decision_engine": {
+    "name": "autoencoder",
+    "parameters": {
+      "--training-epochs": [
+        50
+      ],
+      "--training-batch": [
+        64
+      ],
+      "--layers": [
+        "15,8,15",
+        "32,24,12,24,32",
+        "32,24,15,24,32"
+      ],
+      "--activation": [
+        "relu",
+        "sigmoid"
+      ],
+      "--loss": [
+        "mse",
+        "mae"
+      ]
+    }
+  },
+  "transformers": [
+    "onehot_encoder",
+    "minmax_scaler",
+    "standard_scaler"
+  ],
+  "mode": "grid_search"
+}

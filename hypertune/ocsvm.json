@@ -3,21 +3,32 @@
     "name": "basic_netflow",
     "parameters": {
       "--mode": [
-        "subflows_simple"
+        "subflows_simple",
+        "with_ip",
+        "tcp",
+        [
+          "subflows_simple",
+          "subflows_detailed"
+        ],
+        [
+          "subflows_simple",
+          "subflows_detailed",
+          "tcp",
+          "with_ip"
+        ]
       ],
       "--flow-timeout": [
-        1000,
-        6000,
-        8000,
-        10000,
-        12000,
-        20000
+        6,
+        10,
+        12,
+        20,
+        60
       ],
       "--subflow-timeout": [
-        100,
-        500,
-        1000,
-        2000
+        0.5,
+        1,
+        1.5,
+        2
       ]
     }
   },
@@ -44,6 +55,7 @@
     }
   },
   "transformers": [
+    "onehot_encoder",
     "minmax_scaler",
     "standard_scaler"
   ],

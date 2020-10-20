@@ -1,0 +1,67 @@
+{
+  "feature_extractor": {
+    "name": "basic_netflow",
+    "parameters": {
+      "--mode": [
+        "subflows_simple",
+        "with_ip",
+        "tcp",
+        [
+          "subflows_simple",
+          "subflows_detailed"
+        ],
+        [
+          "subflows_simple",
+          "subflows_detailed",
+          "tcp",
+          "with_ip"
+        ]
+      ],
+      "--flow-timeout": [
+        6,
+        10,
+        12,
+        20,
+        60
+      ],
+      "--subflow-timeout": [
+        0.5,
+        1,
+        1.5,
+        2
+      ]
+    }
+  },
+  "decision_engine": {
+    "name": "local_outlier_factor",
+    "parameters": {
+      "--metric": [
+        "minkowski"
+      ],
+      "--minkowski-p": [
+        1,
+        1.5,
+        2,
+        5,
+        0.5
+      ],
+      "--algorithm": [
+        "ball_tree",
+        "kd_tree",
+        "brute"
+      ],
+      "--n-neighbors": [
+        10,
+        20,
+        30,
+        80
+      ]
+    }
+  },
+  "transformers": [
+    "onehot_encoder",
+    "minmax_scaler",
+    "standard_scaler"
+  ],
+  "mode": "grid_search"
+}
