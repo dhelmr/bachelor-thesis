@@ -10,4 +10,6 @@ if [[ ! -d venv3.7 ]]; then
         python3.7 -m venv venv3.7
 fi
 venv3.7/bin/python3 venv3.7/bin/pip3 install -r requirements.txt
-venv3.7/bin/python3 main.py hypertune $HYPERTUNE_ARGS
+
+CLI_ARGS=$(echo "$HYPERTUNE_ARGS" | base64 -d)
+venv3.7/bin/python3 main.py hypertune $CLI_ARGS

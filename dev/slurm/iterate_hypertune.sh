@@ -12,7 +12,7 @@ mkdir -p slurmlogs
 for i in {0..1000}; do
   for f in ./hypertune/*; do
     NAME="$f-$i-$ARGS"
-    JOB_ARGS="--only-index $i -f $f $ARGS"
+    JOB_ARGS=$(echo "--only-index $i -f $f $ARGS" | base64)
     echo "Start $NAME with '$JOB_ARGS'"
     sbatch --output="slurmlogs/%j.out" --export="HYPERTUNE_ARGS=$JOB_ARGS" "$JOB_FILE"
   done
