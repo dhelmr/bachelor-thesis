@@ -12,7 +12,7 @@ from pandas import Series
 from anomaly_detection.types import TrafficType, TrafficSequence, TrafficReader, DatasetPreprocessor, DatasetUtils
 from dataset_utils import pcap_utils
 from dataset_utils.pcap_utils import FlowIDFormatter, SubsetPacketReader
-from dataset_utils.reader_utils import packet_is_attack, ranges_of_list
+from dataset_utils.reader_utils import ranges_of_list
 
 
 class PcapFiles(Enum):

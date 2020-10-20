@@ -1,22 +1,26 @@
-import csv
+import datetime
 import datetime
 import itertools
 import json
 import logging
 import os
 import re
+import socket
 from enum import Enum
-from typing import Optional, List
+from typing import List, Tuple
 
 import dpkt
 import pandas
 from pandas import Series
 
-from anomaly_detection.types import DatasetPreprocessor, TrafficReader, TrafficSequence, DatasetUtils, TrafficType
+from anomaly_detection.types import DatasetPreprocessor, TrafficReader, TrafficSequence, DatasetUtils, TrafficType, \
+    Packet
 from dataset_utils import pcap_utils
+from dataset_utils.PacketLabelAssociator import PacketLabelAssociator, DEFAULT_HEADER, COL_FLOW_ID, COL_REVERSE_FLOW_ID, \
+    COL_START_TIME, COL_INFO, REQUIRED_COLUMNS, COL_TRAFFIC_TYPE
 from dataset_utils.encoding_utils import get_encoding_for_csv
 from dataset_utils.pcap_utils import SubsetPacketReader
-from dataset_utils.reader_utils import packet_is_attack, ranges_of_list
+from dataset_utils.reader_utils import ranges_of_list
 
 CSV_FOLDER = "UNSW-NB15 - CSV Files"
 CSV_FILES = [
@@ -71,9 +75,10 @@ class UNSWNB15TrafficReader(TrafficReader):
 
     def __iter__(self):
         for pcap_file, ranges in self.subset["unknown"].items():
-            if not os.path.exists(pcap_file):
+            full_path = os.path.join(self.dataset_dir, pcap_file)
+            if not os.path.exists(full_path):
                 continue
-            yield self._make_traffic_sequence(pcap_file, ranges)
+            yield self._make_traffic_sequence(full_path, ranges)
 
     def _make_traffic_sequence(self, pcap_file: str, ranges) -> TrafficSequence:
         labels = read_packet_labels(pcap_file)["traffic_type"]
@@ -108,119 +113,24 @@ class UNSWNB15TrafficReader(TrafficReader):
             else:
                 indexes = [int(pattern)]
             index = 1
-            for pcap in iter_pcaps(self.dataset_dir, skip_not_found=False):
+            for pcap in iter_pcaps(self.dataset_dir, skip_not_found=False, yield_relative=True):
                 if index in indexes:
                     selected.append(pcap)
                 index += 1
         return selected
 
-PROTOCOL_ENCODINGS = {
-    "udp": "udp",
-    "tcp": "tcp",
-    "unknown": "unknown"
-}
-
 
 class UNSWNB15Preprocessor(DatasetPreprocessor):
 
-    def __init__(self):
-        self.flow_formatter = pcap_utils.FlowIDFormatter(PROTOCOL_ENCODINGS)
-
     def preprocess(self, dataset_path: str):
-        column_names = self._load_column_names(os.path.join(dataset_path, CSV_FOLDER, CSV_FEATURE_NAMES_FILE))
-
-        flow_features = pandas.concat([
-            self._read_flow_labels_csv(os.path.join(dataset_path, CSV_FOLDER, csv), column_names)
-            for csv in CSV_FILES
-        ], ignore_index=True)
-        flow_features.set_index("flow_id", inplace=True)
-        attack_times = self._get_attack_flow_ids(flow_features)
-
+        label_associator = UNSWNB15LabelAssociator(dataset_path)
         for pcap in iter_pcaps(dataset_path):
-            self._write_pcap_labels(pcap, attack_times)
+            label_associator.associate_pcap_labels(pcap)
 
         ranges = self._make_ranges(dataset_path)
         ranges_path = os.path.join(dataset_path, RANGES_FILE)
         with open(ranges_path, "w") as f:
             json.dump(ranges, f)
-
-    def _load_column_names(self, csv_file):
-        df = pandas.read_csv(csv_file, sep=",", encoding="latin1")
-        column_names = [row[FEATURE_NAME_COLUMN_FIELD].strip() for _, row in df.iterrows()]
-        return column_names
-
-    def _read_flow_labels_csv(self, csv_file, column_names, nrows=None, encoding=None) -> pandas.DataFrame:
-        logging.debug("Read flow features from %s", csv_file)
-        if encoding is None:
-            ip_pattern = re.compile("^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
-            encoding = get_encoding_for_csv(csv_file, lambda df: ip_pattern.match(df[0][0]))
-            if encoding is None:
-                logging.warning("Cannot determine encoding for %s; use utf_8", csv_file)
-                encoding = "utf_8"
-        df = pandas.read_csv(csv_file, sep=",", low_memory=False, header=None, names=column_names,
-                             encoding=encoding, nrows=nrows)
-        df.dropna(how="all", inplace=True)  # drop all empty rows (some csv are miss-formatted)
-        df[FlowCsvColumns.LABEL.value] = df[FlowCsvColumns.LABEL.value].apply(label_to_traffic_type)
-        # make flow ids
-        df["flow_id"] = df[FlowCsvColumns.SRC_IP.value] + "-" + df[FlowCsvColumns.DEST_IP.value] + "-" + \
-                        df[FlowCsvColumns.SRC_PORT.value].astype(str) + "-" + df[FlowCsvColumns.DEST_PORT.value].astype(
-            str) + "-" + \
-                        df[FlowCsvColumns.PROTOCOL.value]
-        df["reverse_flow_id"] = df[FlowCsvColumns.DEST_IP.value] + "-" + df[FlowCsvColumns.SRC_IP.value] + "-" + \
-                                df[FlowCsvColumns.DEST_PORT.value].astype(str) + "-" + df[
-                                    FlowCsvColumns.SRC_PORT.value].astype(
-            str) + "-" + \
-                                df[FlowCsvColumns.PROTOCOL.value]
-        return df
-
-    def _write_pcap_labels(self, pcap_file, attack_times):
-        reader = pcap_utils.read_pcap_pcapng(pcap_file, print_progress_after=100)
-        attack_flow_ids = set(attack_times.index.values)
-        output_file = packet_label_file(pcap_file)
-        with open(output_file, 'w') as csvfile:
-            # creating a csv writer object
-            csvwriter = csv.writer(csvfile)
-            csvwriter.writerow(["packet_id", "traffic_type"])
-            index = 0
-            for timestamp, buf in reader:
-                ids = self.flow_formatter.make_flow_ids(timestamp, buf, packet_type=dpkt.sll.SLL)
-                if ids is None:
-                    packet_id = "%s-%s-<no_ip>" % (index, timestamp)
-                    packet_type = TrafficType.BENIGN
-                else:
-                    flow_id, reverse_id = ids
-                    packet_id = "%s-%s-%s" % (index, flow_id, timestamp)
-                    if flow_id not in attack_flow_ids and reverse_id not in attack_flow_ids:
-                        packet_type = TrafficType.BENIGN
-                    else:
-                        timestamp = round(timestamp)
-                        packet_type = packet_is_attack(ids, timestamp, attack_times)
-                csvwriter.writerow([packet_id, packet_type.value])
-                index += 1
-
-    def _get_attack_flow_ids(self, flows):
-        attacks = flows.loc[flows[FlowCsvColumns.LABEL.value] == TrafficType.ATTACK]
-        benigns = flows.loc[flows[FlowCsvColumns.LABEL.value] == TrafficType.BENIGN]
-        in_both = pandas.merge(attacks, benigns, how="inner", left_index=True, right_index=True)
-        in_both_reversed_id = pandas.merge(attacks, benigns, how="inner", left_on="reverse_flow_id", right_index=True)
-        in_both = pandas.concat([in_both, in_both_reversed_id])
-        benign_times = in_both[f"{FlowCsvColumns.START_TIME.value}_y"].groupby(in_both.index).apply(
-            lambda elements: sorted([self.date_to_timestamp(e) for e in list(elements)])
-        )
-        attack_times = attacks[FlowCsvColumns.START_TIME.value].groupby(attacks.index).apply(
-            lambda elements: sorted([self.date_to_timestamp(e) for e in list(elements)])
-        )
-        result_df = pandas.merge(attack_times, benign_times, how="left", right_index=True, left_index=True)
-        result_df.rename(columns={f"{FlowCsvColumns.START_TIME.value}_y": "benign",
-                                  FlowCsvColumns.START_TIME.value: "attack"}, inplace=True)
-        return result_df
-
-    def _select_flow(self, potential_flows: pandas.DataFrame, timestamp) -> Optional[pandas.Series]:
-        """Selects the flow that contains the given timestamp"""
-        for _, flow in potential_flows.iterrows():
-            if flow[FlowCsvColumns.START_TIME.value] <= timestamp <= flow[FlowCsvColumns.END_TIME.value]:
-                return flow
-        return None
 
     def _make_ranges(self, dataset_path) -> dict:
         ranges = {
@@ -228,9 +138,10 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
             "unknown": {}
         }
         index = 0
-        for pcap in iter_pcaps(dataset_path, skip_not_found=False):
+        for pcap in iter_pcaps(dataset_path, skip_not_found=False, yield_relative=True):
+            full_path = os.path.join(dataset_path, pcap)
             if index < BENIGN_INDEX_UNTIL:
-                if os.path.exists(pcap):
+                if os.path.exists(full_path):
                     ranges["benign"][pcap] = self.find_ranges_of_type(pcap, TrafficType.BENIGN)
                 else:
                     logging.info("%s not found", pcap)
@@ -254,18 +165,19 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
             index += 1
         return ranges
 
-    def date_to_timestamp(self, epoch_time):
-        return datetime.datetime.utcfromtimestamp(epoch_time)
 
-
-def iter_pcaps(dataset_path: str, skip_not_found=True):
+def iter_pcaps(dataset_path: str, skip_not_found=True, yield_relative=False):
     for folder, pcap_files in PCAP_FILES.items():
         for pcap_file in pcap_files:
-            path = os.path.join(dataset_path, folder, pcap_file)
-            if not skip_not_found or os.path.exists(path):
-                yield path
+            relative_path = os.path.join(folder, pcap_file)
+            full_path = os.path.join(dataset_path, relative_path)
+            if not skip_not_found or os.path.exists(full_path):
+                if yield_relative:
+                    yield relative_path
+                else:
+                    yield full_path
             else:
-                logging.warning("Cannot find %s; skip", path)
+                logging.warning("Cannot find %s; skip", full_path)
 
 
 def read_packet_labels(pcap) -> pandas.DataFrame:
@@ -284,6 +196,88 @@ def label_to_traffic_type(label):
 
 def packet_label_file(pcap_file):
     return "%s_packet_labels.csv" % pcap_file
+
+
+class UNSWNB15LabelAssociator(PacketLabelAssociator):
+
+    def __init__(self, dataset_path: str):
+        super().__init__([*DEFAULT_HEADER, "attack_type"])
+        self.unrecognized_proto_counter = 0
+        self.flow_formatter = pcap_utils.FlowIDFormatter()
+        self.attack_flows = self._load_attack_flows(dataset_path)
+        self.attack_flow_ids = set(self.attack_flows.index.values.tolist())
+
+    def get_attack_flows(self, pcap_file):
+        # all attack flows are loaded on startup
+        return self.attack_flows, self.attack_flow_ids
+
+    def make_flow_ids(self, packet: Packet) -> Tuple[str, str]:
+        timestamp, buf = packet
+        return self.flow_formatter.make_flow_ids(timestamp, buf, packet_type=dpkt.sll.SLL)
+
+    def output_csv_file(self, pcap_file) -> str:
+        return packet_label_file(pcap_file)
+
+    def write_csv_row(self, csv_writer, packet_id, traffic_type, additional_info):
+        attack_type = str(additional_info).strip().lower()
+        csv_writer.writerow([packet_id, traffic_type.value, attack_type])
+
+    def date_cell_to_timestamp(self, cell_content) -> datetime.datetime:
+        epoch_time = cell_content
+        return datetime.datetime.utcfromtimestamp(epoch_time)
+
+    def _load_attack_flows(self, dataset_path):
+        column_names = self._load_column_names(os.path.join(dataset_path, CSV_FOLDER, CSV_FEATURE_NAMES_FILE))
+        flow_features = pandas.concat([
+            self._read_flow_labels_csv(os.path.join(dataset_path, CSV_FOLDER, csv), column_names)
+            for csv in CSV_FILES
+        ], ignore_index=True)
+        flow_features.set_index(COL_FLOW_ID, inplace=True)
+        self._validate_flow_infos(flow_features)
+        return self.find_attack_flows(flow_features)
+
+    def _read_flow_labels_csv(self, csv_file, column_names, nrows=None, encoding=None) -> pandas.DataFrame:
+        logging.debug("Read flow features from %s", csv_file)
+        if encoding is None:
+            ip_pattern = re.compile("^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
+            encoding = get_encoding_for_csv(csv_file, lambda df: ip_pattern.match(df[0][0]))
+            if encoding is None:
+                logging.warning("Cannot determine encoding for %s; use utf_8", csv_file)
+                encoding = "utf_8"
+        df = pandas.read_csv(csv_file, sep=",", low_memory=False, header=None, names=column_names,
+                             encoding=encoding, nrows=nrows)
+        df.dropna(how="all", inplace=True)  # drop all empty rows (some csv are miss-formatted)
+        df[COL_TRAFFIC_TYPE] = df[FlowCsvColumns.LABEL.value].apply(label_to_traffic_type)
+        # make flow ids
+        proto_as_numbers = df[FlowCsvColumns.PROTOCOL.value].apply(self.proto_to_number)
+        df[COL_FLOW_ID] = df[FlowCsvColumns.SRC_IP.value] + "-" + df[FlowCsvColumns.DEST_IP.value] + "-" + \
+                          df[FlowCsvColumns.SRC_PORT.value].astype(str) + "-" + df[
+                              FlowCsvColumns.DEST_PORT.value].astype(
+            str) + "-" + proto_as_numbers
+        df[COL_REVERSE_FLOW_ID] = df[FlowCsvColumns.DEST_IP.value] + "-" + df[FlowCsvColumns.SRC_IP.value] + "-" + \
+                                  df[FlowCsvColumns.DEST_PORT.value].astype(str) + "-" + df[
+                                      FlowCsvColumns.SRC_PORT.value].astype(
+            str) + "-" + proto_as_numbers
+        df[COL_START_TIME] = df[FlowCsvColumns.START_TIME.value]
+        df[COL_INFO] = df[FlowCsvColumns.ATTACK_CATEGORY.value]
+        columns_to_drop = [col for col in df.columns if col not in REQUIRED_COLUMNS]
+        df.drop(columns=columns_to_drop, inplace=True)
+        return df
+
+    def _load_column_names(self, csv_file):
+        df = pandas.read_csv(csv_file, sep=",", encoding="latin1")
+        column_names = [row[FEATURE_NAME_COLUMN_FIELD].strip() for _, row in df.iterrows()]
+        return column_names
+
+    def proto_to_number(self, p):
+        try:
+            return str(socket.getprotobyname(p.lower()))
+        except:
+            if p.lower() == "nvp":
+                return "11"
+            else:
+                self.unrecognized_proto_counter += 1
+                return ""
 
 
 UNSWNB15 = DatasetUtils(os.path.join("data", "unsw-nb15"), UNSWNB15TrafficReader, UNSWNB15Preprocessor)
