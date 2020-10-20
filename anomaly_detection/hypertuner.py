@@ -82,4 +82,4 @@ class Hypertuner:
             results = evaluator.evaluate(classification_id)
             logging.info("Finished %s/%s: %s Results: %s", i, total, train_args, results["total"])
         except Exception as e:
-            logging.error("Error occured for %s: %s", train_args, e)
+            logging.error("Error occured for %s", train_args, exc_info=e)
