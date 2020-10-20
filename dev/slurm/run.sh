@@ -2,7 +2,7 @@
 
 BASEDIR=$(dirname "$0")
 JOB_FILE="$BASEDIR/hypertune.job"
-ARGS="*@"
+ARGS="$@"
 
 cd "$BASEDIR/../.." || exit
 
