@@ -3,13 +3,6 @@
     "name": "basic_netflow",
     "parameters": {
       "--nf-mode": [
-        "subflows_simple",
-        "with_ip",
-        "tcp",
-        [
-          "subflows_simple",
-          "subflows_detailed"
-        ],
         [
           "subflows_simple",
           "subflows_detailed",
@@ -18,16 +11,10 @@
         ]
       ],
       "--flow-timeout": [
-        6,
-        10,
-        12,
         20,
         60
       ],
       "--subflow-timeout": [
-        0.5,
-        1,
-        1.5,
         2
       ]
     }
@@ -51,9 +38,8 @@
         "brute"
       ],
       "--n-neighbors": [
-        10,
+        5,
         20,
-        30,
         80
       ]
     }
