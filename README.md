@@ -78,7 +78,7 @@ optional arguments:
 For help of the subcommands just type `--help`, for example:
 
 ```
-❯ ./main.py train --help)
+❯ ./main.py train --help
 ```
 
 ## List decision engines and feature extractors
