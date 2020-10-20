@@ -51,7 +51,7 @@ $(./main.py --help)
 For help of the subcommands just type `--help`, for example:
 
 ```
-$(./main.py train --help)
+❯ ./main.py train --help)
 ```
 
 ## List decision engines and feature extractors
@@ -102,3 +102,8 @@ Example content of the resulting report:
 $(cat evaluation.json | head -n 32)
 ```
 
+
+# Misc
+
+A standalone netflow generator CLI program can be run with `python netflows.py -r [pcap] -o [features.csv]`. 
+It groups a pcap file's packets into netflows and generated features for each flow.

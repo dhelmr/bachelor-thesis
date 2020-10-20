@@ -78,52 +78,7 @@ optional arguments:
 For help of the subcommands just type `--help`, for example:
 
 ```
-❯ ./main.py train --help
-
-usage: main.py train [-h] [--db DB] [--debug]
-                     [--transformers {minmax_scaler,standard_scaler,onehot_encoder} [{minmax_scaler,standard_scaler,onehot_encoder} ...]]
-                     [--feature-extractor {basic_netflow,basic_packet_info,doc2vec_packet,doc2vec_flows,test}]
-                     [--store-features] [--load-features]
-                     [--model-id MODEL_ID]
-                     [--decision-engine {one_class_svm,local_outlier_factor,autoencoder}]
-                     [--dataset {cic-ids-2017,unsw-nb15,test}]
-                     [--src DATASET_PATH] [--subset DATASET_SUBSET]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --db DB               Database file where the classifications are stored.
-                        (default: classifications.db)
-  --debug, --verbose    Will produce verbose output that is useful for
-                        debugging (default: False)
-  --transformers {minmax_scaler,standard_scaler,onehot_encoder} [{minmax_scaler,standard_scaler,onehot_encoder} ...], -t {minmax_scaler,standard_scaler,onehot_encoder} [{minmax_scaler,standard_scaler,onehot_encoder} ...]
-                        Specifies one or more transformers that are applied
-                        before calling the decision engine. (default: [])
-  --feature-extractor {basic_netflow,basic_packet_info,doc2vec_packet,doc2vec_flows,test}, -f {basic_netflow,basic_packet_info,doc2vec_packet,doc2vec_flows,test}
-                        Specifies the feature extractor that is used to
-                        generate features from the raw network traffic.
-                        (default: basic_netflow)
-  --store-features      Stores the extraced features in the database, so that
-                        they can be reused later. (default: False)
-  --load-features       Loads features from a previous run, instead of
-                        executing the feature extractor.This is only possible
-                        if the feature extractor ran before with this exact
-                        configuration and the traffic input is consistent.
-                        (default: False)
-  --model-id MODEL_ID, -m MODEL_ID
-                        ID of the model. If auto is used, the model ID will be
-                        auto-generated. (default: auto)
-  --decision-engine {one_class_svm,local_outlier_factor,autoencoder}
-                        Choose which algorithm will be used for classifying
-                        anomalies. (default: one_class_svm)
-  --dataset {cic-ids-2017,unsw-nb15,test}, -d {cic-ids-2017,unsw-nb15,test}
-                        The name of the dataset. Choose one of: ['cic-
-                        ids-2017', 'unsw-nb15', 'test'] (default: cic-
-                        ids-2017)
-  --src DATASET_PATH    Path of the dataset, if not specified the dataset's
-                        default path is taken. (default: None)
-  --subset DATASET_SUBSET
-                        Predefined subset of the dataset (default: default)
-
+❯ ./main.py train --help)
 ```
 
 ## List decision engines and feature extractors
@@ -275,3 +230,7 @@ Example content of the resulting report:
 ```
 
 
+# Misc
+
+A standalone netflow generator CLI program can be run with `python netflows.py -r [pcap] -o [features.csv]`. 
+It groups a pcap file's packets into netflows and generated features for each flow.
