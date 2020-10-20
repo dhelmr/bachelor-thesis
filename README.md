@@ -92,67 +92,13 @@ An anomaly detection model consists of:
 Feature extractors can be listed with:
 
 ```
-❯ ./main.py list-fe
+❯ ./main.py list-fe --short
 
->>> basic_netflow <<<
-usage: main.py [-h] [--flow-timeout FLOW_TIMEOUT]
-               [--subflow-timeout SUBFLOW_TIMEOUT] [--verbose]
-               [--nf-mode {subflows_detailed,subflows_simple,with_ip,tcp} [{subflows_detailed,subflows_simple,with_ip,tcp} ...]]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --flow-timeout FLOW_TIMEOUT
-                        Flow timeout in milliseconds
-  --subflow-timeout SUBFLOW_TIMEOUT
-                        Activity timeout (for subflows) in milliseconds
-  --verbose
-  --nf-mode {subflows_detailed,subflows_simple,with_ip,tcp} [{subflows_detailed,subflows_simple,with_ip,tcp} ...]
-                        Feature Selection Modes
-
-
->>> basic_packet_info <<<
-usage: main.py [-h]
-
-optional arguments:
-  -h, --help  show this help message and exit
-
-
->>> doc2vec_packet <<<
-usage: main.py [-h]
-
-optional arguments:
-  -h, --help  show this help message and exit
-
-
->>> doc2vec_flows <<<
-usage: main.py [-h] [--flow-timeout FLOW_TIMEOUT]
-               [--subflow-timeout SUBFLOW_TIMEOUT] [--verbose]
-               [--nf-mode {subflows_detailed,subflows_simple,with_ip,tcp} [{subflows_detailed,subflows_simple,with_ip,tcp} ...]]
-               [--d2v-vector-size VECTOR_SIZE] [--d2v-workers WORKERS]
-               [--d2v-window MIN_COUNT] [--d2v-min-count WINDOW]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --flow-timeout FLOW_TIMEOUT
-                        Flow timeout in milliseconds
-  --subflow-timeout SUBFLOW_TIMEOUT
-                        Activity timeout (for subflows) in milliseconds
-  --verbose
-  --nf-mode {subflows_detailed,subflows_simple,with_ip,tcp} [{subflows_detailed,subflows_simple,with_ip,tcp} ...]
-                        Feature Selection Modes
-  --d2v-vector-size VECTOR_SIZE
-  --d2v-workers WORKERS
-  --d2v-window MIN_COUNT
-  --d2v-min-count WINDOW
-
-
->>> test <<<
-usage: main.py [-h]
-
-optional arguments:
-  -h, --help  show this help message and exit
-
-
+basic_netflow
+basic_packet_info
+doc2vec_packet
+doc2vec_flows
+test
 
 ```
 

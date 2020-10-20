@@ -65,7 +65,7 @@ An anomaly detection model consists of:
 Feature extractors can be listed with:
 
 ```
-$(./main.py list-fe)
+$(./main.py list-fe --short)
 ```
 
 You can list available decision engines with `./main.py list-de --short` or:
