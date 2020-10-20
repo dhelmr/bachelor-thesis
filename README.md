@@ -13,12 +13,31 @@ Clone the git repository and install the requirements with `pip install -r requi
 ## CIC-IDS-2017
 
 [Download](http://205.174.165.80/CICDataset/CIC-IDS-2017/) the dataset and extract the file `GeneratedLabelledFlows.zip`. The default path that is assumed for the dataset is 
-`data/cic-ids-2017/MachineLearningCVE`, but another path can be specified with the option `--src` (see below). For now, only the preprocessed network flows will be used from this datasets.
+`data/cic-ids-2017`, but another path can be specified with the option `--src` (see below). For now, only the preprocessed network flows will be used from this datasets.
 
-Preprocess the dataset with 
+## UNSW-NB-15
+
+The dataset decription can be found [here](https://www.unsw.adfa.edu.au/unsw-canberra-cyber/cybersecurity/ADFA-NB15-Datasets/). It can be downloaded
+[here](https://cloudstor.aarnet.edu.au/plus/index.php/s/2DhnLGDdEECo4ys?path=%2F). The pcap files and CSV files need to be downloaded. 
+
+The pcap files must be extracted to directories named `01` (files from [22-1-2015](https://cloudstor.aarnet.edu.au/plus/s/2DhnLGDdEECo4ys)) 
+and `02` (files from [17-2-2015](https://cloudstor.aarnet.edu.au/plus/s/2DhnLGDdEECo4ys)). Thus, the resulting directory structure must be like this:
 
 ```
-> ./main.py preprocess cic-ids-2017 --src data/cic-ids-2017
+❯ ls -l ./data/unsw-nb15/
+insgesamt 2900
+drwxr-xr-x 2 daniel users 1036288 17. Okt 21:57  01/
+drwxr-xr-x 2 daniel users    4096  8. Okt 19:12  02/
+drwxr-xr-x 3 daniel users    4096 17. Okt 10:44 'UNSW-NB15 - CSV Files'/
+``` 
+
+## Preprocessing
+
+Afterwards, the datasets must be preprocessed once: 
+
+```
+❯  ./main.py preprocess --dataset cic-ids-2017 
+❯  ./main.py preprocess --dataset unsw-nb15
 ```
 
 # Usage
@@ -185,89 +204,15 @@ optional arguments:
 You can list available decision engines with `./main.py list-de --short` or:
 
 ```
-❯ ./main.py list-de
+❯ ./main.py list-de --short
 
->>> one_class_svm <<<
-usage: one_class_svm [-h] [--gamma GAMMA] [--nu NU]
-                     [--kernel {rbf,poly,linear,sigmoid}]
-                     [--tolerance TOLERANCE] [--coef0 COEF0]
-                     [--max-iter MAX_ITER] [--shrinking SHRINKING]
-                     [--degree DEGREE] [--cache-size CACHE_SIZE]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --gamma GAMMA         Kernel coefficient for ‘rbf’, ‘poly’ and ‘sigmoid’
-                        kernels (default: 0.005)
-  --nu NU               An upper bound on the fraction of training errors and
-                        a lower bound of the fraction of support vectors.
-                        Should be in the interval (0, 1]. (default: 0.001)
-  --kernel {rbf,poly,linear,sigmoid}
-  --tolerance TOLERANCE
-                        Tolerance for stopping criterion. (default: 0.001)
-  --coef0 COEF0         Independent term in kernel function. It is only
-                        significant in ‘poly’ and ‘sigmoid’ (default: 0.0)
-  --max-iter MAX_ITER   Hard limit on iterations within solver, or -1 for no
-                        limit. (default: -1)
-  --shrinking SHRINKING
-                        Whether to use the shrinking heuristic. (default:
-                        True)
-  --degree DEGREE       Degree of the polynomial kernel function (‘poly’).
-                        Ignored by all other kernels. (default: 3)
-  --cache-size CACHE_SIZE
-                        Specify the size of the kernel cache (in MB).
-                        (default: 500.0)
-
-
->>> local_outlier_factor <<<
-usage: local_outlier_factor [-h]
-                            [--metric {minkowski,cityblock,cosine,euclidean,l1,l2,manhattan,braycurtis,canberra,chebyshev,correlation,dice,hamming,jaccard,kulsinski,mahalanobis,rogerstanimoto,russellrao,seuclidean,sokalmichener,sokalsneath,sqeuclidean,yule}]
-                            [--minkowski-p MINKOWSKI_P]
-                            [--leaf-size LEAF_SIZE]
-                            [--algorithm {auto,ball_tree,kd_tree,brute}]
-                            [--n-neighbors N_NEIGHBORS]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --metric {minkowski,cityblock,cosine,euclidean,l1,l2,manhattan,braycurtis,canberra,chebyshev,correlation,dice,hamming,jaccard,kulsinski,mahalanobis,rogerstanimoto,russellrao,seuclidean,sokalmichener,sokalsneath,sqeuclidean,yule}
-                        Distance metric that is used for LOF (default:
-                        minkowski)
-  --minkowski-p MINKOWSKI_P
-                        Parameter p when metric='minkowski' (default: 2)
-  --leaf-size LEAF_SIZE
-                        This canaffect the speed of the construction and
-                        query, as well as the memory required to store the
-                        tree. The optimal value depends on the nature of the
-                        problem. (default: 30)
-  --algorithm {auto,ball_tree,kd_tree,brute}
-                        Algorithm used to compute the nearest neighbors with
-                        LOF (default: auto)
-  --n-neighbors N_NEIGHBORS
-                        Number of neighbors to use by default for kneighbors
-                        queries. If n_neighbors is larger than the number of
-                        samples provided, all samples will be used. (default:
-                        20)
-
-
->>> autoencoder <<<
-usage: autoencoder [-h] [--training-epochs TRAINING_EPOCHS]
-                   [--training-batch TRAINING_BATCH] [--layers LAYERS]
-                   [--activation {relu,sigmoid,softmax,softplus,softsign,tanh,selu,elu,exponential}]
-                   [--loss {mse,mae}] [--verbose]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --training-epochs TRAINING_EPOCHS
-  --training-batch TRAINING_BATCH
-  --layers LAYERS
-  --activation {relu,sigmoid,softmax,softplus,softsign,tanh,selu,elu,exponential}
-  --loss {mse,mae}
-  --verbose
-
-
+one_class_svm
+local_outlier_factor
+autoencoder
 
 ```
 
-As you can see, feature extractors and decision engines can take additional CLI parameters. Those can just be added when specifying them in the `train` command (see examples below).
+Without `--short`, more information will be printed. Then you can see, that feature extractors and decision engines can take additional CLI parameters. Those can just be added when specifying them in the `train` command (see examples below).
 
 ## Simulate traffic, detect anomalies and create evaluation report
 
