@@ -1,7 +1,6 @@
 import itertools
 import json
 import logging
-from concurrent.futures.process import ProcessPoolExecutor
 from json.decoder import JSONDecodeError
 from typing import List
 
@@ -18,10 +17,10 @@ class HypertuneSettings(dict):
     pass
 
 class Hypertuner:
-    def __init__(self, db: DBConnector, traffic_reader: TrafficReader, max_workers=2):
+    def __init__(self, db: DBConnector, traffic_reader: TrafficReader, only_index: int = None):
         self.db = db
         self.traffic_reader = traffic_reader
-        self.max_workers = max_workers
+        self.only_index = only_index
 
     def _load_file(self, path: str) -> HypertuneSettings:
         with open(path, "r") as f:
@@ -45,22 +44,22 @@ class Hypertuner:
         for fe_parameter, values in settings["feature_extractor"]["parameters"].items():
             param_lists.append(list(itertools.product([fe_parameter], values)))
 
-        with ProcessPoolExecutor(max_workers=self.max_workers) as executor:
-            args_product = list(itertools.product(*param_lists))
-            total = len(args_product)
-            for i, args in enumerate(args_product):
-                # flatten the parameters to a cli-like list
-                # e.g.: [("kernel": "poly"), ("c":1)] => ["kernel","poly","c","1"]
-                flat_args = []
-                for arg in args:
-                    if arg[1] is None:
-                        continue
-                    elif type(arg[1]) is list:
-                        flat_args += [arg[0]] + arg[1]
-                    else:
-                        flat_args += [arg[0], str(arg[1])]
-                executor.submit(Hypertuner.exec_hyperparam_config, self, de_name, fe_name, transformers, flat_args, i,
-                                total)
+        args_product = list(itertools.product(*param_lists))
+        total = len(args_product)
+        for i, args in enumerate(args_product):
+            if self.only_index is not None and self.only_index != i:
+                continue
+            # flatten the parameters to a cli-like list
+            # e.g.: [("kernel": "poly"), ("c":1)] => ["kernel","poly","c","1"]
+            flat_args = []
+            for arg in args:
+                if arg[1] is None:
+                    continue
+                elif type(arg[1]) is list:
+                    flat_args += [arg[0]] + arg[1]
+                else:
+                    flat_args += [arg[0], str(arg[1])]
+            self.exec_hyperparam_config(de_name, fe_name, transformers, flat_args, i, total)
 
     def exec_hyperparam_config(self, de_name, fe_name, transformers: List[str], train_args: List[str], i, total):
         try:

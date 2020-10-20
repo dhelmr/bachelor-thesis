@@ -2,7 +2,7 @@
   "feature_extractor": {
     "name": "basic_netflow",
     "parameters": {
-      "--mode": [
+      "--nf-mode": [
         "subflows_simple",
         "with_ip",
         "tcp",

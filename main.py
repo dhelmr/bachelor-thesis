@@ -2,7 +2,6 @@
 
 import argparse
 import logging
-import multiprocessing
 import typing as t
 
 import pandas
@@ -131,8 +130,8 @@ class CLIParser:
         self._add_dataset_path_param(hypertune)
         hypertune.add_argument("-f", "--file", type=str, required=True,
                                help="Json file that specified which parameters are hypertuned.")
-        hypertune.add_argument("--cpus", type=int, required=False, default=multiprocessing.cpu_count(),
-                               help="Number of cores, i.e. parallel simulations")
+        hypertune.add_argument("--only-index", type=int, required=False, default=None,
+                               help="if set, only the n-th hyperparameter configuration will be run.")
 
     def _create_subparser(self, name: str, help: str):
         sp = self.subparsers.add_parser(
@@ -253,7 +252,7 @@ class CommandExecutor:
         self._check_unknown_args(unknown, expected_len=0)
         db = DBConnector(db_path=args.db, init_if_not_exists=True)
         reader = self._get_dataset_reader(args)
-        hypertuner = Hypertuner(db, reader, max_workers=args.cpus)
+        hypertuner = Hypertuner(db, reader, only_index=args.only_index)
         hypertuner.start(args.file)
 
     def _format_model_dump(self, dump: str) -> str:

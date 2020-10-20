@@ -31,8 +31,6 @@ class DBConnector:
         global lock
         lock.acquire()
         try:
-            # TODO this could cause unexpected behaviour with different databases; but
-            # currently only one database is used at the same time
             conn = sqlite3.connect(self.db_path, timeout=999)
             yield conn
         except:
