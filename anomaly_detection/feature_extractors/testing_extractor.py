@@ -97,4 +97,4 @@ class DummyPreprocessor(DatasetPreprocessor):
         pass
 
 
-DummyDataset = DatasetUtils(DummyPacketReader, DummyPreprocessor)
+DummyDataset = DatasetUtils("", DummyPacketReader, DummyPreprocessor)

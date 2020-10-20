@@ -261,4 +261,4 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
             return "%s-%s" % (flow_ids[0], timestamp)
 
 
-CICIDS2017 = DatasetUtils(CIC2017TrafficReader, CICIDS2017Preprocessor)
+CICIDS2017 = DatasetUtils(os.path.join("data", "cic-ids-2017"), CIC2017TrafficReader, CICIDS2017Preprocessor)

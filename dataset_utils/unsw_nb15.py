@@ -286,4 +286,4 @@ def packet_label_file(pcap_file):
     return "%s_packet_labels.csv" % pcap_file
 
 
-UNSWNB15 = DatasetUtils(UNSWNB15TrafficReader, UNSWNB15Preprocessor)
+UNSWNB15 = DatasetUtils(os.path.join("data", "unsw-nb15"), UNSWNB15TrafficReader, UNSWNB15Preprocessor)

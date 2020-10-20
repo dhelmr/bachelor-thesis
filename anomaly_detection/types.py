@@ -178,6 +178,7 @@ class DatasetPreprocessor:
 
 
 class DatasetUtils(NamedTuple):
+    default_path: str
     traffic_reader: t.Callable[[str, str], TrafficReader]
     preprocessor: t.Callable[[], DatasetPreprocessor]
 

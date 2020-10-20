@@ -15,7 +15,7 @@ from anomaly_detection.evaluator import Evaluator
 from anomaly_detection.hypertuner import Hypertuner
 from anomaly_detection.model_trainer import ModelTrainer
 from anomaly_detection.types import DatasetUtils, ParsingException
-from resource_loaders import DATASET_PATH, DECISION_ENGINES, TRANSFORMERS, FEATURE_EXTRACTORS, DATASET_UTILS
+from resource_loaders import DECISION_ENGINES, TRANSFORMERS, FEATURE_EXTRACTORS, DATASET_UTILS
 
 
 def main():
@@ -147,7 +147,8 @@ class CLIParser:
             choices=list(DATASET_UTILS.keys())
         )
         subparser.add_argument("--src", dest="dataset_path",
-                               help="Path of the dataset", default=DATASET_PATH)
+                               help="Path of the dataset, if not specified the dataset's default path is taken.",
+                               default=None)
         subparser.add_argument("--subset", dest="dataset_subset",
                                help="Predefined subset of the dataset", default="default")
 
@@ -231,8 +232,12 @@ class CommandExecutor:
                 print("\n")
 
     def preprocess(self, args: argparse.Namespace, unknown: t.Sequence[str]):
-        preprocessor = self._get_dataset_utils(args.dataset).preprocessor()
-        preprocessor.preprocess(args.dataset_path)
+        dataset = self._get_dataset_utils(args.dataset)
+        preprocessor = dataset.preprocessor()
+        path = args.dataset_path
+        if path is None:
+            path = dataset.default_path
+        preprocessor.preprocess(path)
 
     def list_classifications(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)
@@ -272,7 +277,12 @@ class CommandExecutor:
         print(df.to_string())
 
     def _get_dataset_reader(self, args: argparse.Namespace):
-        return self._get_dataset_utils(args.dataset).traffic_reader(args.dataset_path, args.dataset_subset)
+        dataset = self._get_dataset_utils(args.dataset)
+        if args.dataset_path is None:
+            dataset_path = dataset.default_path
+        else:
+            dataset_path = args.dataset_path
+        return dataset.traffic_reader(dataset_path, args.dataset_subset)
 
     def _get_dataset_utils(self, dataset_name: str) -> DatasetUtils:
         if dataset_name not in DATASET_UTILS:

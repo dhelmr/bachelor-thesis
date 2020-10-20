@@ -100,8 +100,8 @@ optional arguments:
                         The name of the dataset. Choose one of: ['cic-
                         ids-2017', 'unsw-nb15', 'test'] (default: cic-
                         ids-2017)
-  --src DATASET_PATH    Path of the dataset (default:
-                        /mnt/data/ba/code/data/cic-ids-2017/)
+  --src DATASET_PATH    Path of the dataset, if not specified the dataset's
+                        default path is taken. (default: None)
   --subset DATASET_SUBSET
                         Predefined subset of the dataset (default: default)
 
