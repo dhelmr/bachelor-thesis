@@ -1,7 +1,6 @@
 import itertools
 import os
 import re
-from datetime import datetime
 from enum import Enum
 
 import dpkt
@@ -234,7 +233,7 @@ class CICIDS2017LabelAssociator(PacketLabelAssociator):
         if time_part[1] == ":":
             time_part = "0" + time_part
         datestr = f"{date_part} {time_part}"
-        result = datetime.strptime(datestr, "%d/%m/%Y %I:%M")  # example "5/7/2017 8:42" = 5th of July 2017
+        result = datetime.datetime.strptime(datestr, "%d/%m/%Y %I:%M")  # example "5/7/2017 8:42" = 5th of July 2017
         return result
 
     def parse_label_field(self, label: str) -> Tuple[TrafficType, AdditionalInfo]:
