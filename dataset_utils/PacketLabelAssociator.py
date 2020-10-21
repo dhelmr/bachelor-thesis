@@ -81,7 +81,7 @@ class PacketLabelAssociator(ABC):
         Tuple[TrafficType, AdditionalInfo]]:
         last_item = (TrafficType.BENIGN, (None, None))
         while len(attack_times) != 0 or len(benign_times) != 0:
-            if len(attack_times) > 0 and (len(benign_times) == 0 or attack_times[0] < benign_times[0]):
+            if len(attack_times) > 0 and (len(benign_times) == 0 or attack_times[0][0] < benign_times[0][0]):
                 item = attack_times.pop(0)
                 if ts < item[0]:
                     return last_item[0], last_item[1][1]
