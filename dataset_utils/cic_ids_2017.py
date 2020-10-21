@@ -188,7 +188,7 @@ class CICIDS2017LabelAssociator(PacketLabelAssociator):
 
     def get_attack_flows(self, pcap_file):
         relative_path = pcap_file[len(self.dataset_path):]
-        if relative_path.startswith(os.path.pathsep):
+        if relative_path.startswith(os.path.sep):
             relative_path = relative_path[1:]
         label_files = PCAP_LABEL_FILES[PcapFiles(relative_path)]
         df = pandas.concat([
