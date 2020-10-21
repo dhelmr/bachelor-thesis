@@ -2,7 +2,7 @@ import csv
 import datetime
 import math
 from abc import ABC, abstractmethod
-from typing import Tuple, Any, List, Optional
+from typing import Tuple, Any, List, Optional, Set
 
 import pandas
 
@@ -106,7 +106,8 @@ class PacketLabelAssociator(ABC):
         """ Is called when the timestamp of an attack is read from the flow infos """
         raise NotImplementedError()
 
-    def find_attack_flows(self, flows) -> pandas.DataFrame:
+    def find_attack_flows(self, flows) -> Tuple[pandas.DataFrame, Set[str]]:
+        self._validate_flow_infos(flows)
         attacks = flows.loc[flows[COL_TRAFFIC_TYPE] == TrafficType.ATTACK]
         benigns = flows.loc[flows[COL_TRAFFIC_TYPE] == TrafficType.BENIGN]
         in_both = pandas.merge(attacks, benigns, how="inner", left_index=True, right_index=True)
@@ -124,6 +125,15 @@ class PacketLabelAssociator(ABC):
                 (self.date_cell_to_timestamp(r[f"{COL_START_TIME}"]), r[f"{COL_INFO}"]) for _, r in elements.iterrows()
             ], key=lambda item: item[0])
         )
+        # convert to Series in case that no items where found; groupby yields an empty Dataframe then
+        if len(attack_times) == 0:
+            attack_times = pandas.Series()
+        if len(benign_times) == 0:
+            benign_times = pandas.Series()
         result_df = pandas.merge(attack_times.to_frame("attack"), benign_times.to_frame("benign"), how="left",
                                  right_index=True, left_index=True)
-        return result_df
+        return result_df, set(result_df.index.values.tolist())
+
+    def drop_non_required_cols(self, df: pandas.DataFrame):
+        columns_to_drop = [col for col in df.columns if col not in REQUIRED_COLUMNS]
+        df.drop(columns=columns_to_drop, inplace=True)

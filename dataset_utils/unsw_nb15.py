@@ -17,7 +17,7 @@ from anomaly_detection.types import DatasetPreprocessor, TrafficReader, TrafficS
     Packet
 from dataset_utils import pcap_utils
 from dataset_utils.PacketLabelAssociator import PacketLabelAssociator, DEFAULT_HEADER, COL_FLOW_ID, COL_REVERSE_FLOW_ID, \
-    COL_START_TIME, COL_INFO, REQUIRED_COLUMNS, COL_TRAFFIC_TYPE
+    COL_START_TIME, COL_INFO, COL_TRAFFIC_TYPE
 from dataset_utils.encoding_utils import get_encoding_for_csv
 from dataset_utils.pcap_utils import SubsetPacketReader
 from dataset_utils.reader_utils import ranges_of_list
@@ -204,8 +204,7 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
         super().__init__([*DEFAULT_HEADER, "attack_type"])
         self.unrecognized_proto_counter = 0
         self.flow_formatter = pcap_utils.FlowIDFormatter()
-        self.attack_flows = self._load_attack_flows(dataset_path)
-        self.attack_flow_ids = set(self.attack_flows.index.values.tolist())
+        self.attack_flows, self.attack_flow_ids = self._load_attack_flows(dataset_path)
 
     def get_attack_flows(self, pcap_file):
         # all attack flows are loaded on startup
@@ -219,7 +218,10 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
         return packet_label_file(pcap_file)
 
     def write_csv_row(self, csv_writer, packet_id, traffic_type, additional_info):
-        attack_type = str(additional_info).strip().lower()
+        if additional_info is None:
+            attack_type = ""
+        else:
+            attack_type = str(additional_info).strip().lower()
         csv_writer.writerow([packet_id, traffic_type.value, attack_type])
 
     def date_cell_to_timestamp(self, cell_content) -> datetime.datetime:
@@ -260,8 +262,7 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
             str) + "-" + proto_as_numbers
         df[COL_START_TIME] = df[FlowCsvColumns.START_TIME.value]
         df[COL_INFO] = df[FlowCsvColumns.ATTACK_CATEGORY.value]
-        columns_to_drop = [col for col in df.columns if col not in REQUIRED_COLUMNS]
-        df.drop(columns=columns_to_drop, inplace=True)
+        self.drop_non_required_cols(df)
         return df
 
     def _load_column_names(self, csv_file):
