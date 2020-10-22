@@ -269,15 +269,27 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
         column_names = [row[FEATURE_NAME_COLUMN_FIELD].strip() for _, row in df.iterrows()]
         return column_names
 
-    def proto_to_number(self, p):
+    def proto_to_number(self, p_name):
+        """
+        Converts the protocol column of the label csv file to an IP protocol number. If the protocol does not rely
+        on IP, an empty string is returned. In that case, an ip-based flow cannot be made anyways.
+        """
         try:
-            return str(socket.getprotobyname(p.lower()))
+            return str(socket.getprotobyname(p_name.lower()))
         except:
-            if p.lower() == "nvp":
+            if p_name.lower() == "nvp":
                 return "11"
             else:
                 self.unrecognized_proto_counter += 1
                 return ""
 
 
-UNSWNB15 = DatasetUtils(os.path.join("data", "unsw-nb15"), UNSWNB15TrafficReader, UNSWNB15Preprocessor)
+def print_stats(dataset_path):
+    for pcap in iter_pcaps(dataset_path, skip_not_found=True):
+        labels = read_packet_labels(pcap)
+        attacks = labels[labels["traffic_type"] == TrafficType.ATTACK]
+        att_count = attacks.groupby(attacks["attack_type"]).count()
+        print(att_count)
+
+
+UNSWNB15 = DatasetUtils(os.path.join("data", "unsw-nb15"), UNSWNB15TrafficReader, UNSWNB15Preprocessor, print_stats)

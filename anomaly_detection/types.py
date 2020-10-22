@@ -181,6 +181,7 @@ class DatasetUtils(NamedTuple):
     default_path: str
     traffic_reader: t.Callable[[str, str], TrafficReader]
     preprocessor: t.Callable[[], DatasetPreprocessor]
+    print_stats: t.Callable[[str], None]
 
 
 class ParsingException(Exception):

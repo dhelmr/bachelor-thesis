@@ -125,13 +125,6 @@ class CIC2017TrafficReader(TrafficReader):
             raise ValueError("Subset %s is not valid" % subset)
         self.subset = SUBSETS[subset]
 
-    def read_traffic_labels(self, pcap_file: str) -> pandas.Series:
-        packet_labels = packet_label_file(self.dataset_dir, pcap_file)
-        if not os.path.exists(packet_labels):
-            raise FileNotFoundError("Cannot find %s. Did you preprocess the dataset first?" % packet_labels)
-        df = pandas.read_csv(packet_labels, index_col="packet_id")
-        df["label"] = df["label"].map(lambda value: TrafficType(value))
-        return df["label"]
 
     def read_normal_data(self) -> TrafficSequence:
         traffic_sequences = [self._make_traffic_sequence(pcap_file, ranges) for pcap_file, ranges in
@@ -150,8 +143,8 @@ class CIC2017TrafficReader(TrafficReader):
                                ids=joined_ids)
 
     def _make_traffic_sequence(self, pcap_file: PcapFiles, ranges) -> TrafficSequence:
+        labels = read_packet_labels(self.dataset_dir, pcap_file.value)["traffic_type"]
         full_pcap_path = os.path.join(self.dataset_dir, pcap_file.value)
-        labels = self.read_traffic_labels(full_pcap_path)
         ids = ranges_of_list(labels.index.values.tolist(), ranges)
         name = f"{pcap_file.name}@CIC-IDS-2017:{self.subset_name}"
         packet_reader = SubsetPacketReader(full_pcap_path, ranges)
@@ -162,9 +155,17 @@ class CIC2017TrafficReader(TrafficReader):
             yield self._make_traffic_sequence(pcap_file, ranges)
 
 
-def packet_label_file(dataset_path, pcap_file):
+def packet_label_file(dataset_path, pcap_file: str):
     return os.path.join(dataset_path, os.path.basename(pcap_file) + "_packet_labels.csv")
 
+
+def read_packet_labels(dataset_path, pcap_file: str):
+    packet_labels = packet_label_file(dataset_path, pcap_file)
+    if not os.path.exists(packet_labels):
+        raise FileNotFoundError("Cannot find %s. Did you preprocess the dataset first?" % packet_labels)
+    df = pandas.read_csv(packet_labels, index_col="packet_id")
+    df["traffic_type"] = df["traffic_type"].map(lambda value: TrafficType(value))
+    return df
 
 class CICIDS2017Preprocessor(DatasetPreprocessor):
 
@@ -241,4 +242,13 @@ class CICIDS2017LabelAssociator(PacketLabelAssociator):
             return TrafficType.ATTACK, label
 
 
-CICIDS2017 = DatasetUtils(os.path.join("data", "cic-ids-2017"), CIC2017TrafficReader, CICIDS2017Preprocessor)
+def print_stats(dataset_path):
+    for pcap in PcapFiles:
+        df = read_packet_labels(dataset_path, pcap.value)
+        attack_types_count = df[df["traffic_type"] == TrafficType.ATTACK].groupby(df["attack_type"]).count()
+        print(pcap.value)
+        print(attack_types_count)
+
+
+CICIDS2017 = DatasetUtils(os.path.join("data", "cic-ids-2017"), CIC2017TrafficReader, CICIDS2017Preprocessor,
+                          print_stats)
