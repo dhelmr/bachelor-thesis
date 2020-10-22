@@ -16,8 +16,8 @@ from pandas import Series
 from anomaly_detection.types import DatasetPreprocessor, TrafficReader, TrafficSequence, DatasetUtils, TrafficType, \
     Packet
 from dataset_utils import pcap_utils
-from dataset_utils.PacketLabelAssociator import PacketLabelAssociator, DEFAULT_HEADER, COL_FLOW_ID, COL_REVERSE_FLOW_ID, \
-    COL_START_TIME, COL_INFO, COL_TRAFFIC_TYPE
+from dataset_utils.PacketLabelAssociator import PacketLabelAssociator, COL_FLOW_ID, COL_REVERSE_FLOW_ID, \
+    COL_START_TIME, COL_INFO, COL_TRAFFIC_TYPE, AdditionalInfo
 from dataset_utils.encoding_utils import get_encoding_for_csv
 from dataset_utils.pcap_utils import SubsetPacketReader
 from dataset_utils.reader_utils import ranges_of_list
@@ -201,7 +201,7 @@ def packet_label_file(pcap_file):
 class UNSWNB15LabelAssociator(PacketLabelAssociator):
 
     def __init__(self, dataset_path: str):
-        super().__init__([*DEFAULT_HEADER, "attack_type"])
+        super().__init__(["attack_type"])
         self.unrecognized_proto_counter = 0
         self.flow_formatter = pcap_utils.FlowIDFormatter()
         self.attack_flows, self.attack_flow_ids = self._load_attack_flows(dataset_path)
@@ -217,12 +217,10 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
     def output_csv_file(self, pcap_file) -> str:
         return packet_label_file(pcap_file)
 
-    def write_csv_row(self, csv_writer, packet_id, traffic_type, additional_info):
-        if additional_info is None:
-            attack_type = ""
-        else:
-            attack_type = str(additional_info).strip().lower()
-        csv_writer.writerow([packet_id, traffic_type.value, attack_type])
+    def unpack_additional_info(self, additional_info: AdditionalInfo):
+        if type(additional_info) is not str:
+            return [""]
+        return [additional_info.strip().lower()]
 
     def date_cell_to_timestamp(self, cell_content) -> datetime.datetime:
         epoch_time = cell_content

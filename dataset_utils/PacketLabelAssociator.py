@@ -2,7 +2,7 @@ import csv
 import datetime
 import math
 from abc import ABC, abstractmethod
-from typing import Tuple, Any, List, Optional, Set
+from typing import Tuple, Any, List, Set, Sequence
 
 import pandas
 
@@ -18,15 +18,15 @@ COL_START_TIME = "start_time"
 COL_INFO = "info"
 REQUIRED_COLUMNS = [COL_FLOW_ID, COL_REVERSE_FLOW_ID, COL_TRAFFIC_TYPE, COL_START_TIME, COL_INFO]
 
-DEFAULT_HEADER = ["packet_id", "traffic_type"]
+DEFAULT_OUTPUT_HEADER = ["packet_id", "flow_id", "reverse_flow_id", "traffic_type"]
 
 
 class PacketLabelAssociator(ABC):
 
-    def __init__(self, csv_header=None):
-        if csv_header is None:
-            csv_header = DEFAULT_HEADER
-        self.csv_header = csv_header
+    def __init__(self, additional_cols=None):
+        if additional_cols is None:
+            additional_cols = []
+        self.csv_header = DEFAULT_OUTPUT_HEADER + additional_cols
 
     def associate_pcap_labels(self, pcap_file):
         attack_flows, attack_ids = self.get_attack_flows(pcap_file)
@@ -37,8 +37,14 @@ class PacketLabelAssociator(ABC):
             csvwriter.writerow(self.csv_header)
             for i, packet in enumerate(pcap_reader):
                 packet_id = "%s-%s" % (pcap_file, i)
-                traffic_type, additional_info = self.associate_packet(packet, attack_flows, attack_ids)
-                self.write_csv_row(csvwriter, packet_id, traffic_type, additional_info)
+                traffic_type, flow_ids, additional_info = self.associate_packet(packet, attack_flows, attack_ids)
+                if len(flow_ids) == 0:
+                    flow_id, reverse_id = "unknown", "unknown"
+                elif len(flow_ids) != 2:
+                    raise ValueError("Expected to have either zero or two flow ids for packet %s" % i)
+                else:
+                    flow_id, reverse_id = flow_ids
+                self.write_csv_row(csvwriter, packet_id, flow_id, reverse_id, traffic_type, additional_info)
 
     @abstractmethod
     def get_attack_flows(self, pcap_file):
@@ -53,32 +59,32 @@ class PacketLabelAssociator(ABC):
     def make_flow_ids(self, packet: Packet) -> Tuple[str, str]:
         raise NotImplementedError()
 
-    def associate_packet(self, packet, attack_flows, attack_ids) -> Tuple[TrafficType, AdditionalInfo]:
+    def associate_packet(self, packet, attack_flows, attack_ids) -> Tuple[TrafficType, Sequence[str], AdditionalInfo]:
         timestamp, buffer = packet
         flow_ids = self.make_flow_ids(packet)
         if flow_ids is None or len(flow_ids) == 0:
-            return TrafficType.BENIGN, None
+            return TrafficType.BENIGN, [], None
         flow_id, reverse_id = flow_ids
         if flow_id not in attack_ids and reverse_id not in attack_ids:
-            return TrafficType.BENIGN, None
+            return TrafficType.BENIGN, flow_ids, None
 
         timestamp = round(timestamp)
         potential_attack_flows = attack_flows.loc[attack_flows.index.isin(flow_ids)]
         attacks = potential_attack_flows["attack"].values[0]
         benigns = potential_attack_flows["benign"].values[0]
         if type(attacks) is float and math.isnan(attacks):
-            return TrafficType.BENIGN, None
+            return TrafficType.BENIGN, flow_ids, None
         if type(benigns) is float and math.isnan(benigns):
             benigns = []
 
         timestamp = datetime.datetime.utcfromtimestamp(timestamp)
         attack_info = self.is_attack(timestamp, attacks, benigns)
-        return attack_info
+        return attack_info[0], flow_ids, attack_info[1]
 
     def is_attack(self, ts: datetime.datetime,
                   attack_times: List[Tuple[datetime.datetime, AdditionalInfo]],
-                  benign_times: List[Tuple[datetime.datetime, AdditionalInfo]]) -> Optional[
-        Tuple[TrafficType, AdditionalInfo]]:
+                  benign_times: List[Tuple[datetime.datetime, AdditionalInfo]]) -> Tuple[TrafficType, AdditionalInfo]:
+        attack_times, benign_times = attack_times.copy(), benign_times.copy()
         last_item = (TrafficType.BENIGN, (None, None))
         while len(attack_times) != 0 or len(benign_times) != 0:
             if len(attack_times) > 0 and (len(benign_times) == 0 or attack_times[0][0] < benign_times[0][0]):
@@ -98,9 +104,12 @@ class PacketLabelAssociator(ABC):
     def output_csv_file(self, pcap_file) -> str:
         raise NotImplementedError()
 
-    @abstractmethod
-    def write_csv_row(self, csv_writer, packet_id, traffic_type, additional_info):
-        raise NotImplementedError()
+    def write_csv_row(self, csv_writer, packet_id, flow_id, reverse_id, traffic_type, additional_info):
+        if type(additional_info) is not str:
+            additional_cells = ""
+        else:
+            additional_cells = self.unpack_additional_info(additional_info)
+        csv_writer.writerow([packet_id, flow_id, reverse_id, traffic_type.value, *additional_cells])
 
     def date_cell_to_timestamp(self, cell_content) -> datetime.datetime:
         """ Is called when the timestamp of an attack is read from the flow infos """
@@ -137,3 +146,7 @@ class PacketLabelAssociator(ABC):
     def drop_non_required_cols(self, df: pandas.DataFrame):
         columns_to_drop = [col for col in df.columns if col not in REQUIRED_COLUMNS]
         df.drop(columns=columns_to_drop, inplace=True)
+
+    @abstractmethod
+    def unpack_additional_info(self, additional_info: AdditionalInfo) -> List[str]:
+        raise NotImplementedError()

@@ -181,7 +181,7 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
 class CICIDS2017LabelAssociator(PacketLabelAssociator):
 
     def __init__(self, dataset_path):
-        super().__init__([*DEFAULT_HEADER, "attack_type"])
+        super().__init__(["attack_type"])
         self.dataset_path = dataset_path
         self.flow_formatter = FlowIDFormatter()
 
@@ -214,12 +214,10 @@ class CICIDS2017LabelAssociator(PacketLabelAssociator):
     def output_csv_file(self, pcap_file) -> str:
         return packet_label_file(self.dataset_path, pcap_file)
 
-    def write_csv_row(self, csv_writer, packet_id, traffic_type, additional_info):
-        if additional_info is None:
-            attack_type = ""
-        else:
-            attack_type = str(additional_info).strip().lower()
-        csv_writer.writerow([packet_id, traffic_type.value, attack_type])
+    def unpack_additional_info(self, additional_info: AdditionalInfo) -> List[str]:
+        if type(additional_info) is not str:
+            return [""]
+        return [additional_info.strip().lower()]
 
     def date_cell_to_timestamp(self, cell_content) -> datetime.datetime:
         # the date is java-style formatted
