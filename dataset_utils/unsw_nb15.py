@@ -124,8 +124,9 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
 
     def preprocess(self, dataset_path: str):
         label_associator = UNSWNB15LabelAssociator(dataset_path)
-        for pcap in iter_pcaps(dataset_path):
-            label_associator.associate_pcap_labels(pcap)
+        for pcap in iter_pcaps(dataset_path, yield_relative=True):
+            full_path = os.path.join(dataset_path, pcap)
+            label_associator.associate_pcap_labels(full_path, packet_id_prefix=pcap)
 
         ranges = self._make_ranges(dataset_path)
         ranges_path = os.path.join(dataset_path, RANGES_FILE)

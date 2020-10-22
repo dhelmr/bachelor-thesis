@@ -1,5 +1,6 @@
 import csv
 import datetime
+import logging
 import math
 from abc import ABC, abstractmethod
 from typing import Tuple, Any, List, Set, Sequence
@@ -28,7 +29,10 @@ class PacketLabelAssociator(ABC):
             additional_cols = []
         self.csv_header = DEFAULT_OUTPUT_HEADER + additional_cols
 
-    def associate_pcap_labels(self, pcap_file):
+    def associate_pcap_labels(self, pcap_file, packet_id_prefix=None):
+        logging.info("Preprocess %s" % pcap_file)
+        if packet_id_prefix is None:
+            packet_id_prefix = pcap_file
         attack_flows, attack_ids = self.get_attack_flows(pcap_file)
 
         pcap_reader = pcap_utils.read_pcap_pcapng(pcap_file)
@@ -36,7 +40,7 @@ class PacketLabelAssociator(ABC):
             csvwriter = csv.writer(csvfile)
             csvwriter.writerow(self.csv_header)
             for i, packet in enumerate(pcap_reader):
-                packet_id = "%s-%s" % (pcap_file, i)
+                packet_id = "%s-%s" % (packet_id_prefix, i)
                 traffic_type, flow_ids, additional_info = self.associate_packet(packet, attack_flows, attack_ids)
                 if len(flow_ids) == 0:
                     flow_id, reverse_id = "unknown", "unknown"

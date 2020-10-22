@@ -175,7 +175,7 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
         associator = CICIDS2017LabelAssociator(dataset_path)
         for pcap in PcapFiles:
             full_path = os.path.join(dataset_path, pcap.value)
-            associator.associate_pcap_labels(full_path)
+            associator.associate_pcap_labels(full_path, packet_id_prefix=pcap.value)
 
 
 class CICIDS2017LabelAssociator(PacketLabelAssociator):
