@@ -55,7 +55,6 @@ class UNSWNB15TrafficReader(TrafficReader):
         super().__init__(directory, subset)
         self.ranges = self._load_ranges()
         self.subset = self._load_subset(self.subset_name, ranges=self.ranges)
-        self.stats = pandas.read_csv(os.path.join(directory, "attack_stats.csv"), index_col="pcap")
 
     def read_normal_data(self) -> TrafficSequence:
         # TODO refactor with cic-ids-2017
