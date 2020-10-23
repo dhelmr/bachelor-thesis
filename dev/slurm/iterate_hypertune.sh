@@ -1,5 +1,7 @@
 #!/bin/bash
 
+trap 'kill $(jobs -p)' EXIT;
+
 BASEDIR=$(dirname "$0")
 JOB_FILE="$BASEDIR/hypertune.job"
 ARGS="$*"
