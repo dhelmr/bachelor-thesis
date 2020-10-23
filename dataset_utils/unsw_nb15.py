@@ -31,12 +31,14 @@ FEATURE_NAME_COLUMN_FIELD = "Name"  # name of the column which specified the fea
 RANGES_FILE = "ranges.json"
 
 PCAP_FILES = {  # TODO use same names as when downloaded properly
-    "01": [f"{i}.pcap" for i in range(1, 53)],
-    "02": [f"{i}.pcap" for i in range(1, 27)]
+    "01": [f"{i}.pcap" for i in range(1, 54)],
+    "02": [f"{i}.pcap" for i in range(1, 28)]
 }
 
-BENIGN_INDEX_UNTIL = 10  # the first n pcap files are used for the benign dataset part (training set)
-
+DEFAULT_BENIGN_PCAPS = [
+    "01/10.pcap", "01/11.pcap", "01/12.pcap", "01/13.pcap", "01/26.pcap", "01/27.pcap", "01/40.pcap", "01/41.pcap",
+    "01/42.pcap"
+]
 class FlowCsvColumns(Enum):
     SRC_IP = "srcip"
     SRC_PORT = "sport"
@@ -58,8 +60,8 @@ class UNSWNB15TrafficReader(TrafficReader):
 
     def read_normal_data(self) -> TrafficSequence:
         # TODO refactor with cic-ids-2017
-        traffic_sequences = [self._make_traffic_sequence(pcap_file, ranges) for pcap_file, ranges in
-                             self.subset["benign"].items() if os.path.exists(pcap_file)]
+        traffic_sequences = [self._make_traffic_sequence(pcap_file, ranges, "benign") for pcap_file, ranges in
+                             self.subset["benign"].items() if os.path.exists(os.path.join(self.dataset_dir, pcap_file))]
         if len(traffic_sequences) == 1:
             return traffic_sequences[0]
         # if more than one traffic sequences are present, join them into one.
@@ -72,7 +74,10 @@ class UNSWNB15TrafficReader(TrafficReader):
             "all": joined_ids,
             "benign": joined_ids
         }
-        return TrafficSequence(name=f"benign@UNSW-NB15:{self.subset_name}",
+        # make sure that the same pcaps, even in different order, result in the same traffic sequence name; regardless
+        # of the used test pcaps
+        name_identifier = ",".join(sorted([t.name.split(".pcap")[0] for t in traffic_sequences]))
+        return TrafficSequence(name=f"benign@UNSW-NB15:%s" % name_identifier,
                                labels=joined_labels,
                                packet_reader=joined_reader,
                                parts=parts,
@@ -83,15 +88,15 @@ class UNSWNB15TrafficReader(TrafficReader):
             full_path = os.path.join(self.dataset_dir, pcap_file)
             if not os.path.exists(full_path):
                 continue
-            yield self._make_traffic_sequence(pcap_file, ranges)
+            yield self._make_traffic_sequence(pcap_file, ranges, "unknown")
 
-    def _make_traffic_sequence(self, pcap_file: str, ranges) -> TrafficSequence:
+    def _make_traffic_sequence(self, pcap_file: str, ranges, name_suffix) -> TrafficSequence:
         full_path = os.path.join(self.dataset_dir, pcap_file)
         all_packet_info = read_packet_labels(full_path)
         traffic_type_labels = all_packet_info["traffic_type"]
         ids = ranges_of_list(traffic_type_labels.index.values.tolist(), ranges)
-        name = f"{pcap_file}@UNSW-NB15:{self.subset_name}"
-        packet_reader = SubsetPacketReader(pcap_file, ranges)
+        name = f"{pcap_file}@UNSW-NB15:{name_suffix}"
+        packet_reader = SubsetPacketReader(full_path, ranges)
         parts = self._make_parts(all_packet_info)
         return TrafficSequence(name=name, packet_reader=packet_reader, labels=traffic_type_labels, ids=ids, parts=parts)
 
@@ -102,7 +107,10 @@ class UNSWNB15TrafficReader(TrafficReader):
 
     def _load_subset(self, subset_name: str, ranges):
         if subset_name == "all" or subset_name == "default":
-            return ranges
+            return {
+                "benign": {pcap: r for pcap, r in ranges["benign"].items() if pcap in DEFAULT_BENIGN_PCAPS},
+                "unknown": {pcap: r for pcap, r in ranges["unknown"].items() if pcap not in DEFAULT_BENIGN_PCAPS}
+            }
         # else: subset name must be of parttern "[test split]/[attack file1],[attack file2],..."
         benign, unknown = subset_name.split("/")
         benign_pcaps = self.select_pcaps(benign.split(","))
@@ -129,13 +137,14 @@ class UNSWNB15TrafficReader(TrafficReader):
 
     def _make_parts(self, labels):
         attacks = labels[labels["traffic_type"] == TrafficType.ATTACK]
-        attack_ids = attacks.groupby(attacks["attack_type"])["flow_id"].apply(list).to_dict()
-        benigns = labels[labels["traffic_type"] == TrafficType.ATTACK]
+        attack_parts = attacks.groupby(attacks["attack_type"])["flow_id"].apply(list).to_dict()
+        attack_parts = {name: indexes for name, indexes in attack_parts.items() if len(indexes) > 0}
+        benigns = labels[labels["traffic_type"] == TrafficType.BENIGN]
         parts = {
-            "all": attacks.index.values.tolist(),
+            "all": labels.index.values.tolist(),
             "benign": benigns.index.values.tolist()
         }
-        parts.update(attack_ids)
+        parts.update(attack_parts)
         return parts
 
 
@@ -168,13 +177,11 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
         index = 0
         for pcap in iter_pcaps(dataset_path, skip_not_found=False, yield_relative=True):
             full_path = os.path.join(dataset_path, pcap)
-            if index < BENIGN_INDEX_UNTIL:
-                if os.path.exists(full_path):
-                    ranges["benign"][pcap] = self.find_ranges_of_type(full_path, TrafficType.BENIGN)
-                else:
-                    logging.info("%s not found", pcap)
+            if os.path.exists(full_path):
+                ranges["benign"][pcap] = self.find_ranges_of_type(full_path, TrafficType.BENIGN)
             else:
-                ranges["unknown"][pcap] = [[0, "end"]]
+                logging.info("%s not found", pcap)
+            ranges["unknown"][pcap] = [[0, "end"]]
             index += 1
         return ranges
 

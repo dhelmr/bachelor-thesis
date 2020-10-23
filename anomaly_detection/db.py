@@ -92,6 +92,7 @@ class DBConnector:
             c.execute("""
                 CREATE TABLE evaluations (
                     classification_id TEXT REFERENCES classification_info(classification_id),
+                    part_name TEXT,
                     traffic_name TEXT,
                     accuracy REAL,
                     balanced_accuracy REAL,
@@ -111,7 +112,7 @@ class DBConnector:
                     tnr REAL,
                     true_negatives INT,
                     true_positives INT,
-                    PRIMARY KEY (classification_id, traffic_name)
+                    PRIMARY KEY (classification_id, traffic_name, part_name)
                 );
             """)
 
@@ -223,16 +224,15 @@ class DBConnector:
                 "INSERT INTO extracted_features (fe_id, traffic_name, pickle_features, model_id) VALUES (?,?,?,?);",
                 (fe_id, traffic_name, pickle_dump, model_id))
 
-    def store_evaluation(self, classification_id, traffic_name, metrics):
+    def store_evaluation(self, classification_id, traffic_name, part_name, metrics):
         with self.get_cursor() as c:
             c.execute(
-                "INSERT INTO evaluations (classification_id, traffic_name, accuracy, balanced_accuracy, f1_score, false_negatives, false_positives, fdr, fnr, for, fpr, negatives, positives, npv, precision, recall, support, tnr, true_negatives, true_positives) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);",
+                "INSERT INTO evaluations (classification_id, part_name, traffic_name, accuracy, balanced_accuracy, f1_score, false_negatives, false_positives, fdr, fnr, for, fpr, negatives, positives, npv, precision, recall, support, tnr, true_negatives, true_positives) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);",
                 (
-                    classification_id, traffic_name, metrics["accuracy"], metrics["balanced_accuracy"],
+                    classification_id, part_name, traffic_name, metrics["accuracy"], metrics["balanced_accuracy"],
                     metrics["f1_score"],
                     metrics["false_negatives"], metrics["false_positives"], metrics["fdr"], metrics["fnr"],
                     metrics["for"],
                     metrics["fpr"], metrics["negatives"], metrics["positives"], metrics["npv"], metrics["precision"],
                     metrics["recall"], metrics["support"], metrics["tnr"], metrics["true_negatives"],
                     metrics["true_positives"]))
-
