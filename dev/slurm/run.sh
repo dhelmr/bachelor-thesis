@@ -1,6 +1,6 @@
 #!/bin/bash
 BASEDIR=$(dirname "$0")
-JOB_ARGS=$(echo "%*" | base64)
+JOB_ARGS=$(echo "$*" | base64)
 JOB_FILE="$BASEDIR/custom.job"
 
 echo "Start $NAME with '$JOB_ARGS'"
