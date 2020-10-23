@@ -83,7 +83,7 @@ class UNSWNB15TrafficReader(TrafficReader):
             full_path = os.path.join(self.dataset_dir, pcap_file)
             if not os.path.exists(full_path):
                 continue
-            yield self._make_traffic_sequence(full_path, ranges)
+            yield self._make_traffic_sequence(pcap_file, ranges)
 
     def _make_traffic_sequence(self, pcap_file: str, ranges) -> TrafficSequence:
         full_path = os.path.join(self.dataset_dir, pcap_file)
