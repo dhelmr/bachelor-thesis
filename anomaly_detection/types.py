@@ -173,7 +173,7 @@ class DatasetPreprocessor:
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def preprocess(self, dataset_path: str):
+    def preprocess(self, dataset_path: str, additional_args: t.List[str]):
         raise NotImplementedError()
 
 

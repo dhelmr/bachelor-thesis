@@ -240,7 +240,7 @@ class CommandExecutor:
         path = args.dataset_path
         if path is None:
             path = dataset.default_path
-        preprocessor.preprocess(path)
+        preprocessor.preprocess(path, unknown)
 
     def list_classifications(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)

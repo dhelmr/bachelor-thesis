@@ -172,7 +172,7 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
     def __init__(self):
         self.flow_formatter = FlowIDFormatter()
 
-    def preprocess(self, dataset_path: str):
+    def preprocess(self, dataset_path: str, additional_args=[]):
         associator = CICIDS2017LabelAssociator(dataset_path)
         for pcap in PcapFiles:
             full_path = os.path.join(dataset_path, pcap.value)

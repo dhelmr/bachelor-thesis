@@ -1,4 +1,4 @@
-import datetime
+import argparse
 import datetime
 import itertools
 import json
@@ -122,16 +122,24 @@ class UNSWNB15TrafficReader(TrafficReader):
 
 class UNSWNB15Preprocessor(DatasetPreprocessor):
 
-    def preprocess(self, dataset_path: str):
-        label_associator = UNSWNB15LabelAssociator(dataset_path)
-        for pcap in iter_pcaps(dataset_path, yield_relative=True):
-            full_path = os.path.join(dataset_path, pcap)
-            label_associator.associate_pcap_labels(full_path, packet_id_prefix=pcap)
+    def _parse_args(self, args):
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--only-ranges", required=False, action="store_true")
+        return parser.parse_args(args)
+
+    def preprocess(self, dataset_path: str, additional_args):
+        parsed = self._parse_args(additional_args)
+        if parsed.only_ranges != True:
+            label_associator = UNSWNB15LabelAssociator(dataset_path)
+            for pcap in iter_pcaps(dataset_path, yield_relative=True):
+                full_path = os.path.join(dataset_path, pcap)
+                label_associator.associate_pcap_labels(full_path, packet_id_prefix=pcap)
 
         ranges = self._make_ranges(dataset_path)
         ranges_path = os.path.join(dataset_path, RANGES_FILE)
         with open(ranges_path, "w") as f:
             json.dump(ranges, f)
+        make_stats(dataset_path)
 
     def _make_ranges(self, dataset_path) -> dict:
         ranges = {
@@ -143,7 +151,7 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
             full_path = os.path.join(dataset_path, pcap)
             if index < BENIGN_INDEX_UNTIL:
                 if os.path.exists(full_path):
-                    ranges["benign"][pcap] = self.find_ranges_of_type(pcap, TrafficType.BENIGN)
+                    ranges["benign"][pcap] = self.find_ranges_of_type(full_path, TrafficType.BENIGN)
                 else:
                     logging.info("%s not found", pcap)
             else:
@@ -284,22 +292,21 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
                 return ""
 
 
-def stats(dataset_path):
-    output_file = os.path.join(dataset_path, "stats.json")
-    data = {}
+def make_stats(dataset_path):
+    output_file = os.path.join(dataset_path, "attack_stats.csv")
+    data = []
     for pcap in iter_pcaps(dataset_path, skip_not_found=True):
         labels = read_packet_labels(pcap)
         attacks = labels[labels["traffic_type"] == TrafficType.ATTACK]
-        att_count = attacks.groupby(attacks["attack_type"])["flow_id"].count().to_dict()
         attack_perc = len(attacks) / len(labels)
-        data[pcap] = {
+        pcap_info = attacks.groupby(attacks["attack_type"])["flow_id"].count().to_dict()
+        pcap_info.update({
             "total": len(labels),
             "num_attacks": len(attacks),
             "fraction_attacks": attack_perc,
-            "attacks": att_count
-        }
-    with open(output_file, "w") as f:
-        json.dump(data, f)
+        })
+        data.append(pcap_info)
+    pandas.DataFrame(data).to_csv(output_file)
 
 
-UNSWNB15 = DatasetUtils(os.path.join("data", "unsw-nb15"), UNSWNB15TrafficReader, UNSWNB15Preprocessor, stats)
+UNSWNB15 = DatasetUtils(os.path.join("data", "unsw-nb15"), UNSWNB15TrafficReader, UNSWNB15Preprocessor, make_stats)
