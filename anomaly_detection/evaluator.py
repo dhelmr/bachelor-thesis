@@ -11,7 +11,7 @@ from anomaly_detection.types import TrafficReader
 
 class Evaluator:
     def __init__(self, db: DBConnector, traffic_reader: TrafficReader, report_file=None, force_overwrite: bool = False):
-        self.traffic_reader = traffic_reader
+        self.traffic_reader: TrafficReader = traffic_reader
         self.db: DBConnector = db
         self.report_file = report_file
         if report_file is not None and os.path.exists(report_file):
@@ -26,7 +26,7 @@ class Evaluator:
 
         This reads the records for a previous classification from the database, reads the actual values 
         from the dataset and creates a confusion matrix. Various measurements, like f1-score, precision,
-        recall and false detection rate (fdr) are generated. The report is then saved as json.
+        recall and false detection rate (fdr) are generated. The report is then stored in the database.
         """
         pred = self.db.get_classifications_records(classification_id)
         if len(pred) == 0:
@@ -34,12 +34,17 @@ class Evaluator:
         logging.info(f"Prediction log for classification with id {classification_id} loaded")
         evaluation_dict = dict()
         for sequence in self.traffic_reader:
-            name = sequence.name
-            if filter_traffic_names is not None and name not in filter_traffic_names:
-                logging.debug("Ignore %s", name)
-                continue
-            evaluation_dict[name] = self.evaluate_traffic_sequence(name, pred, true_labels=sequence.labels)
-        evaluation_dict["total"] = self.calc_total_metrics(evaluation_dict)
+            for part_name, part_indexes in sequence.parts.items():
+                name = sequence.name
+                if filter_traffic_names is not None and name not in filter_traffic_names:
+                    logging.debug("Ignore %s", name)
+                    continue
+                part_labels = sequence.labels.reindex(part_indexes)
+                if part_name not in evaluation_dict:
+                    evaluation_dict[part_name] = dict()
+                evaluation_dict[part_name][name] = self.evaluate_traffic_sequence(name, pred, true_labels=part_labels)
+        for part_name, metrics in evaluation_dict.items():
+            evaluation_dict[part_name]["total"] = self.calc_total_metrics(metrics)
         if self.report_file is not None:
             self.write_report(json.dumps(
                 evaluation_dict, indent=4, sort_keys=True))
@@ -123,8 +128,9 @@ class Evaluator:
         logging.info("Report written into %s", self.report_file)
 
     def store_in_db(self, evaluation_dict, classification_id):
-        for sequence_name, metrics in evaluation_dict.items():
-            try:
-                self.db.store_evaluation(classification_id, sequence_name, metrics)
-            except Exception as e:
-                logging.error("Cannot store %s in db: %s", sequence_name, e)
+        for part_name, part_evaluations in evaluation_dict.items():
+            for sequence_name, metrics in part_evaluations.items():
+                try:
+                    self.db.store_evaluation(classification_id, sequence_name, part_name, metrics)
+                except Exception as e:
+                    logging.error("Cannot store %s in db: %s", sequence_name, e)

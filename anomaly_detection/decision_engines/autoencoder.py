@@ -26,6 +26,7 @@ def init_keras():
 
 
 class AutoencoderDE(DecisionEngine):
+
     def __init__(self, **kwargs):
         init_keras()
         self.verbose = False

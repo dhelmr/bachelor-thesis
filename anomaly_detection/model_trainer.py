@@ -21,6 +21,8 @@ class ModelTrainer:
         if self.db.exists_model(self.model_id):
             raise ValueError("Model with id '%s' already exists!" % self.model_id)
         traffic = self.traffic_reader.read_normal_data()
+        if len(traffic.ids) == 0:
+            raise ValueError("Empty traffic was loaded.")
         name = traffic[0]
         logging.info(
             "Start training of normal profile (%s)", name)

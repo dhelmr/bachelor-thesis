@@ -31,8 +31,9 @@ PacketReader = t.Iterable[Packet]
 class TrafficSequence(NamedTuple):
     name: str
     packet_reader: PacketReader
-    ids: t.List[str]
-    labels: pd.Series
+    ids: t.List[str] = []
+    labels: pd.Series = pandas.Series()
+    parts: t.Dict[str, t.List[str]] = []
     is_consistent: bool = True
 
 
@@ -48,7 +49,7 @@ class TrafficReader(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def __iter__(self):
+    def __iter__(self) -> t.Iterable[TrafficSequence]:
         raise NotImplementedError()
 
 
@@ -65,7 +66,7 @@ class Features(NamedTuple):
     data: np.ndarray
 
     def validate(self):
-        if len(self.names) != len(self.types) or len(self.data[0]) != len(self.types):
+        if len(self.names) != len(self.types) or (len(self.data) >= 0 and len(self.data[0]) != len(self.types)):
             raise ValueError("Lengths of features names, feature types or data do not match!")
 
     def as_pandas(self, copy: bool = False) -> pandas.DataFrame:
@@ -173,7 +174,7 @@ class DatasetPreprocessor:
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def preprocess(self, dataset_path: str):
+    def preprocess(self, dataset_path: str, additional_args: t.List[str]):
         raise NotImplementedError()
 
 
@@ -181,6 +182,7 @@ class DatasetUtils(NamedTuple):
     default_path: str
     traffic_reader: t.Callable[[str, str], TrafficReader]
     preprocessor: t.Callable[[], DatasetPreprocessor]
+    print_stats: t.Callable[[str], None]
 
 
 class ParsingException(Exception):

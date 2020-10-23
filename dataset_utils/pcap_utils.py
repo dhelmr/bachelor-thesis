@@ -35,8 +35,9 @@ def get_ip_packet(buf, linklayer_hint=None) -> Optional[dpkt.ip.IP]:
 
 
 class FlowIDFormatter:
-    def __init__(self, protocol_encodings):
-        self.protocol_encodings = protocol_encodings
+
+    def __init__(self):
+        self.protocol_converter = lambda x: x
 
     def make_flow_ids(self, ts, buf, packet_type=dpkt.ethernet.Ethernet):
         ip = get_ip_packet(buf, linklayer_hint=packet_type)
@@ -44,18 +45,9 @@ class FlowIDFormatter:
             return None
         src_ip = socket.inet_ntoa(ip.src)
         dest_ip = socket.inet_ntoa(ip.dst)
-        if type(ip.data) is dpkt.tcp.TCP:
-            src_port = int(ip.tcp.sport)
-            dest_port = int(ip.tcp.dport)
-            protocol = self.protocol_encodings["tcp"]
-        elif type(ip.data) is dpkt.udp.UDP:
-            src_port = int(ip.udp.sport)
-            dest_port = int(ip.udp.dport)
-            protocol = self.protocol_encodings["udp"]
-        else:
-            src_port = 0
-            dest_port = 0
-            protocol = self.protocol_encodings["unknown"]
+        src_port = get_if_exists(ip.data, "sport", 0)
+        dest_port = get_if_exists(ip.data, "dport", 0)  # TODO CHeck if ICMP in cic-ids-2017 uses port 0
+        protocol = self.protocol_converter(ip.p)
         return [self.format_flow_id(src_ip, dest_ip, src_port, dest_port, protocol),
                 self.format_flow_id(src_ip, dest_ip, src_port, dest_port, protocol, reverse=True)]
 
@@ -63,6 +55,13 @@ class FlowIDFormatter:
         if not reverse:
             return "%s-%s-%s-%s-%s" % (src_ip, dest_ip, src_port, dest_port, protocol)
         return "%s-%s-%s-%s-%s" % (dest_ip, src_ip, dest_port, src_port, protocol)
+
+
+def get_if_exists(obj, key, default):
+    if hasattr(obj, key):
+        return obj[key]
+    else:
+        return default
 
 
 class SubsetPacketReader:
