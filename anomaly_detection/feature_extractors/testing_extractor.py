@@ -93,8 +93,8 @@ class DummyPreprocessor(DatasetPreprocessor):
     def __init__(self, *args, **kwargs):
         pass
 
-    def preprocess(self, dataset_path: str):
+    def preprocess(self, **kwargs):
         pass
 
 
-DummyDataset = DatasetUtils("", DummyPacketReader, DummyPreprocessor)
+DummyDataset = DatasetUtils("", DummyPacketReader, DummyPreprocessor, lambda x: None)

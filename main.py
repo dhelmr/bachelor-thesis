@@ -133,6 +133,9 @@ class CLIParser:
         hypertune.add_argument("--only-index", type=int, required=False, default=None,
                                help="if set, only the n-th hyperparameter configuration will be run.")
 
+        stats = self._create_subparser("stats", help="Print stats for a dataset")
+        self._add_dataset_path_param(stats)
+
     def _create_subparser(self, name: str, help: str):
         sp = self.subparsers.add_parser(
             name, help=help, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -237,7 +240,7 @@ class CommandExecutor:
         path = args.dataset_path
         if path is None:
             path = dataset.default_path
-        preprocessor.preprocess(path)
+        preprocessor.preprocess(path, unknown)
 
     def list_classifications(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)
@@ -259,6 +262,15 @@ class CommandExecutor:
         reader = self._get_dataset_reader(args)
         hypertuner = Hypertuner(db, reader, only_index=args.only_index)
         hypertuner.start(args.file)
+
+    def stats(self, args: argparse.Namespace, unknown: t.Sequence[str]):
+        self._check_unknown_args(unknown, expected_len=0)
+        dataset = self._get_dataset_utils(args.dataset)
+        if args.dataset_path is None:
+            dataset_path = dataset.default_path
+        else:
+            dataset_path = args.dataset_path
+        dataset.print_stats(dataset_path)
 
     def _format_model_dump(self, dump: str) -> str:
         try:
