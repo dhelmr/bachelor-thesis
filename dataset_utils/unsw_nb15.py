@@ -284,12 +284,22 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
                 return ""
 
 
-def print_stats(dataset_path):
+def stats(dataset_path):
+    output_file = os.path.join(dataset_path, "stats.json")
+    data = {}
     for pcap in iter_pcaps(dataset_path, skip_not_found=True):
         labels = read_packet_labels(pcap)
         attacks = labels[labels["traffic_type"] == TrafficType.ATTACK]
-        att_count = attacks.groupby(attacks["attack_type"]).count()
-        print(att_count)
+        att_count = attacks.groupby(attacks["attack_type"])["flow_id"].count().to_dict()
+        attack_perc = len(attacks) / len(labels)
+        data[pcap] = {
+            "total": len(labels),
+            "num_attacks": len(attacks),
+            "fraction_attacks": attack_perc,
+            "attacks": att_count
+        }
+    with open(output_file, "w") as f:
+        json.dump(data, f)
 
 
-UNSWNB15 = DatasetUtils(os.path.join("data", "unsw-nb15"), UNSWNB15TrafficReader, UNSWNB15Preprocessor, print_stats)
+UNSWNB15 = DatasetUtils(os.path.join("data", "unsw-nb15"), UNSWNB15TrafficReader, UNSWNB15Preprocessor, stats)
