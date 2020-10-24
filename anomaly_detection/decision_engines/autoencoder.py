@@ -1,13 +1,14 @@
 import argparse
+import enum
 import os
 import pickle
 import typing as t
 import uuid
 
 import numpy as np
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers
+
+tf = None
+keras = None
 
 from anomaly_detection.types import DecisionEngine, TrafficType, Features
 
@@ -17,7 +18,27 @@ POSSIBLE_ACTIVATIONS = ["relu", "sigmoid", "softmax", "softplus",
 POSSIBLE_LOSS = ["mse", "mae"]
 
 
+class LayerSizeType(enum.Enum):
+    FIXED_SIZE = 0
+    RELATIVE = 1
+    REFERENCE = 2
+
+
+class LayerDefinition(t.NamedTuple):
+    size_type: LayerSizeType
+    value: float
+
+
 def init_keras():
+    global keras
+    global tf
+
+    import tensorflow
+    from tensorflow import keras as k
+
+    tf = tensorflow
+    keras = k
+
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     if os.path.exists(MODEL_FILE_PATH) and not os.path.isdir(MODEL_FILE_PATH):
         raise FileExistsError("%s already exists and is not a dir!" % MODEL_FILE_PATH)
@@ -42,33 +63,61 @@ class AutoencoderDE(DecisionEngine):
             self.threshold = kwargs["threshold"]
             self.autoencoder = kwargs["autoencoder"]
             self.loss = kwargs["loss"]
+            self.layer_sizes = kwargs["layer_sizes"]
+            self.activation = kwargs["activation"]
+            self.training_epochs = kwargs["training_epochs"]
+            self.training_batch = kwargs["training_batch"]
 
-    def parse_layers(self, layers_pattern: str):
+    @staticmethod
+    def parse_layers(layers_pattern) -> t.List[LayerDefinition]:
         splitted = layers_pattern.split(",")
         layers = []
         for layer in splitted:
+            if layer[0] == "*":
+                # A pattern like "*2" indicates, that the layer should have twice as much nodes as the predecessor
+                size_type = LayerSizeType.RELATIVE
+                layer = layer[1:]
+            elif layer[0] == "#":
+                size_type = LayerSizeType.REFERENCE
+                layer = layer[1:]
+            else:
+                size_type = LayerSizeType.FIXED_SIZE
             try:
-                n_nodes = int(layer)
+                value = float(layer)
+                if size_type is LayerSizeType.FIXED_SIZE or size_type is LayerSizeType.REFERENCE:
+                    value = int(value)
             except Exception:
-                raise ValueError("Invalid layer, must be a number: %s" % layer)
-            layers.append(n_nodes)
+                raise ValueError("Invalid layer of type %s, must be a number: %s" % (size_type.name, layer))
+            layers.append(LayerDefinition(size_type, value))
         return layers
 
     def init_model(self, input_dim: int):
+        hidden_layers, self.layer_sizes = self.make_hidden_layers(input_dim)
         self.autoencoder = keras.Sequential(
             [
-                layers.Dense(input_dim, activation=self.activation, name="input"),
-                *self.make_hidden_layers(),
-                layers.Dense(input_dim, name="decoded"),
+                keras.layers.Dense(input_dim, activation=self.activation, name="input"),
+                *hidden_layers,
+                keras.layers.Dense(input_dim, name="decoded"),
             ]
         )
         self.autoencoder.compile(optimizer='adam', loss=self.loss)
 
-    def make_hidden_layers(self):
-        return [
-            layers.Dense(n_nodes, activation=self.activation, name="hidden_layer-%s" % i)
-            for i, n_nodes in enumerate(self.layers)
-        ]
+    def make_hidden_layers(self, input_dim):
+        hidden_layers = []
+        sizes = [input_dim]
+        for i, definition in enumerate(self.layers):
+            if definition.size_type is LayerSizeType.FIXED_SIZE:
+                size = int(definition.value)
+            elif definition.size_type is LayerSizeType.RELATIVE:
+                size = round(definition.value * sizes[-1])
+            elif definition.size_type is LayerSizeType.REFERENCE:
+                size = sizes[int(definition.value)]
+            else:
+                raise ValueError("Unexpected value: %s" % definition.size_type)
+            hidden_layers.append(keras.layers.Dense(size, activation=self.activation, name="hidden_layer-%s" % i))
+            sizes.append(size)
+        sizes.append(input_dim)
+        return hidden_layers, sizes
 
     def loss_fn(self, predicted, actual):
         loss_fn = keras.losses.get(self.loss)
@@ -105,9 +154,14 @@ class AutoencoderDE(DecisionEngine):
             return 0
 
     def get_name(self) -> str:
-        return "autoencoder"  # TODO incorporate params
+        return "autoencoder"
 
-    def serialize(self) -> str:
+    def __str__(self):
+
+        return f"Autoencoder(layer_sizes={self.layer_sizes}, loss={self.loss}, act={self.activation}," \
+               f" train_batch={self.training_batch}, train_epochs={self.training_epochs})"
+
+    def serialize(self) -> bytes:
         """ Saves the model using keras' own method to the file system and remember its id for reloading it later"""
         id = self.get_name() + "_" + uuid.uuid4().__str__()
         filepath = os.path.join(MODEL_FILE_PATH, id)
@@ -117,17 +171,26 @@ class AutoencoderDE(DecisionEngine):
             "threshold": self.threshold,
             "loss": self.loss,
             "activation": self.activation,
-            "layers": self.layers
+            "layers": self.layers,
+            "layer_sizes": self.layer_sizes,
+            "training_batch": self.training_batch,
+            "training_epochs": self.training_epochs
         })
 
     @staticmethod
     def deserialize(serialized):
+        init_keras()
         deserialized = pickle.loads(serialized)
         filepath = os.path.join(MODEL_FILE_PATH, deserialized["id"])
         model = tf.keras.models.load_model(filepath)
         threshold = deserialized["threshold"]
         loss = deserialized["loss"]
-        return AutoencoderDE(autoencoder=model, threshold=threshold, loss=loss)
+        layer_sizes = deserialized["layer_sizes"]
+        activation = deserialized["activation"]
+        training_epochs = deserialized["training_epochs"]
+        training_batch = deserialized["training_batch"]
+        return AutoencoderDE(autoencoder=model, threshold=threshold, loss=loss, layer_sizes=layer_sizes,
+                             activation=activation, training_epochs=training_epochs, training_batch=training_batch)
 
 
 def create_parser(prog_name):

@@ -344,7 +344,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         return [sum(ttls) / len(ttls)]
 
     def get_name(self) -> str:
-        return "basic_netflow"
+        return "flow_extractor"
 
     @staticmethod
     def init_parser(parser: argparse.ArgumentParser):
@@ -369,12 +369,14 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         return self.get_id()
 
     def get_id(self) -> str:
-        modes = ",".join(sorted([m.value for m in self.modes]))
-        id_parts = [self.get_name(), str(self.flow_timeout)]
+        modes = sorted([m.value for m in self.modes])
+        id_parts = [self.get_name(), "timeout=" + str(self.flow_timeout)]
         if FeatureSetMode.SUBFLOWS_SIMPLE in self.modes or FeatureSetMode.SUBFLOWS_DETAILED in self.modes:
-            id_parts.append(str(self.subflow_timeout))
-        id_parts.append(modes)
-        return "_".join(id_parts)
+            # information about subflows must only be displayed if subflows are actually used
+            sf_part = f", sf_timeout={self.subflow_timeout}"
+        else:
+            sf_part = ""
+        return f"FlowExtractor(timeout={self.flow_timeout}, modes={modes}{sf_part})"
 
 
 def tcp_timeout_on_FIN(packet: Packet, flow: NetFlow):

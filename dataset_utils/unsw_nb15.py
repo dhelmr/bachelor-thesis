@@ -71,8 +71,7 @@ class UNSWNB15TrafficReader(TrafficReader):
             joined_labels = joined_labels.append(traffic_sequence.labels)
         joined_reader = itertools.chain(*map(lambda seq: seq.packet_reader, traffic_sequences))
         parts = {
-            "all": joined_ids,
-            "benign": joined_ids
+            "all": joined_ids
         }
         # make sure that the same pcaps, even in different order, result in the same traffic sequence name; regardless
         # of the used test pcaps
@@ -136,15 +135,18 @@ class UNSWNB15TrafficReader(TrafficReader):
         return selected
 
     def _make_parts(self, labels):
-        attacks = labels[labels["traffic_type"] == TrafficType.ATTACK]
-        attack_parts = attacks.groupby(attacks["attack_type"])["flow_id"].apply(list).to_dict()
+        attacks = labels[labels["traffic_type"] == TrafficType.ATTACK].reset_index()
+        attack_parts = attacks.groupby(attacks["attack_type"])["packet_id"].apply(list).to_dict()
         attack_parts = {name: indexes for name, indexes in attack_parts.items() if len(indexes) > 0}
-        benigns = labels[labels["traffic_type"] == TrafficType.BENIGN]
+        benign_ids = labels[labels["traffic_type"] == TrafficType.BENIGN].index.values.tolist()
         parts = {
             "all": labels.index.values.tolist(),
-            "benign": benigns.index.values.tolist()
         }
-        parts.update(attack_parts)
+        # add part for each attack that consists of all benign traffic plus the traffic of the attack
+        parts.update({
+            attack_name: attack_ids + benign_ids
+            for attack_name, attack_ids in attack_parts.items()
+        })
         return parts
 
 

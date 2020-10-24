@@ -9,6 +9,10 @@ from anomaly_detection.db import DBConnector
 from anomaly_detection.types import TrafficReader
 
 
+def calc_kappa(tn, fp, fn, tp):
+    po = (tn + tp) / (tp + fp + tn + fn)
+
+
 class Evaluator:
     def __init__(self, db: DBConnector, traffic_reader: TrafficReader, report_file=None, force_overwrite: bool = False):
         self.traffic_reader: TrafficReader = traffic_reader
@@ -42,7 +46,8 @@ class Evaluator:
                 part_labels = sequence.labels.reindex(part_indexes)
                 if part_name not in evaluation_dict:
                     evaluation_dict[part_name] = dict()
-                evaluation_dict[part_name][name] = self.evaluate_traffic_sequence(name, pred, true_labels=part_labels)
+                evaluation_dict[part_name][name] = self.evaluate_traffic_sequence(name, part_name, pred,
+                                                                                  true_labels=part_labels)
         for part_name, metrics in evaluation_dict.items():
             evaluation_dict[part_name]["total"] = self.calc_total_metrics(metrics)
         if self.report_file is not None:
@@ -51,9 +56,9 @@ class Evaluator:
         self.store_in_db(evaluation_dict, classification_id)
         return evaluation_dict
 
-    def evaluate_traffic_sequence(self, name, pred_labels, true_labels):
-        logging.info("Start evaluation of %s (%i records)",
-                     name, len(true_labels))
+    def evaluate_traffic_sequence(self, name, part_name, pred_labels, true_labels):
+        logging.info("Start evaluation of %s/%s (%i records)",
+                     name, part_name, len(true_labels))
         # Convert traffic type to zero and ones
         labels = true_labels.map(lambda x: x.value).reindex(pred_labels.index.values).dropna()
         y_true = labels.values
@@ -104,6 +109,10 @@ class Evaluator:
         metrics["true_positives"] = tp
         metrics["false_negatives"] = fn
         metrics["false_positives"] = fp
+        metrics["kappa"] = 1 - sd(1 - metrics["accuracy"],
+                                  1 - sd((tp + fp) * (tp + fn) + (fn + tn) * (fp + tn), pow(p + n, 2)))
+        metrics["mcc"] = sd(tp * tn - fp * fn,
+                            pow((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn), 0.5))
         metrics["support"] = n + p
         return metrics
 

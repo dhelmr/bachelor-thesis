@@ -156,7 +156,7 @@ class DecisionEngine(ABC):
     def get_name(self) -> str:
         raise NotImplementedError()
 
-    def serialize(self) -> t.Any:
+    def serialize(self) -> bytes:
         return pickle.dumps(self)
 
     @staticmethod

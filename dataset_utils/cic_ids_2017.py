@@ -132,8 +132,7 @@ class CIC2017TrafficReader(TrafficReader):
             joined_labels = joined_labels.append(traffic_sequence.labels)
         joined_reader = itertools.chain(*map(lambda seq: seq.packet_reader, traffic_sequences))
         parts = {
-            "all": joined_ids,
-            "benign": joined_ids
+            "all": joined_ids
         }
         return TrafficSequence(name=f"benign@CIC-IDS-2017:{self.subset_name}",
                                labels=joined_labels,
@@ -159,12 +158,14 @@ class CIC2017TrafficReader(TrafficReader):
         attacks = labels[labels["traffic_type"] == TrafficType.ATTACK]
         attack_parts = attacks.groupby(attacks["attack_type"])["flow_id"].apply(list).to_dict()
         attack_parts = {name: indexes for name, indexes in attack_parts.items() if len(indexes) > 0}
-        benigns = labels[labels["traffic_type"] == TrafficType.BENIGN]
+        benigns = labels[labels["traffic_type"] == TrafficType.BENIGN].index.values.tolist()
         parts = {
-            "all": labels.index.values.tolist(),
-            "benign": benigns.index.values.tolist()
+            "all": labels.index.values.tolist()
         }
-        parts.update(attack_parts)
+        parts.update({
+            attack_name: attack_ids + benigns
+            for attack_name, attack_ids in attack_parts.items()
+        })
         return parts
 
 

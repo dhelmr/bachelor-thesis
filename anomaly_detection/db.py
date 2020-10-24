@@ -92,26 +92,28 @@ class DBConnector:
             c.execute("""
                 CREATE TABLE evaluations (
                     classification_id TEXT REFERENCES classification_info(classification_id),
-                    part_name TEXT,
                     traffic_name TEXT,
-                    accuracy REAL,
+                    part_name TEXT,
+                    precision REAL,
                     balanced_accuracy REAL,
+                    mcc REAL,
                     f1_score REAL,
-                    false_negatives INT,
-                    false_positives INT,
+                    accuracy REAL,
+                    kappa REAL,
                     fdr REAL,
                     fnr REAL,
                     for REAL,
                     fpr REAL,
+                    tnr REAL,
+                    false_negatives INT,
+                    false_positives INT,
+                    true_negatives INT,
+                    true_positives INT,
                     negatives INT,
                     positives INT,
                     npv REAL,
-                    precision REAL,
                     recall REAL,
                     support INT,
-                    tnr REAL,
-                    true_negatives INT,
-                    true_positives INT,
                     PRIMARY KEY (classification_id, traffic_name, part_name)
                 );
             """)
@@ -227,7 +229,7 @@ class DBConnector:
     def store_evaluation(self, classification_id, traffic_name, part_name, metrics):
         with self.get_cursor() as c:
             c.execute(
-                "INSERT INTO evaluations (classification_id, part_name, traffic_name, accuracy, balanced_accuracy, f1_score, false_negatives, false_positives, fdr, fnr, for, fpr, negatives, positives, npv, precision, recall, support, tnr, true_negatives, true_positives) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);",
+                "INSERT INTO evaluations (classification_id, part_name, traffic_name, accuracy, balanced_accuracy, f1_score, false_negatives, false_positives, fdr, fnr, for, fpr, negatives, positives, npv, precision, recall, support, tnr, true_negatives, true_positives, mcc, kappa) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);",
                 (
                     classification_id, part_name, traffic_name, metrics["accuracy"], metrics["balanced_accuracy"],
                     metrics["f1_score"],
@@ -235,4 +237,4 @@ class DBConnector:
                     metrics["for"],
                     metrics["fpr"], metrics["negatives"], metrics["positives"], metrics["npv"], metrics["precision"],
                     metrics["recall"], metrics["support"], metrics["tnr"], metrics["true_negatives"],
-                    metrics["true_positives"]))
+                    metrics["true_positives"], metrics["mcc"], metrics["kappa"]))
