@@ -121,20 +121,20 @@ Without `--short`, more information will be printed. Then you can see, that feat
 First build and train a model by analyzing normal traffic:
 
 ```
-./main.py train --model-id oc_svm --src data/cic-ids-2017/MachineLearningCVE/ --decision-engine one_class_svm --kernel rbf --gamma 0.005
+./main.py train --src data/cic-ids-2017 --dataset cic-ids-2017 --model-id oc_svm --decision-engine one_class_svm --kernel rbf --gamma 0.005
 ```
 
 Then read unknown traffic from a dataset and detect anomalies using the created model. The classifications will be written into an internal database.
 
 ```
-./main.py classify --id oc_svm_c1 --src data/cic-ids-2017/MachineLearningCVE/ --model-id oc_svm 
+./main.py classify --src data/cic-ids-2017 --dataset cic-ids-2017  --id oc_svm_c1 --model-id oc_svm
 ```
 
 Evaluate the classification and generate a report containing different metrics. The metrics are stored in the sqlite database and,
  optionally, in a json file:
 
 ```
-./main.py evaluate --id oc_svm_1 --output evaluation.json --src data/cic-ids-2017/MachineLearningCVE/
+./main.py evaluate --src data/cic-ids-2017 --dataset cic-ids-2017 -id oc_svm_1 --output evaluation.json 
 ```
 
 Example content of the resulting report: 
@@ -177,6 +177,28 @@ Example content of the resulting report:
 
 ```
 
+## Subsets
+
+When only a part of a dataset should be read, the `--subset` parameter can be used. Its usage depends on the dataset.
+
+#### CIC-IDS-2017 subsets
+
+Each weekday from Tuesday to Friday can be read in separately with `--subset [weekday]` as the test set which is used for classification.
+Monday is always the training set. Example: `--subset [weekday]`.
+
+#### UNSW-NB15 Subsets
+
+By default, only a part of the dataset is read. The specific pcap files that should be used can be specified with the
+following syntax: `--subset [training split]/[test split]`. For example, `--subset 1-10,14/43` uses the first ten pcap files
+and the 14th for the training step (by first filtering out all attack instances in it) and the 43th for the classification.
+
+By default, that is when `--subset default` or nothing is specified, the following pcap files are used for the training step:
+
+`
+['01/10.pcap', '01/11.pcap', '01/12.pcap', '01/13.pcap', '01/26.pcap', '01/27.pcap', '01/40.pcap', '01/41.pcap', '01/42.pcap']
+
+`
+
 ## Hypertune
 
 For automation of the `train`->`classify`->`evaluate` pipeline, the `hypertune` command can be used. It reads a json file
@@ -186,7 +208,7 @@ Examples for such files can be found in the `hypertune/` folder.
 For example, a set of different parameter configurations for a autoencoder on the unsw-nb15 dataset can be run with:
 
 ```
-❯ python main.py hypertune -f hypertune/ae.json --dataset unsw-nb15
+❯ python main.py hypertune -f hypertune/ae.json --dataset unsw-nb15 --subset 1-5/15,55,56
 ```
 
 The results of the evaluations can then be viewed in the sqlite database (`classifications.db` by default).
