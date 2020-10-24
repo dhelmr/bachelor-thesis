@@ -10,7 +10,7 @@ Clone the git repository and install the requirements with `pip install -r requi
 
 # Dataset preparation
 
-As a first step, the datasets need to be preprocessed. This includes, for each network packet, the association of the corresponding network flow and thereby its label (benign or attack).
+As a first step, the datasets need to be downloaded and preprocessed. This includes, for each network packet, the association of the corresponding network flow and thereby its label (benign or attack).
 
 ## CIC-IDS-2017
 
