@@ -153,20 +153,25 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
     def _parse_args(self, args):
         parser = argparse.ArgumentParser()
         parser.add_argument("--only-ranges", required=False, action="store_true")
-        return parser.parse_args(args)
+        parser.add_argument("--only-stats", action="store_true", help="Only make stats")
+        parsed = parser.parse_args(args)
+        if parsed.only_stats == True and parsed.only_ranges == True:
+            raise ValueError("--only-stats and --only-ranges cannot be specified at the same time.")
+        return parsed
 
     def preprocess(self, dataset_path: str, additional_args):
         parsed = self._parse_args(additional_args)
-        if parsed.only_ranges != True:
+        if parsed.only_ranges != True and parsed.only_stats != True:
             label_associator = UNSWNB15LabelAssociator(dataset_path)
             for pcap in iter_pcaps(dataset_path, yield_relative=True):
                 full_path = os.path.join(dataset_path, pcap)
                 label_associator.associate_pcap_labels(full_path, packet_id_prefix=pcap)
 
-        ranges = self._make_ranges(dataset_path)
-        ranges_path = os.path.join(dataset_path, RANGES_FILE)
-        with open(ranges_path, "w") as f:
-            json.dump(ranges, f)
+        if parsed.only_stats != True:
+            ranges = self._make_ranges(dataset_path)
+            ranges_path = os.path.join(dataset_path, RANGES_FILE)
+            with open(ranges_path, "w") as f:
+                json.dump(ranges, f)
         self._make_stats(dataset_path)
 
     def _make_ranges(self, dataset_path) -> dict:
@@ -216,7 +221,7 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
                 "fraction_attacks": attack_perc,
             })
             data.append(pcap_info)
-        pandas.DataFrame(data).to_csv(output_file)
+        pandas.DataFrame(data).set_index("pcap").to_csv(output_file)
 
 
 def iter_pcaps(dataset_path: str, skip_not_found=True, yield_relative=False):

@@ -5,7 +5,7 @@ import re
 from enum import Enum
 
 import dpkt
-from pandas import Series
+from pandas import Series, np
 
 from anomaly_detection.types import TrafficSequence, TrafficReader, DatasetPreprocessor, DatasetUtils
 from dataset_utils.PacketLabelAssociator import *
@@ -285,7 +285,9 @@ class CICIDS2017LabelAssociator(PacketLabelAssociator):
 def print_stats(dataset_path):
     csv_path = os.path.join(dataset_path, "attack_stats.csv")
     df = pandas.read_csv(csv_path, index_col="pcap")
-    print(df)
+    with pandas.option_context('float_format', '{:10.0f}'.format):
+        df["fraction_attacks"] = df["fraction_attacks"].apply(lambda frac: f"{(frac * 100):3.3f}%")
+        print(df.T.replace(np.nan, '0', regex=True))
 
 
 CICIDS2017 = DatasetUtils(os.path.join("data", "cic-ids-2017"), CIC2017TrafficReader, CICIDS2017Preprocessor,
