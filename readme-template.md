@@ -110,7 +110,9 @@ When only a part of a dataset should be read, the `--subset` parameter can be us
 #### CIC-IDS-2017 subsets
 
 Each weekday from Tuesday to Friday can be read in separately with `--subset [weekday]` as the test set which is used for classification.
-Monday is always the training set. Example: `--subset [weekday]`.
+Monday is always the training set. Example: `--subset wednesday`. 
+
+Hint: The attack distributions over the weekdays can be printed with: `python main.py stats --dataset cic-ids-2017`.
 
 #### UNSW-NB15 Subsets
 
