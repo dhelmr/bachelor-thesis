@@ -1,3 +1,4 @@
+import argparse
 import itertools
 import os
 import re
@@ -102,13 +103,6 @@ PCAP_LABEL_FILES = {
 }
 PacketID = str
 
-PROTOCOL_ENCODINGS = {  # used in csv files
-    "udp": 17,
-    "tcp": 6,
-    "unknown": 0
-}
-
-
 def read_labels_csv(file, nrows=None):
     df = pandas.read_csv(file, sep=",", low_memory=False, nrows=nrows, index_col="Flow ID", encoding="cp1252")
     # remove spaces from column labels
@@ -137,22 +131,41 @@ class CIC2017TrafficReader(TrafficReader):
         for traffic_sequence in traffic_sequences:
             joined_labels = joined_labels.append(traffic_sequence.labels)
         joined_reader = itertools.chain(*map(lambda seq: seq.packet_reader, traffic_sequences))
+        parts = {
+            "all": joined_ids,
+            "benign": joined_ids
+        }
         return TrafficSequence(name=f"benign@CIC-IDS-2017:{self.subset_name}",
                                labels=joined_labels,
                                packet_reader=joined_reader,
+                               parts=parts,
                                ids=joined_ids)
 
     def _make_traffic_sequence(self, pcap_file: PcapFiles, ranges) -> TrafficSequence:
-        labels = read_packet_labels(self.dataset_dir, pcap_file.value)["traffic_type"]
+        labels = read_packet_labels(self.dataset_dir, pcap_file.value)
+        traffic_types = labels["traffic_type"]
         full_pcap_path = os.path.join(self.dataset_dir, pcap_file.value)
         ids = ranges_of_list(labels.index.values.tolist(), ranges)
         name = f"{pcap_file.name}@CIC-IDS-2017:{self.subset_name}"
         packet_reader = SubsetPacketReader(full_pcap_path, ranges)
-        return TrafficSequence(name=name, packet_reader=packet_reader, labels=labels, ids=ids)
+        parts = self._make_parts(labels)
+        return TrafficSequence(name=name, packet_reader=packet_reader, labels=traffic_types, ids=ids, parts=parts)
 
     def __iter__(self):
         for pcap_file, ranges in self.subset["unknown"].items():
             yield self._make_traffic_sequence(pcap_file, ranges)
+
+    def _make_parts(self, labels):
+        attacks = labels[labels["traffic_type"] == TrafficType.ATTACK]
+        attack_parts = attacks.groupby(attacks["attack_type"])["flow_id"].apply(list).to_dict()
+        attack_parts = {name: indexes for name, indexes in attack_parts.items() if len(indexes) > 0}
+        benigns = labels[labels["traffic_type"] == TrafficType.BENIGN]
+        parts = {
+            "all": labels.index.values.tolist(),
+            "benign": benigns.index.values.tolist()
+        }
+        parts.update(attack_parts)
+        return parts
 
 
 def packet_label_file(dataset_path, pcap_file: str):
@@ -173,11 +186,37 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
     def __init__(self):
         self.flow_formatter = FlowIDFormatter()
 
+    def _parse_args(self, args):
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--only-stats", action="store_true", help="Only make stats")
+        parsed = parser.parse_args(args)
+        return parsed
+
     def preprocess(self, dataset_path: str, additional_args=[]):
-        associator = CICIDS2017LabelAssociator(dataset_path)
+        parsed = self._parse_args(additional_args)
+        if parsed.only_stats != True:
+            associator = CICIDS2017LabelAssociator(dataset_path)
+            for pcap in PcapFiles:
+                full_path = os.path.join(dataset_path, pcap.value)
+                associator.associate_pcap_labels(full_path, packet_id_prefix=pcap.value)
+        self._make_stats(dataset_path)
+
+    def _make_stats(self, dataset_path):
+        output_file = os.path.join(dataset_path, "attack_stats.csv")
+        data = []
         for pcap in PcapFiles:
-            full_path = os.path.join(dataset_path, pcap.value)
-            associator.associate_pcap_labels(full_path, packet_id_prefix=pcap.value)
+            labels = read_packet_labels(dataset_path, pcap.value)
+            attacks = labels[labels["traffic_type"] == TrafficType.ATTACK]
+            attack_perc = len(attacks) / len(labels)
+            pcap_info = attacks.groupby(attacks["attack_type"])["flow_id"].count().to_dict()
+            pcap_info.update({
+                "pcap": pcap.value,
+                "total": len(labels),
+                "num_attacks": len(attacks),
+                "fraction_attacks": attack_perc,
+            })
+            data.append(pcap_info)
+        pandas.DataFrame(data).set_index("pcap").to_csv(output_file)
 
 
 class CICIDS2017LabelAssociator(PacketLabelAssociator):
@@ -243,22 +282,11 @@ class CICIDS2017LabelAssociator(PacketLabelAssociator):
             return TrafficType.ATTACK, label
 
 
-def make_stats(dataset_path):
-    output_file = os.path.join(dataset_path, "attack_stats.csv")
-    data = []
-    for pcap in PcapFiles:
-        labels = read_packet_labels(dataset_path, pcap.value)
-        attacks = labels[labels["traffic_type"] == TrafficType.ATTACK]
-        attack_perc = len(attacks) / len(labels)
-        pcap_info = attacks.groupby(attacks["attack_type"])["flow_id"].count().to_dict()
-        pcap_info.update({
-            "total": len(labels),
-            "num_attacks": len(attacks),
-            "fraction_attacks": attack_perc,
-        })
-        data.append(pcap_info)
-    pandas.DataFrame(data).to_csv(output_file)
+def print_stats(dataset_path):
+    csv_path = os.path.join(dataset_path, "attack_stats.csv")
+    df = pandas.read_csv(csv_path, index_col="pcap")
+    print(df)
 
 
 CICIDS2017 = DatasetUtils(os.path.join("data", "cic-ids-2017"), CIC2017TrafficReader, CICIDS2017Preprocessor,
-                          make_stats)
+                          print_stats)

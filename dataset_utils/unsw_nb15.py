@@ -167,7 +167,7 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
         ranges_path = os.path.join(dataset_path, RANGES_FILE)
         with open(ranges_path, "w") as f:
             json.dump(ranges, f)
-        make_stats(dataset_path)
+        self._make_stats(dataset_path)
 
     def _make_ranges(self, dataset_path) -> dict:
         ranges = {
@@ -199,6 +199,24 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
                 current_start = None
             index += 1
         return ranges
+
+    def _make_stats(self, dataset_path):
+        output_file = os.path.join(dataset_path, "attack_stats.csv")
+        data = []
+        for pcap in iter_pcaps(dataset_path, skip_not_found=True, yield_relative=True):
+            full_path = os.path.join(dataset_path, pcap)
+            labels = read_packet_labels(full_path)
+            attacks = labels[labels["traffic_type"] == TrafficType.ATTACK]
+            attack_perc = len(attacks) / len(labels)
+            pcap_info = attacks.groupby(attacks["attack_type"])["flow_id"].count().to_dict()
+            pcap_info.update({
+                "pcap": pcap,
+                "total": len(labels),
+                "num_attacks": len(attacks),
+                "fraction_attacks": attack_perc,
+            })
+            data.append(pcap_info)
+        pandas.DataFrame(data).to_csv(output_file)
 
 
 def iter_pcaps(dataset_path: str, skip_not_found=True, yield_relative=False):
@@ -318,23 +336,10 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
                 return ""
 
 
-def make_stats(dataset_path):
-    output_file = os.path.join(dataset_path, "attack_stats.csv")
-    data = []
-    for pcap in iter_pcaps(dataset_path, skip_not_found=True, yield_relative=True):
-        full_path = os.path.join(dataset_path, pcap)
-        labels = read_packet_labels(full_path)
-        attacks = labels[labels["traffic_type"] == TrafficType.ATTACK]
-        attack_perc = len(attacks) / len(labels)
-        pcap_info = attacks.groupby(attacks["attack_type"])["flow_id"].count().to_dict()
-        pcap_info.update({
-            "pcap": pcap,
-            "total": len(labels),
-            "num_attacks": len(attacks),
-            "fraction_attacks": attack_perc,
-        })
-        data.append(pcap_info)
-    pandas.DataFrame(data).to_csv(output_file)
+def print_stats(dataset_path):
+    csv_path = os.path.join(dataset_path, "attack_stats.csv")
+    df = pandas.read_csv(csv_path, index_col="pcap")
+    print(df)
 
 
-UNSWNB15 = DatasetUtils(os.path.join("data", "unsw-nb15"), UNSWNB15TrafficReader, UNSWNB15Preprocessor, make_stats)
+UNSWNB15 = DatasetUtils(os.path.join("data", "unsw-nb15"), UNSWNB15TrafficReader, UNSWNB15Preprocessor, print_stats)
