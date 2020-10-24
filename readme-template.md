@@ -1,6 +1,6 @@
-Anomaly-based Network Intrusion Detection System written in python
+# Comparison of Anomaly-Based Network Intrusion Detection Approaches Under Practical Aspects
 
-**Work in Progress**
+Note: This repository is **work in progress**.
 
 ---
 
@@ -90,10 +90,11 @@ Then read unknown traffic from a dataset and detect anomalies using the created 
 ./main.py classify --id oc_svm_c1 --src data/cic-ids-2017/MachineLearningCVE/ --model-id oc_svm 
 ```
 
-Evaluate the classification and generate a report containing different metrics:
+Evaluate the classification and generate a report containing different metrics. The metrics are stored in the sqlite database and,
+ optionally, in a json file:
 
 ```
-./main.py evaluate --id oc_svm_1 --output evaluation.json --src data/cic-ids-2017/MachineLearningCVE/ --force-overwrite
+./main.py evaluate --id oc_svm_1 --output evaluation.json --src data/cic-ids-2017/MachineLearningCVE/
 ```
 
 Example content of the resulting report: 
@@ -102,6 +103,19 @@ Example content of the resulting report:
 $(cat evaluation.json | head -n 32)
 ```
 
+## Hypertune
+
+For automation of the `train`->`classify`->`evaluate` pipeline, the `hypertune` command can be used. It reads a json file
+as its input that contains directions for a hyperparameter search. Currently, only a brute-force grid search is implemented which iterates over all possible parameter combinations.
+Examples for such files can be found in the `hypertune/` folder.
+
+For example, a set of different parameter configurations for a autoencoder on the unsw-nb15 dataset can be run with:
+
+```
+❯ python main.py hypertune -f hypertune/ae.json --dataset unsw-nb15
+```
+
+The results of the evaluations can then be viewed in the sqlite database (`classifications.db` by default).
 
 # Misc
 

@@ -1,6 +1,6 @@
-Anomaly-based Network Intrusion Detection System written in python
+# Comparison of Anomaly-Based Network Intrusion Detection Approaches Under Practical Aspects
 
-**Work in Progress**
+Note: This repository is **work in progress**.
 
 ---
 
@@ -130,10 +130,11 @@ Then read unknown traffic from a dataset and detect anomalies using the created 
 ./main.py classify --id oc_svm_c1 --src data/cic-ids-2017/MachineLearningCVE/ --model-id oc_svm 
 ```
 
-Evaluate the classification and generate a report containing different metrics:
+Evaluate the classification and generate a report containing different metrics. The metrics are stored in the sqlite database and,
+ optionally, in a json file:
 
 ```
-./main.py evaluate --id oc_svm_1 --output evaluation.json --src data/cic-ids-2017/MachineLearningCVE/ --force-overwrite
+./main.py evaluate --id oc_svm_1 --output evaluation.json --src data/cic-ids-2017/MachineLearningCVE/
 ```
 
 Example content of the resulting report: 
@@ -142,40 +143,53 @@ Example content of the resulting report:
 ❯ cat evaluation.json | head -n 32
 
 {
-    "Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv": {
-        "accuracy": 0.7031695054154024,
-        "balanced_accuracy": 0.7151989218719074,
-        "f1_score": 0.7050652300216553,
-        "false_negatives": 47933,
-        "false_positives": 19075,
-        "fdr": 0.19234841533140395,
-        "for": 0.3786894829983567,
-        "fpr": 0.1952045682474058,
-        "negatives": 97718,
-        "npv": 0.6213105170016433,
-        "positives": 128027,
-        "precision": 0.807651584668596,
-        "recall": 0.6256024119912206,
-        "support": 225745,
-        "tnr": 0.8047954317525942,
-        "true_negatives": 78643,
-        "true_positives": 80094
-    },
-    "Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv": {
-        "accuracy": 0.44455731375690744,
-        "balanced_accuracy": 0.4991174702705049,
-        "f1_score": 0.00248257184412458,
-        "false_negatives": 158732,
-        "false_positives": 384,
-        "fdr": 0.6597938144329897,
-        "for": 0.5552302499256694,
-        "fpr": 0.0030108909571340083,
-        "negatives": 127537,
-        "npv": 0.44476975007433056,
-        "positives": 158930,
+    "all": {
+        "01/15.pcap@UNSW-NB15:unknown": {
+            "accuracy": 0.9987106908440785,
+            "balanced_accuracy": Infinity,
+            "f1_score": 0.0,
+            "false_negatives": 0,
+            "false_positives": 2400,
+            "fdr": 1.0,
+            "fnr": Infinity,
+            "for": 0.0,
+            "fpr": 0.0012893091559215283,
+            "kappa": 0.0,
+            "mcc": Infinity,
+            "negatives": 1861462,
+            "npv": 1.0,
+            "positives": 0,
+            "precision": 0.0,
+            "recall": Infinity,
+            "support": 1861462,
+            "tnr": 0.9987106908440785,
+            "true_negatives": 1859062,
+            "true_positives": 0
+        },
+        "02/2.pcap@UNSW-NB15:unknown": {
+            "accuracy": 0.9852358261224796,
+            "balanced_accuracy": 0.7597047176356007,
+            "f1_score": 0.6776935096611914,
+            "false_negatives": 49272,
+            "false_positives": 1470,
+            "fdr": 0.026816987740805605,
+            "fnr": 0.48014968134245456,
 
 ```
 
+## Hypertune
+
+For automation of the `train`->`classify`->`evaluate` pipeline, the `hypertune` command can be used. It reads a json file
+as its input that contains directions for a hyperparameter search. Currently, only a brute-force grid search is implemented which iterates over all possible parameter combinations.
+Examples for such files can be found in the `hypertune/` folder.
+
+For example, a set of different parameter configurations for a autoencoder on the unsw-nb15 dataset can be run with:
+
+```
+❯ python main.py hypertune -f hypertune/ae.json --dataset unsw-nb15
+```
+
+The results of the evaluations can then be viewed in the sqlite database (`classifications.db` by default).
 
 # Misc
 
