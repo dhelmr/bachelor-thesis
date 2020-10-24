@@ -114,15 +114,15 @@ Monday is always the training set. Example: `--subset [weekday]`.
 
 #### UNSW-NB15 Subsets
 
-By default, only a part of the dataset is read. The specific pcap files that should be used can be specified with the
+Only a specific pcaps of the dataset can be read. Those files which should be used can be specified with the
 following syntax: `--subset [training split]/[test split]`. For example, `--subset 1-10,14/43` uses the first ten pcap files
 and the 14th for the training step (by first filtering out all attack instances in it) and the 43th for the classification.
 
 By default, that is when `--subset default` or nothing is specified, the following pcap files are used for the training step:
 
-`
+```
 -$(python -c "from dataset_utils.unsw_nb15 import DEFAULT_BENIGN_PCAPS;print(DEFAULT_BENIGN_PCAPS)")
-`
+```
 
 ## Hypertune
 
