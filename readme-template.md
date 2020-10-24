@@ -10,10 +10,12 @@ Clone the git repository and install the requirements with `pip install -r requi
 
 # Dataset preparation
 
+As a first step, the datasets need to be preprocessed. This includes, for each network packet, the association of the corresponding network flow and thereby its label (benign or attack).
+
 ## CIC-IDS-2017
 
 [Download](http://205.174.165.80/CICDataset/CIC-IDS-2017/) the dataset and extract the file `GeneratedLabelledFlows.zip`. The default path that is assumed for the dataset is 
-`data/cic-ids-2017`, but another path can be specified with the option `--src` (see below). For now, only the preprocessed network flows will be used from this datasets.
+`data/cic-ids-2017`, but another path can be specified with the option `--src` (see below). 
 
 ## UNSW-NB-15
 
