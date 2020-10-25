@@ -155,8 +155,8 @@ class CIC2017TrafficReader(TrafficReader):
             yield self._make_traffic_sequence(pcap_file, ranges)
 
     def _make_parts(self, labels):
-        attacks = labels[labels["traffic_type"] == TrafficType.ATTACK]
-        attack_parts = attacks.groupby(attacks["attack_type"])["flow_id"].apply(list).to_dict()
+        attacks = labels[labels["traffic_type"] == TrafficType.ATTACK].reset_index()
+        attack_parts = attacks.groupby(attacks["attack_type"])["packet_id"].apply(list).to_dict()
         attack_parts = {name: indexes for name, indexes in attack_parts.items() if len(indexes) > 0}
         benigns = labels[labels["traffic_type"] == TrafficType.BENIGN].index.values.tolist()
         parts = {

@@ -15,7 +15,7 @@ As a first step, the datasets need to be downloaded and preprocessed. This inclu
 ## CIC-IDS-2017
 
 [Download](http://205.174.165.80/CICDataset/CIC-IDS-2017/) the dataset and extract the file `GeneratedLabelledFlows.zip`. The default path that is assumed for the dataset is 
-`data/cic-ids-2017`, but another path can be specified with the option `--src` (see below). 
+`data/cic-ids-2017`, but another pa h can be specified with the option `--src` (see below). 
 
 ## UNSW-NB-15
 
