@@ -15,7 +15,7 @@ As a first step, the datasets need to be downloaded and preprocessed. This inclu
 ## CIC-IDS-2017
 
 [Download](http://205.174.165.80/CICDataset/CIC-IDS-2017/) the dataset and extract the file `GeneratedLabelledFlows.zip`. The default path that is assumed for the dataset is 
-`data/cic-ids-2017`, but another pa h can be specified with the option `--src` (see below). 
+`data/cic-ids-2017`, but another path can be specified with the option `--src` (see below). 
 
 ## UNSW-NB-15
 
@@ -50,11 +50,11 @@ There are various subcommands:
 ❯ ./main.py --help
 
 usage: main.py [-h]
-               {train,classify,evaluate,list-de,list-classifications,list-fe,preprocess,list-models,hypertune,stats}
+               {train,classify,evaluate,list-de,list-classifications,list-fe,preprocess,list-models,list-evaluations,hypertune,stats}
                ...
 
 positional arguments:
-  {train,classify,evaluate,list-de,list-classifications,list-fe,preprocess,list-models,hypertune,stats}
+  {train,classify,evaluate,list-de,list-classifications,list-fe,preprocess,list-models,list-evaluations,hypertune,stats}
     train               Creates a classification model from analyzing normal
                         traffic and stores it in the database.
     classify            Feed traffic from a dataset and detect anomalies.
@@ -68,6 +68,7 @@ positional arguments:
     preprocess          Preprocesses a dataset so that it can be used for
                         evaluation afterwards.
     list-models         List available models.
+    list-evaluations    Prints evaluations.
     hypertune           Hypertunes parameters of decision engine and feature
                         extractor by running the train->classify->evaluate
                         pipeline multiple times.

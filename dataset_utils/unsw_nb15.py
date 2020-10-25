@@ -206,6 +206,7 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
                 ranges.append([current_start, index])
                 current_start = None
             index += 1
+        ranges.append([current_start, "end"])
         return ranges
 
     def _make_stats(self, dataset_path):
