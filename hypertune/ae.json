@@ -5,16 +5,17 @@
       "--nf-mode": [
         [
           "subflows_simple",
-          "subflows_detailed",
           "tcp",
           "with_ip"
         ]
       ],
       "--flow-timeout": [
+        12,
         20,
         60
       ],
       "--subflow-timeout": [
+        0.5,
         2
       ]
     }
@@ -24,16 +25,18 @@
     "parameters": {
       "--training-epochs": [
         50,
-        200
+        200,
+        400
       ],
       "--training-batch": [
         64
       ],
       "--layers": [
-        "42",
-        "15,8,15",
-        "32,24,12,24,32",
-        "32,24,15,24,32"
+        "*0.8,*0.8,#1",
+        "*0.6,*0.8,*0.8,*0.9,#3,#2,#1",
+        "*1.2,*1,2,#1",
+        "*2",
+        "*0.5,*0.5,#1"
       ],
       "--activation": [
         "relu",

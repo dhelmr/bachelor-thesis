@@ -5,12 +5,12 @@
       "--nf-mode": [
         [
           "subflows_simple",
-          "subflows_detailed",
           "tcp",
           "with_ip"
         ]
       ],
       "--flow-timeout": [
+        12,
         20,
         60
       ],
@@ -23,12 +23,12 @@
     "name": "one_class_svm",
     "parameters": {
       "--gamma": [
-        0.005,
         0.01,
         0.02,
         0.05,
         0.1,
-        0.2
+        0.2,
+        0.005
       ],
       "--kernel": [
         "rbf",

@@ -166,6 +166,7 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
         if parsed.only_ranges != True and parsed.only_stats != True:
             label_associator = UNSWNB15LabelAssociator(dataset_path)
             for pcap in iter_pcaps(dataset_path, yield_relative=True):
+                logging.info("Make ranges for %s" % pcap)
                 full_path = os.path.join(dataset_path, pcap)
                 label_associator.associate_pcap_labels(full_path, packet_id_prefix=pcap)
 
@@ -211,6 +212,7 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
         output_file = os.path.join(dataset_path, "attack_stats.csv")
         data = []
         for pcap in iter_pcaps(dataset_path, skip_not_found=True, yield_relative=True):
+            logging.info("Make stats for %s" % pcap)
             full_path = os.path.join(dataset_path, pcap)
             labels = read_packet_labels(full_path)
             attacks = labels[labels["traffic_type"] == TrafficType.ATTACK]

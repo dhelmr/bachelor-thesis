@@ -12,7 +12,7 @@ cd "$BASEDIR/../.." || exit
 mkdir -p slurmlogs
 
 for i in {0..1000}; do
-  for f in ./hypertune/*; do
+  for f in ./hypertune/*.json; do
     NAME="$f-$i-$ARGS"
     JOB_ARGS=$(echo "--only-index $i -f $f $ARGS" | base64)
     echo "Start $NAME with '$JOB_ARGS'"
