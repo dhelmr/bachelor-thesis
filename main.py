@@ -123,6 +123,11 @@ class CLIParser:
 
         parser_list_models = self._create_subparser("list-models", help="List available models.")
 
+        parser_list_evaluations = self._create_subparser("list-evaluations", help="Prints evaluations.")
+        parser_list_evaluations.add_argument("--model", "-m", default=None, help="Filter evaluations by model")
+        parser_list_evaluations.add_argument("--id", default=None, help="Filter evaluations by classification id")
+        parser_list_evaluations.add_argument("--traffic-name", default="total", help="traffic name selection")
+
         hypertune = self._create_subparser(
             "hypertune", help="Hypertunes parameters of decision engine and feature extractor by running "
                               "the train->classify->evaluate pipeline multiple times. "
@@ -251,9 +256,7 @@ class CommandExecutor:
     def list_models(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)
         db = DBConnector(db_path=args.db, init_if_not_exists=False)
-        info = db.get_all_models()
-        info["model"] = info["pickle_dump"].apply(self._format_model_dump)
-        info.drop(columns=["pickle_dump", "decision_engine", "feature_extractor"], inplace=True)
+        info = db.get_model_infos()
         self._print_dataframe(info)
 
     def hypertune(self, args: argparse.Namespace, unknown: t.Sequence[str]):
@@ -271,6 +274,26 @@ class CommandExecutor:
         else:
             dataset_path = args.dataset_path
         dataset.print_stats(dataset_path)
+
+    def list_evaluations(self, args: argparse.Namespace, unknown: t.Sequence[str]):
+        self._check_unknown_args(unknown, expected_len=0)
+        db = DBConnector(db_path=args.db, init_if_not_exists=True)
+        df = db.get_evaluations()
+        if args.model is not None:
+            df = df[df["model_id"] == args.model]
+        else:
+            df = df[df["part_name"] == "all"]
+        if args.id is not None:
+            df = df[df["classification_id"] == args.id]
+        df = df[df["traffic_name"] == args.traffic_name]
+        print(df.columns)
+        filter_cols = ["classification_id", "decision_engine", "feature_extractor", "part_name", "precision", "mcc"]
+        df = df[filter_cols]
+        df["decision_engine"] = df["decision_engine"].apply(
+            lambda text: str(text)[:10] + ("" if len(text) <= 10 else ".."))
+        df["feature_extractor"] = df["feature_extractor"].apply(
+            lambda text: str(text)[:10] + ("" if len(text) <= 10 else ".."))
+        print(df.to_string())
 
     def _format_model_dump(self, dump: str) -> str:
         try:

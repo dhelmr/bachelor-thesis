@@ -62,8 +62,8 @@ class ModelTrainer:
             self.model_id = self._auto_generate_id()
             logging.info("Use model id %s" % self.model_id)
         self.db.save_model_info(
-            model_id=self.model_id, decision_engine=self.ad.decision_engine.get_name(),
-            transformers=transformer_names, feature_extractor=self.ad.feature_extractor.get_name(),
+            model_id=self.model_id, decision_engine=self.ad.decision_engine.__str__(),
+            transformers=transformer_names, feature_extractor=self.ad.feature_extractor.__str__(),
             pickle_dump=pickle_dump)
         logging.debug("Store model with id '%s' in database" % self.model_id)
 

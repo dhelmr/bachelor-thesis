@@ -156,9 +156,10 @@ class DBConnector:
                                        classification_id,), con=conn, index_col="record_id")
         return df
 
-    def get_all_models(self) -> pd.DataFrame:
+    def get_model_infos(self) -> pd.DataFrame:
         with self.get_conn() as conn:
-            df = pd.read_sql_query("SELECT * FROM model;", con=conn, index_col="model_id")
+            df = pd.read_sql_query("SELECT model_id, feature_extractor, transformers, decision_engine FROM model;",
+                                   con=conn, index_col="model_id")
         return df
 
     def get_all_classifications(self, with_count=False) -> pd.DataFrame:
@@ -238,3 +239,11 @@ class DBConnector:
                     metrics["fpr"], metrics["negatives"], metrics["positives"], metrics["npv"], metrics["precision"],
                     metrics["recall"], metrics["support"], metrics["tnr"], metrics["true_negatives"],
                     metrics["true_positives"], metrics["mcc"], metrics["kappa"]))
+
+    def get_evaluations(self):
+        with self.get_conn() as conn:
+            df = pd.read_sql_query(
+                "SELECT m.model_id, m.decision_engine, m.feature_extractor, m.transformers, e.* FROM model m "
+                "JOIN classification_info c ON m.model_id = c.model_id JOIN evaluations e ON e.classification_id = c.classification_id;",
+                con=conn)
+        return df
