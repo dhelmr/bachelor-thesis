@@ -11,12 +11,10 @@
       ],
       "--flow-timeout": [
         12,
-        20,
-        60
+        20
       ],
       "--subflow-timeout": [
-        0.5,
-        2
+        0.5
       ]
     }
   },
@@ -25,11 +23,11 @@
     "parameters": {
       "--training-epochs": [
         50,
-        200,
         400
       ],
       "--training-batch": [
-        64
+        64,
+        256
       ],
       "--layers": [
         "*0.8,*0.8,#1",
