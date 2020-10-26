@@ -68,7 +68,8 @@ class LocalOutlierFactorDE(DecisionEngine):
         self.normal_traffic_type = normal_traffic_type
         self.anomaly_traffic_type = normal_traffic_type.opposite_of()
 
-    def get_name(self):
+    @staticmethod
+    def get_name():
         return "local_outlier_factor"
 
     def serialize(self):

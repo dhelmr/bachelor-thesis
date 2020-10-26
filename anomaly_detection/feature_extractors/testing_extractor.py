@@ -10,7 +10,8 @@ from anomaly_detection.types import TrafficSequence, FeatureExtractor, TrafficTy
 
 class TestingFeatureExtractor(FeatureExtractor):
 
-    def get_name(self) -> str:
+    @staticmethod
+    def get_name() -> str:
         return "test_extractor"
 
     def fit_extract(self, traffic: TrafficSequence) -> np.ndarray:

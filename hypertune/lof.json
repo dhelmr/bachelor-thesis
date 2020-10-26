@@ -1,6 +1,6 @@
 {
   "feature_extractor": {
-    "name": "basic_netflow",
+    "name": "flows",
     "parameters": {
       "--nf-mode": [
         [

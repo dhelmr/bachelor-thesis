@@ -71,10 +71,11 @@ class OneClassSVMDE(DecisionEngine):
         else:
             return self.anomaly_traffic_type
 
-    def get_name(self):
+    @staticmethod
+    def get_name():
         return "one_class_svm"
 
-    def serialize(self) -> str:
+    def serialize(self):
         return pickle.dumps(self)
 
     def __str__(self):

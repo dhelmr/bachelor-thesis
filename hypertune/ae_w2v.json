@@ -1,6 +1,6 @@
 {
   "feature_extractor": {
-    "name": "flows",
+    "name": "flows_word2vec",
     "parameters": {
       "--nf-mode": [
         [
@@ -10,11 +10,34 @@
         ]
       ],
       "--flow-timeout": [
-        12,
-        20
+        12
       ],
       "--subflow-timeout": [
         0.5
+      ],
+      "--w2v-window-size": [
+        5,
+        10
+      ],
+      "--w2v-group-bytes": [
+        1,
+        2,
+        4,
+        8,
+        16
+      ],
+      "--w2v-min-count": [
+        1,
+        2
+      ],
+      "--w2v-training-method": [
+        "cbow",
+        "skip_gram"
+      ],
+      "--w2v-vector-size": [
+        10,
+        20,
+        50
       ]
     }
   },
@@ -22,27 +45,19 @@
     "name": "autoencoder",
     "parameters": {
       "--training-epochs": [
-        50,
-        400
+        200
       ],
       "--training-batch": [
-        64,
         256
       ],
       "--layers": [
-        "*0.8,*0.8,#1",
-        "*0.6,*0.8,*0.8,*0.9,#3,#2,#1",
-        "*1.2,*1,2,#1",
-        "*2",
-        "*0.5,*0.5,#1"
+        "*0.8,*0.8,#1"
       ],
       "--activation": [
-        "relu",
-        "sigmoid"
+        "relu"
       ],
       "--loss": [
-        "mse",
-        "mae"
+        "mse"
       ]
     }
   },

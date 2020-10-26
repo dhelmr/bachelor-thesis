@@ -107,8 +107,9 @@ class FeatureExtractor:
     def map_backwards(self, traffic: TrafficSequence, de_result: t.Sequence[TrafficType]) -> t.Sequence[TrafficType]:
         raise NotImplementedError()
 
+    @staticmethod
     @abstractmethod
-    def get_name(self) -> str:
+    def get_name() -> str:
         raise NotImplementedError()
 
     def get_id(self) -> str:
@@ -154,8 +155,9 @@ class DecisionEngine(ABC):
     def fit(self, features: Features, traffic_type: TrafficType):
         raise NotImplementedError()
 
+    @staticmethod
     @abstractmethod
-    def get_name(self) -> str:
+    def get_name() -> str:
         raise NotImplementedError()
 
     def serialize(self) -> bytes:

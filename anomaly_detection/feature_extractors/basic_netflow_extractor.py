@@ -344,8 +344,9 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             return [0]
         return [sum(ttls) / len(ttls)]
 
-    def get_name(self) -> str:
-        return "flow_extractor"
+    @staticmethod
+    def get_name() -> str:
+        return "flows"
 
     @staticmethod
     def init_parser(parser: argparse.ArgumentParser):

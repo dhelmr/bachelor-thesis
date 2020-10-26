@@ -164,7 +164,8 @@ class AutoencoderDE(DecisionEngine):
         else:
             return 0
 
-    def get_name(self) -> str:
+    @staticmethod
+    def get_name() -> str:
         return "autoencoder"
 
     def __str__(self):
