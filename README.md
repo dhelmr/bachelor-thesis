@@ -98,11 +98,9 @@ Feature extractors can be listed with:
 ```
 ❯ ./main.py list-fe --short
 
-basic_netflow
-basic_packet_info
-doc2vec_packet
-doc2vec_flows
-test
+flows
+flows_word2vec
+test_extractor
 
 ```
 
@@ -111,9 +109,9 @@ You can list available decision engines with `./main.py list-de --short` or:
 ```
 ❯ ./main.py list-de --short
 
-one_class_svm
-local_outlier_factor
 autoencoder
+local_outlier_factor
+one_class_svm
 
 ```
 

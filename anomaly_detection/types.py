@@ -91,6 +91,13 @@ class Features(NamedTuple):
             names=self.names
         )
 
+    def combine(self, other_features: "Features"):
+        return Features(
+            data=np.hstack((self.data, other_features.data)),
+            types=self.types + other_features.types,
+            names=self.names + other_features.names
+        )
+
 
 class FeatureExtractor:
     __metaclass__ = ABCMeta
@@ -127,6 +134,7 @@ class FeatureExtractor:
 
     def get_db_params_dict(self):
         raise NotImplementedError()
+
 
 class Transformer(ABC):
     __metaclass__ = ABCMeta
@@ -169,6 +177,11 @@ class DecisionEngine(ABC):
 
     @abstractmethod
     def get_db_params_dict(self):
+        raise NotImplementedError()
+
+    @staticmethod
+    @abstractmethod
+    def create_parser(prog_name) -> argparse.ArgumentParser:
         raise NotImplementedError()
 
 

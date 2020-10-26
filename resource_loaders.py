@@ -2,14 +2,12 @@ import argparse
 import os
 import typing as t
 
-from anomaly_detection.decision_engines import local_outlier_factor as local_outlier_factor, \
-    one_class_svm as one_class_svm, autoencoder
 from anomaly_detection.decision_engines.autoencoder import AutoencoderDE
+from anomaly_detection.decision_engines.local_outlier_factor import LocalOutlierFactorDE
+from anomaly_detection.decision_engines.one_class_svm import OneClassSVMDE
 from anomaly_detection.feature_extractors.basic_netflow_extractor import BasicNetflowFeatureExtractor
-from anomaly_detection.feature_extractors.basic_packet_feature_extractor import BasicPacketFeatureExtractor
-from anomaly_detection.feature_extractors.doc2vec_packets import PacketDoc2Vec
-from anomaly_detection.feature_extractors.netflow_doc2vec import NetflowDoc2Vec
 from anomaly_detection.feature_extractors.testing_extractor import TestingFeatureExtractor, DummyDataset
+from anomaly_detection.feature_extractors.word2vec_flows import NetflowWord2Vec
 from anomaly_detection.transformers import StandardScalerTransformer, OneHotEncoder, \
     MinMaxScalerTransformer
 from anomaly_detection.types import FeatureExtractor, DecisionEngine, ParsingException
@@ -51,23 +49,15 @@ def build_transformers(names: t.Sequence[str]):
 
 DATASET_PATH = os.path.join(os.path.dirname(
     __file__), "data/cic-ids-2017/")
-DECISION_ENGINES = {
-    "one_class_svm": (one_class_svm.OneClassSVMDE, one_class_svm.create_parser),
-    "local_outlier_factor": (local_outlier_factor.LocalOutlierFactorDE, local_outlier_factor.create_parser),
-    "autoencoder": (AutoencoderDE, autoencoder.create_parser)
-}
+DECISION_ENGINES = {de.get_name(): (de, de.create_parser)
+                    for de in [AutoencoderDE, LocalOutlierFactorDE, OneClassSVMDE]}
 TRANSFORMERS = {
     "minmax_scaler": MinMaxScalerTransformer,
     "standard_scaler": StandardScalerTransformer,
     "onehot_encoder": OneHotEncoder
 }
-FEATURE_EXTRACTORS = {
-    "basic_netflow": BasicNetflowFeatureExtractor,
-    "basic_packet_info": BasicPacketFeatureExtractor,
-    "doc2vec_packet": PacketDoc2Vec,
-    "doc2vec_flows": NetflowDoc2Vec,
-    "test": TestingFeatureExtractor
-}
+FEATURE_EXTRACTORS = {fe.get_name(): fe
+                      for fe in [BasicNetflowFeatureExtractor, NetflowWord2Vec, TestingFeatureExtractor]}
 
 DATASET_UTILS = {
     "cic-ids-2017": CICIDS2017,

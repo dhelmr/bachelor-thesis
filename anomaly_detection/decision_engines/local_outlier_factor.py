@@ -18,26 +18,6 @@ LOF_METRICS = ['minkowski', 'cityblock', 'cosine', 'euclidean', 'l1', 'l2',
 LOF_ALGORITHMS = ['auto', 'ball_tree', 'kd_tree', 'brute']
 
 
-def create_parser(prog_name: str):
-    parser = argparse.ArgumentParser(
-        prog=prog_name,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--metric", choices=LOF_METRICS, help="Distance metric that is used for LOF",
-                        default=LOF_METRICS[0])
-    parser.add_argument("--minkowski-p", type=float, help="Parameter p when metric='minkowski'", default=2)
-    parser.add_argument("--leaf-size", type=int, default=30, help="This canaffect the speed of the construction and "
-                                                                  "query, as well as the memory        required to "
-                                                                  "store the tree. The optimal value depends on the  "
-                                                                  "       nature of the problem.")
-    parser.add_argument("--algorithm", choices=LOF_ALGORITHMS, default=LOF_ALGORITHMS[0],
-                        help="Algorithm used to compute the nearest neighbors with LOF")
-    parser.add_argument("--n-neighbors", type=int, default=20, help="Number of neighbors to use by default for "
-                                                                    "kneighbors queries. "
-                                                                    "If n_neighbors is larger than the number of "
-                                                                    "samples provided, "
-                                                                    "all samples will be used.")
-    return parser
-
 
 class LocalOutlierFactorDE(DecisionEngine):
     def __init__(self, parsed_args):
@@ -83,3 +63,25 @@ class LocalOutlierFactorDE(DecisionEngine):
             "leaf_size": self.lof.leaf_size,
             "minkowski_p": self.lof.p
         }
+
+    @staticmethod
+    def create_parser(prog_name: str):
+        parser = argparse.ArgumentParser(
+            prog=prog_name,
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        parser.add_argument("--metric", choices=LOF_METRICS, help="Distance metric that is used for LOF",
+                            default=LOF_METRICS[0])
+        parser.add_argument("--minkowski-p", type=float, help="Parameter p when metric='minkowski'", default=2)
+        parser.add_argument("--leaf-size", type=int, default=30,
+                            help="This canaffect the speed of the construction and "
+                                 "query, as well as the memory        required to "
+                                 "store the tree. The optimal value depends on the  "
+                                 "       nature of the problem.")
+        parser.add_argument("--algorithm", choices=LOF_ALGORITHMS, default=LOF_ALGORITHMS[0],
+                            help="Algorithm used to compute the nearest neighbors with LOF")
+        parser.add_argument("--n-neighbors", type=int, default=20, help="Number of neighbors to use by default for "
+                                                                        "kneighbors queries. "
+                                                                        "If n_neighbors is larger than the number of "
+                                                                        "samples provided, "
+                                                                        "all samples will be used.")
+        return parser

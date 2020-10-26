@@ -216,15 +216,15 @@ class AutoencoderDE(DecisionEngine):
             "training_epochs": self.training_epochs
         }
 
-
-def create_parser(prog_name):
-    parser = argparse.ArgumentParser(
-        prog=prog_name,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--training-epochs", type=int, default=50)
-    parser.add_argument("--training-batch", type=int, default=256)
-    parser.add_argument("--layers", type=str, default="*0.7,*0.8,#1")
-    parser.add_argument("--activation", type=str, default=POSSIBLE_ACTIVATIONS[0], choices=POSSIBLE_ACTIVATIONS)
-    parser.add_argument("--loss", type=str, default=POSSIBLE_LOSS[0], choices=POSSIBLE_LOSS)
-    parser.add_argument("--verbose", action="store_true", default=False)
-    return parser
+    @staticmethod
+    def create_parser(prog_name):
+        parser = argparse.ArgumentParser(
+            prog=prog_name,
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        parser.add_argument("--training-epochs", type=int, default=50)
+        parser.add_argument("--training-batch", type=int, default=256)
+        parser.add_argument("--layers", type=str, default="*0.7,*0.8,#1")
+        parser.add_argument("--activation", type=str, default=POSSIBLE_ACTIVATIONS[0], choices=POSSIBLE_ACTIVATIONS)
+        parser.add_argument("--loss", type=str, default=POSSIBLE_LOSS[0], choices=POSSIBLE_LOSS)
+        parser.add_argument("--verbose", action="store_true", default=False)
+        return parser

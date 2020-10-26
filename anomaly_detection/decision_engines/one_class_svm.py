@@ -12,32 +12,6 @@ PREDICTION_NORMAL_VALUE = 1
 AVAILABLE_KERNELS = ["rbf", "poly", "linear", "sigmoid"]
 
 
-def create_parser(prog_name):
-    parser = argparse.ArgumentParser(
-        prog=prog_name,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--gamma", type=float, default=0.005,
-                        help="Kernel coefficient for ‘rbf’, ‘poly’ and ‘sigmoid’ kernels")
-    parser.add_argument("--nu", type=float, default=0.001,
-                        help="An upper bound on the fraction of training errors and a lower bound of the fraction of support vectors. Should be in the interval (0, 1].")
-    parser.add_argument(
-        "--kernel", type=str, choices=AVAILABLE_KERNELS, default=AVAILABLE_KERNELS[0])
-    parser.add_argument("--tolerance", type=float,
-                        help="Tolerance for stopping criterion.", default=0.001)
-    parser.add_argument(
-        "--coef0", type=float,
-        help="Independent term in kernel function. It is only significant in ‘poly’ and ‘sigmoid’", default=0.0)
-    parser.add_argument("--max-iter", dest="max_iter", type=int,
-                        help="Hard limit on iterations within solver, or -1 for no limit.", default=-1)
-    parser.add_argument("--shrinking", type=bool,
-                        help="Whether to use the shrinking heuristic.", default=True)
-    parser.add_argument(
-        "--degree", type=int, help="Degree of the polynomial kernel function (‘poly’). Ignored by all other kernels.",
-        default=3)
-    parser.add_argument("--cache-size", dest="cache_size", type=float,
-                        help="Specify the size of the kernel cache (in MB).", default=500.0)
-    return parser
-
 
 class OneClassSVMDE(DecisionEngine):
     def __init__(self, parsed_args: argparse.Namespace):
@@ -92,3 +66,31 @@ class OneClassSVMDE(DecisionEngine):
             "shrinking": self.svm.shrinking,
             "tolerance": self.svm.tol
         }
+
+    @staticmethod
+    def create_parser(prog_name):
+        parser = argparse.ArgumentParser(
+            prog=prog_name,
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        parser.add_argument("--gamma", type=float, default=0.005,
+                            help="Kernel coefficient for ‘rbf’, ‘poly’ and ‘sigmoid’ kernels")
+        parser.add_argument("--nu", type=float, default=0.001,
+                            help="An upper bound on the fraction of training errors and a lower bound of the fraction of support vectors. Should be in the interval (0, 1].")
+        parser.add_argument(
+            "--kernel", type=str, choices=AVAILABLE_KERNELS, default=AVAILABLE_KERNELS[0])
+        parser.add_argument("--tolerance", type=float,
+                            help="Tolerance for stopping criterion.", default=0.001)
+        parser.add_argument(
+            "--coef0", type=float,
+            help="Independent term in kernel function. It is only significant in ‘poly’ and ‘sigmoid’", default=0.0)
+        parser.add_argument("--max-iter", dest="max_iter", type=int,
+                            help="Hard limit on iterations within solver, or -1 for no limit.", default=-1)
+        parser.add_argument("--shrinking", type=bool,
+                            help="Whether to use the shrinking heuristic.", default=True)
+        parser.add_argument(
+            "--degree", type=int,
+            help="Degree of the polynomial kernel function (‘poly’). Ignored by all other kernels.",
+            default=3)
+        parser.add_argument("--cache-size", dest="cache_size", type=float,
+                            help="Specify the size of the kernel cache (in MB).", default=500.0)
+        return parser

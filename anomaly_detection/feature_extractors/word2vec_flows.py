@@ -117,9 +117,9 @@ class NetflowWord2Vec(BasicNetflowFeatureExtractor):
     def init_parser(parser: argparse.ArgumentParser):
         BasicNetflowFeatureExtractor.init_parser(parser)
         parser.add_argument("--w2v-vector-size", type=int, default=50, dest="vector_size")
-        parser.add_argument("--w2v-window", type=int, default=5, dest="window")
+        parser.add_argument("--w2v-window-size", type=int, default=5, dest="window")
         parser.add_argument("--w2v-min-count", type=int, default=4, dest="min_count")
-        parser.add_argument("--w2v-train-method", choices=[t.value for t in TrainingMethod],
+        parser.add_argument("--w2v-training-method", choices=[t.value for t in TrainingMethod],
                             default=TrainingMethod.SKIP_GRAM,
                             dest="train_method")
         parser.add_argument("--w2v-group-bytes", type=int, dest="group_bytes", default=8)
