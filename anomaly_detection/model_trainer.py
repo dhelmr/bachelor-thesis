@@ -53,7 +53,7 @@ class ModelTrainer:
             try:
                 self.db.store_features(fe_id, traffic.name, features, self.model_id)
             except Exception as e:
-                logging.error("Cannot store features in database: %s", e)
+                logging.error("Cannot store features in database.", exc_info=e)
 
     def _save_model(self):
         pickle_dump = self.ad.serialize()
@@ -62,9 +62,15 @@ class ModelTrainer:
             self.model_id = self._auto_generate_id()
             logging.info("Use model id %s" % self.model_id)
         self.db.save_model_info(
-            model_id=self.model_id, decision_engine=self.ad.decision_engine.__str__(),
-            transformers=transformer_names, feature_extractor=self.ad.feature_extractor.__str__(),
+            model_id=self.model_id, decision_engine=self.ad.decision_engine.get_name(),
+            transformers=transformer_names, feature_extractor=self.ad.feature_extractor.get_name(),
             pickle_dump=pickle_dump)
+        self.db.write_custom_model_table(self.model_id,
+                                         self.ad.decision_engine.get_name(),
+                                         self.ad.decision_engine.get_db_params_dict())
+        self.db.write_custom_model_table(self.model_id,
+                                         self.ad.feature_extractor.get_name(),
+                                         self.ad.feature_extractor.get_db_params_dict())
         logging.debug("Store model with id '%s' in database" % self.model_id)
 
     def _auto_generate_id(self) -> str:

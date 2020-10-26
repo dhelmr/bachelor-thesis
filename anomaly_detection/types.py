@@ -124,6 +124,8 @@ class FeatureExtractor:
     def init_by_parsed(args: argparse.Namespace):
         raise NotImplementedError()
 
+    def get_db_params_dict(self):
+        raise NotImplementedError()
 
 class Transformer(ABC):
     __metaclass__ = ABCMeta
@@ -162,6 +164,10 @@ class DecisionEngine(ABC):
     @staticmethod
     def deserialize(serialized):
         return pickle.loads(serialized)
+
+    @abstractmethod
+    def get_db_params_dict(self):
+        raise NotImplementedError()
 
 
 class ClassificationResults(NamedTuple):

@@ -378,6 +378,14 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             sf_part = ""
         return f"FlowExtractor(timeout={self.flow_timeout}, modes={modes}{sf_part})"
 
+    def get_db_params_dict(self):
+        params = {
+            "flow_timeout": self.flow_timeout,
+            "subflow_timeout": self.subflow_timeout
+        }
+        for nf_mode in FeatureSetMode:
+            params[nf_mode.name] = nf_mode in self.modes
+        return params
 
 def tcp_timeout_on_FIN(packet: Packet, flow: NetFlow):
     if flow.protocol != TCP:

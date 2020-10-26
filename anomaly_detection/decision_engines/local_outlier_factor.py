@@ -73,3 +73,12 @@ class LocalOutlierFactorDE(DecisionEngine):
 
     def serialize(self):
         return pickle.dumps(self)
+
+    def get_db_params_dict(self):
+        return {
+            "algorithm": self.lof.algorithm,
+            "n_neighbors": self.lof.n_neighbors,
+            "metric": self.lof.metric,
+            "leaf_size": self.lof.leaf_size,
+            "minkowski_p": self.lof.p
+        }

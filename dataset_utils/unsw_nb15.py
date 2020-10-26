@@ -39,6 +39,17 @@ DEFAULT_BENIGN_PCAPS = [
     "01/10.pcap", "01/11.pcap", "01/12.pcap", "01/13.pcap", "01/26.pcap", "01/27.pcap", "01/40.pcap", "01/41.pcap",
     "01/42.pcap"
 ]
+
+TINY_SUBSET = {
+    "benign": {
+        "01/1.pcap": [[0, 200]]
+    },
+    "unknown": {
+        "01/1.pcap": [[400, 1000]]
+    }
+}
+
+
 class FlowCsvColumns(Enum):
     SRC_IP = "srcip"
     SRC_PORT = "sport"
@@ -110,6 +121,8 @@ class UNSWNB15TrafficReader(TrafficReader):
                 "benign": {pcap: r for pcap, r in ranges["benign"].items() if pcap in DEFAULT_BENIGN_PCAPS},
                 "unknown": {pcap: r for pcap, r in ranges["unknown"].items() if pcap not in DEFAULT_BENIGN_PCAPS}
             }
+        elif subset_name == "tiny":
+            return TINY_SUBSET
         # else: subset name must be of parttern "[test split]/[attack file1],[attack file2],..."
         benign, unknown = subset_name.split("/")
         benign_pcaps = self.select_pcaps(benign.split(","))

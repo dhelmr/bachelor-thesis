@@ -5,7 +5,8 @@ import re
 from enum import Enum
 
 import dpkt
-from pandas import Series, np
+import numpy as np
+from pandas import Series
 
 from anomaly_detection.types import TrafficSequence, TrafficReader, DatasetPreprocessor, DatasetUtils
 from dataset_utils.PacketLabelAssociator import *

@@ -1,3 +1,4 @@
+import logging
 import os.path
 import pickle
 import sqlite3
@@ -11,10 +12,14 @@ from numpy.core.records import ndarray
 from anomaly_detection.anomaly_detector import AnomalyDetectorModel
 from anomaly_detection.types import ClassificationResults, Features
 
+DB_SCHEMA_VERSION = 1
+
 lock = Lock()
 
+
 class DBConnector:
-    def __init__(self, db_path: str, init_if_not_exists: bool = True):
+    def __init__(self, db_path: str, init_if_not_exists: bool = True, schema_version=DB_SCHEMA_VERSION):
+        self.schema_version = schema_version
         self.db_path = db_path
         must_init = False
         if not os.path.exists(db_path):
@@ -24,7 +29,7 @@ class DBConnector:
                 raise ValueError(f"Database path '{db_path}' does not exist.")
         if must_init and init_if_not_exists:
             self.init_db()
-
+        self.check_db_version()
 
     @contextmanager
     def get_conn(self):
@@ -117,6 +122,25 @@ class DBConnector:
                     PRIMARY KEY (classification_id, traffic_name, part_name)
                 );
             """)
+            c.execute("""
+                CREATE TABLE db_version (
+                    version INT NOT NULL PRIMARY KEY
+                );
+            """)
+            c.execute("""
+                INSERT INTO db_version (version) values (?);
+            """, (self.schema_version,))
+
+    def check_db_version(self):
+        with self.get_conn() as conn:
+            df = pd.read_sql_query("SELECT version FROM db_version;", con=conn)
+        if len(df["version"]) == 0:
+            version = 0
+        else:
+            version = df["version"][0]
+        if version != self.schema_version:
+            logging.info("Database schema has old version %s, must migrate to %s", version, self.schema_version)
+            self.migrate(old_version=version, new_version=self.schema_version)
 
     def save_model_info(self, model_id: str, decision_engine: str, transformers: t.Sequence[str],
                         feature_extractor: str, pickle_dump: str):
@@ -247,3 +271,48 @@ class DBConnector:
                 "JOIN classification_info c ON m.model_id = c.model_id JOIN evaluations e ON e.classification_id = c.classification_id;",
                 con=conn)
         return df
+
+    def write_custom_model_table(self, model_id, table_name, content):
+        table_cols = [
+            (name, sqlite_type_of(type(value)))
+            for name, value in content.items()
+        ]
+        # TODO check for sqlinjections in content.keys() and table name ??
+        with self.get_cursor() as c:
+            c.execute(f"""
+                CREATE TABLE IF NOT EXISTS {table_name} ( model_id TEXT PRIMARY KEY REFERENCES model(model_id), {
+            ",".join(["%s %s" % (name, sql_type) for name, sql_type in table_cols])
+            });
+            """)
+            values = [value if type(value) in [float, int, str, bool]
+                      else str(value)
+                      for _, value in content.items()]
+            c.execute(f"""
+                INSERT INTO {table_name} (model_id, {",".join([name for name, _ in table_cols])}) 
+                values (?, {",".join(["?" for _ in table_cols])});
+            """, [model_id] + values)
+
+    def migrate(self, old_version, new_version):
+        raise ValueError("TODO: Cannot migrate from %s to %s" % (old_version, new_version))
+
+    def get_custom_model_info(self, model_id, table_name):
+        if not self.exists_table(table_name):
+            raise ValueError("Table %s does not exist!" % table_name)
+        with self.get_conn() as conn:
+            df = pd.read_sql_query(f"""
+                SELECT * FROM {table_name} WHERE model_id = ?;
+            """, params=(model_id,), con=conn)
+        return df
+
+    def exists_table(self, name):
+        with self.get_conn() as conn:
+            query = "SELECT 1 FROM sqlite_master WHERE type='table' and name = ?"
+            return conn.execute(query, (name,)).fetchone() is not None
+
+
+def sqlite_type_of(python_type) -> str:
+    if python_type is int or python_type is bool:
+        return "INT"
+    if python_type is float:
+        return "REAL"
+    return "TEXT"

@@ -79,3 +79,15 @@ class OneClassSVMDE(DecisionEngine):
 
     def __str__(self):
         return f"{self.svm})"
+
+    def get_db_params_dict(self) -> dict:
+        return {
+            "cache_size": self.svm.cache_size,
+            "coef0": self.svm.coef0,
+            "kernel": self.svm.kernel,
+            "gamma": self.svm.gamma,
+            "max_iter": self.svm.max_iter,
+            "nu": self.svm.nu,
+            "shrinking": self.svm.shrinking,
+            "tolerance": self.svm.tol
+        }
