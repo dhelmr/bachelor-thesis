@@ -28,6 +28,17 @@ class LayerDefinition(t.NamedTuple):
     size_type: LayerSizeType
     value: float
 
+    def format(self):
+
+        if self.size_type is LayerSizeType.RELATIVE:
+            modifier_char = "*"
+        elif self.size_type is LayerSizeType.REFERENCE:
+            modifier_char = "#"
+        elif self.size_type is LayerSizeType.FIXED_SIZE:
+            modifier_char = ""
+        else:
+            raise ValueError("Unexpected size type %s" % self.size_type)
+        return "%s%s" % (modifier_char, self.value)
 
 def init_keras():
     global keras
@@ -192,6 +203,18 @@ class AutoencoderDE(DecisionEngine):
         return AutoencoderDE(autoencoder=model, threshold=threshold, loss=loss, layer_sizes=layer_sizes,
                              activation=activation, training_epochs=training_epochs, training_batch=training_batch)
 
+    def get_db_params_dict(self):
+        layer_pattern = ",".join([layer.format() for layer in self.layers])
+        return {
+            "threshold": self.threshold,
+            "layer_sizes": self.layer_sizes,
+            "loss": self.loss,
+            "layers": layer_pattern,
+            "activation": self.activation,
+            "training_batch": self.training_batch,
+            "training_epochs": self.training_epochs
+        }
+
 
 def create_parser(prog_name):
     parser = argparse.ArgumentParser(
@@ -199,7 +222,7 @@ def create_parser(prog_name):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--training-epochs", type=int, default=50)
     parser.add_argument("--training-batch", type=int, default=256)
-    parser.add_argument("--layers", type=str, default="15,8,15")
+    parser.add_argument("--layers", type=str, default="*0.7,*0.8,#1")
     parser.add_argument("--activation", type=str, default=POSSIBLE_ACTIVATIONS[0], choices=POSSIBLE_ACTIVATIONS)
     parser.add_argument("--loss", type=str, default=POSSIBLE_LOSS[0], choices=POSSIBLE_LOSS)
     parser.add_argument("--verbose", action="store_true", default=False)

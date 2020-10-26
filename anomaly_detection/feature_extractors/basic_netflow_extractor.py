@@ -262,7 +262,8 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 ("tcp_bwd_total_push", FeatureType.INT),
                 ("tcp_bwd_total_rst", FeatureType.INT)
             ]
-        return list(zip(*names_types))
+        names, types = zip(*names_types)
+        return list(names), list(types)
 
     def _extract_sub_flows_features(self, flow: t.List[Packet]):
         subflows = self._make_subflows(flow)
