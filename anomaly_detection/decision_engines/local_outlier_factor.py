@@ -1,4 +1,5 @@
 import argparse
+import json
 import logging
 import pickle
 
@@ -63,6 +64,10 @@ class LocalOutlierFactorDE(DecisionEngine):
             "leaf_size": self.lof.leaf_size,
             "minkowski_p": self.lof.p
         }
+
+    def get_id(self):
+        params = json.dumps(self.get_db_params_dict(), sort_keys=True)
+        return f"{self.get_name()}({params})"
 
     @staticmethod
     def create_parser(prog_name: str):
