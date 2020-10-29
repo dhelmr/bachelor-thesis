@@ -12,7 +12,12 @@ from numpy.core.records import ndarray
 from anomaly_detection.anomaly_detector import AnomalyDetectorModel
 from anomaly_detection.types import ClassificationResults, Features
 
-DB_SCHEMA_VERSION = 1
+SCHEMA_CHANGE_NOTES = {
+    1: "",
+    2: "Add total_time, packet_read_time, packet_count and is_finished columns to classification_info"
+}
+
+DB_SCHEMA_VERSION = 2
 
 lock = Lock()
 
@@ -82,7 +87,11 @@ class DBConnector:
             c.execute(""" 
                 CREATE TABLE classification_info (
                     classification_id TEXT PRIMARY KEY,
-                    model_id TEXT REFERENCES model(model_id)
+                    model_id TEXT REFERENCES model(model_id),
+                    is_finished INT DEFAULT 0,
+                    total_time FLOAT DEFAULT -1,
+                    packet_read_time FLOAT DEFAULT -1,
+                    packet_count FLOAT DEFAULT -1
                 );
             """)
             c.execute("""
@@ -161,9 +170,9 @@ class DBConnector:
         model = AnomalyDetectorModel.deserialize(pickle_str)
         return model
 
-    def save_classification_info(self, classification_id, model_id):
+    def new_classification_info(self, classification_id, model_id):
         with self.get_cursor() as c:
-            c.execute("INSERT INTO classification_info (classification_id, model_id) VALUES (?,?);",
+            c.execute("INSERT INTO classification_info (classification_id, model_id, is_finished) VALUES (?,?,0);",
                       (classification_id, model_id))
 
     def save_classifications(self, r: ClassificationResults):
@@ -172,6 +181,13 @@ class DBConnector:
                     for i, p in zip(r.traffic_ids, r.predictions)]
             c.executemany("INSERT INTO classification_results (classification_id, record_id, label) VALUES (?,?,?);",
                           data)
+
+    def finish_classification(self, classification_id: str, total_time: float, read_time: float, packet_count: int):
+        with self.get_cursor() as c:
+            c.execute("""
+                UPDATE classification_info SET is_finished = 1, packet_read_time = ?, total_time = ?, packet_count = ?
+                WHERE classification_id = ?;
+            """, (read_time, total_time, packet_count, classification_id))
 
     def get_classifications_records(self, classification_id: str) -> pd.DataFrame:
         with self.get_conn() as conn:
@@ -293,7 +309,18 @@ class DBConnector:
             """, [model_id] + values)
 
     def migrate(self, old_version, new_version):
-        raise ValueError("TODO: Cannot migrate from %s to %s" % (old_version, new_version))
+        with self.get_cursor() as c:
+            if new_version == 2:
+                c.execute("ALTER TABLE classification_info ADD COLUMN is_finished INT DEFAULT -1;")
+                c.execute("ALTER TABLE classification_info  ADD COLUMN packet_count INT DEFAULT -1;")
+                c.execute("ALTER TABLE classification_info  ADD COLUMN packet_read_time FLOAT DEFAULT -1;")
+                c.execute("ALTER TABLE classification_info  ADD COLUMN total_time FLOAT DEFAULT -1;")
+            else:
+                raise ValueError("Cannot migrate from database schema version %s to %s" % (old_version, new_version))
+        # only executed if above migrations where successful
+        with self.get_cursor() as c:
+            c.execute("UPDATE db_version SET version = ?;", (new_version,))
+        logging.info("Migrated from database schema version %s to %s" % (old_version, new_version))
 
     def get_custom_model_info(self, model_id, table_name):
         if not self.exists_table(table_name):

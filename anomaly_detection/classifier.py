@@ -1,4 +1,5 @@
 import logging
+import time
 import uuid
 
 from anomaly_detection.anomaly_detector import AnomalyDetectorModel
@@ -20,13 +21,24 @@ class Classifier:
         if classification_id == CLASSIFICATION_ID_AUTO_GENERATE:
             classification_id = self._generate_new_id()
         self._init_db_for_classification(classification_id)
+        total_time = 0
+        total_read_time = 0
+        total_packet_count = 0
         for traffic in self.traffic_reader:
-            name = traffic[0]
-            logging.info("Detect anomalies in %s.", name)
+            packet_wrapper = CountTimeIterator(traffic.packet_reader)
+            wrapped_traffic = traffic.copy_with(packet_reader=packet_wrapper)
+            logging.info("Detect anomalies in %s.", traffic.name)
+            start_time = time.time()
             classification_results = self.ad.feed_traffic(
                 classification_id,
-                traffic=traffic)
+                traffic=wrapped_traffic)
+            end_time = time.time()
+            total_time += (end_time - start_time)
+            total_read_time += packet_wrapper.get_total_time()
+            total_packet_count += packet_wrapper.get_count()
             self.db.save_classifications(classification_results)
+        self.db.finish_classification(classification_id, total_time=total_time, packet_count=total_packet_count,
+                                      read_time=total_read_time)
         return classification_id
 
     def _init_db_for_classification(self, classification_id):
@@ -35,7 +47,7 @@ class Classifier:
             raise ValueError(
                 "classification with id '%s' already exists in the database!" % classification_id)
         logging.info("Create new classification with id '%s'" % classification_id)
-        db.save_classification_info(
+        db.new_classification_info(
             classification_id=classification_id, model_id=self.model_id)
 
     def _generate_new_id(self):
@@ -45,3 +57,28 @@ class Classifier:
             new_id = f"{base_name}/{uuid.uuid4().__str__()[:4]}"
             if new_id not in known_ids:
                 return new_id
+
+
+class CountTimeIterator:
+    """Wrapper around an iterator that counts how many objects were yielded and
+    how long it took to read the underlying iterator"""
+
+    def __init__(self, original_reader):
+        self._count = 0
+        self._time_for_reading = 0
+        self._original_reader = original_reader
+
+    def __iter__(self):
+        start_time = time.time()
+        for item in self._original_reader:
+            end_time = time.time()
+            self._time_for_reading += (end_time - start_time)
+            self._count += 1
+            yield item
+            start_time = time.time()
+
+    def get_count(self):
+        return self._count
+
+    def get_total_time(self):
+        return self._time_for_reading

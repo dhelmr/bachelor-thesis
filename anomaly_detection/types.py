@@ -36,6 +36,10 @@ class TrafficSequence(NamedTuple):
     parts: t.Dict[str, t.List[str]] = []
     is_consistent: bool = True
 
+    def copy_with(self, **modifying_args):
+        new_params = self._asdict()
+        new_params.update(modifying_args)
+        return TrafficSequence(**new_params)
 
 class TrafficReader(ABC):
     __metaclass__ = ABCMeta
