@@ -2,6 +2,7 @@ import logging
 import os.path
 import pickle
 import sqlite3
+import sys
 import typing as t
 from contextlib import contextmanager
 from multiprocessing import Lock
@@ -23,7 +24,8 @@ lock = Lock()
 
 
 class DBConnector:
-    def __init__(self, db_path: str, init_if_not_exists: bool = True, schema_version=DB_SCHEMA_VERSION):
+    def __init__(self, db_path: str, init_if_not_exists: bool = True,
+                 schema_version=DB_SCHEMA_VERSION, migrate_if_needed=False, ):
         self.schema_version = schema_version
         self.db_path = db_path
         must_init = False
@@ -31,10 +33,10 @@ class DBConnector:
             if init_if_not_exists:
                 must_init = True
             else:
-                raise ValueError(f"Database path '{db_path}' does not exist.")
+                raise ValueError(f"Database path '{db_path}' does not exist. Init first with the migrate command.")
         if must_init and init_if_not_exists:
             self.init_db()
-        self.check_db_version()
+        self.check_db_version(migrate_if_needed)
 
     @contextmanager
     def get_conn(self):
@@ -140,7 +142,7 @@ class DBConnector:
                 INSERT INTO db_version (version) values (?);
             """, (self.schema_version,))
 
-    def check_db_version(self):
+    def check_db_version(self, migrate_if_needed):
         with self.get_conn() as conn:
             df = pd.read_sql_query("SELECT version FROM db_version;", con=conn)
         if len(df["version"]) == 0:
@@ -149,7 +151,11 @@ class DBConnector:
             version = df["version"][0]
         if version != self.schema_version:
             logging.info("Database schema has old version %s, must migrate to %s", version, self.schema_version)
-            self.migrate(old_version=version, new_version=self.schema_version)
+            if migrate_if_needed:
+                self.migrate(old_version=version, new_version=self.schema_version)
+            else:
+                logging.error("Run migrate command in order to migrate database schema. Exit.")
+                sys.exit(1)
 
     def save_model_info(self, model_id: str, decision_engine: str, transformers: t.Sequence[str],
                         feature_extractor: str, pickle_dump: str):
@@ -158,6 +164,35 @@ class DBConnector:
             c.execute(
                 "INSERT INTO model (model_id, decision_engine, transformers, feature_extractor, pickle_dump) VALUES (?,?,?,?,?);",
                 (model_id, decision_engine, transformer_list, feature_extractor, pickle_dump))
+
+    def write_custom_model_table(self, model_id, table_name, content):
+        table_cols = [
+            (name, sqlite_type_of(type(value)))
+            for name, value in content.items()
+        ]
+        # TODO check for sqlinjections in content.keys() and table name ??
+        with self.get_cursor() as c:
+            c.execute(f"""
+                CREATE TABLE IF NOT EXISTS {table_name} ( model_id TEXT PRIMARY KEY REFERENCES model(model_id), {
+            ",".join(["%s %s" % (name, sql_type) for name, sql_type in table_cols])
+            });
+            """)
+            values = [value if type(value) in [float, int, str, bool]
+                      else str(value)
+                      for _, value in content.items()]
+            c.execute(f"""
+                INSERT INTO {table_name} (model_id, {",".join([name for name, _ in table_cols])}) 
+                values (?, {",".join(["?" for _ in table_cols])});
+            """, [model_id] + values)
+
+    def get_custom_model_info(self, model_id, table_name):
+        if not self.exists_table(table_name):
+            raise ValueError("Table %s does not exist!" % table_name)
+        with self.get_conn() as conn:
+            df = pd.read_sql_query(f"""
+                SELECT * FROM {table_name} WHERE model_id = ?;
+            """, params=(model_id,), con=conn)
+        return df
 
     def load_model(self, model_id: str) -> AnomalyDetectorModel:
         with self.get_conn() as conn:
@@ -288,25 +323,16 @@ class DBConnector:
                 con=conn)
         return df
 
-    def write_custom_model_table(self, model_id, table_name, content):
-        table_cols = [
-            (name, sqlite_type_of(type(value)))
-            for name, value in content.items()
-        ]
-        # TODO check for sqlinjections in content.keys() and table name ??
-        with self.get_cursor() as c:
-            c.execute(f"""
-                CREATE TABLE IF NOT EXISTS {table_name} ( model_id TEXT PRIMARY KEY REFERENCES model(model_id), {
-            ",".join(["%s %s" % (name, sql_type) for name, sql_type in table_cols])
-            });
-            """)
-            values = [value if type(value) in [float, int, str, bool]
-                      else str(value)
-                      for _, value in content.items()]
-            c.execute(f"""
-                INSERT INTO {table_name} (model_id, {",".join([name for name, _ in table_cols])}) 
-                values (?, {",".join(["?" for _ in table_cols])});
-            """, [model_id] + values)
+    def get_evaluations_by_model_param(self, model_part_table_name: str, part_name: str = "all"):
+        if not self.exists_table(model_part_table_name):
+            raise ValueError("Table %s does not exist!" % model_part_table_name)
+        with self.get_conn() as c:
+            df = pd.read_sql_query(f"""
+            SELECT p.*, e.*
+            FROM "{model_part_table_name}" p JOIN classification_info c ON p.model_id = c.model_id 
+            JOIN evaluations e ON e.classification_id = c.classification_id WHERE e.part_name = ?""",
+                                   con=c, params=(part_name,))
+        return df
 
     def migrate(self, old_version, new_version):
         with self.get_cursor() as c:
@@ -321,15 +347,6 @@ class DBConnector:
         with self.get_cursor() as c:
             c.execute("UPDATE db_version SET version = ?;", (new_version,))
         logging.info("Migrated from database schema version %s to %s" % (old_version, new_version))
-
-    def get_custom_model_info(self, model_id, table_name):
-        if not self.exists_table(table_name):
-            raise ValueError("Table %s does not exist!" % table_name)
-        with self.get_conn() as conn:
-            df = pd.read_sql_query(f"""
-                SELECT * FROM {table_name} WHERE model_id = ?;
-            """, params=(model_id,), con=conn)
-        return df
 
     def exists_table(self, name):
         with self.get_conn() as conn:

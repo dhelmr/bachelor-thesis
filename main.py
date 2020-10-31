@@ -15,6 +15,7 @@ from anomaly_detection.evaluator import Evaluator
 from anomaly_detection.hypertuner import Hypertuner
 from anomaly_detection.model_trainer import ModelTrainer
 from anomaly_detection.types import DatasetUtils, ParsingException
+from anomaly_detection.visualize import EvaluationsVisualizer
 from resource_loaders import DECISION_ENGINES, TRANSFORMERS, FEATURE_EXTRACTORS, DATASET_UTILS
 
 
@@ -129,6 +130,8 @@ class CLIParser:
         parser_list_evaluations.add_argument("--id", default=None, help="Filter evaluations by classification id")
         parser_list_evaluations.add_argument("--traffic-name", default="total", help="traffic name selection")
 
+        db_migrate = self._create_subparser("migrate-db", help="Migrates database schema")
+
         hypertune = self._create_subparser(
             "hypertune", help="Hypertunes parameters of decision engine and feature extractor by running "
                               "the train->classify->evaluate pipeline multiple times. "
@@ -138,6 +141,10 @@ class CLIParser:
                                help="Json file that specified which parameters are hypertuned.")
         hypertune.add_argument("--only-index", type=int, required=False, default=None,
                                help="if set, only the n-th hyperparameter configuration will be run.")
+
+        visualize = self._create_subparser("visualize", help="Visualizes evaluations")
+        visualize.add_argument("--model-part-name", required=True)
+        visualize.add_argument("--hyperparameter", required=True)
 
         stats = self._create_subparser("stats", help="Print stats for a dataset")
         self._add_dataset_path_param(stats)
@@ -275,7 +282,7 @@ class CommandExecutor:
 
     def hypertune(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)
-        db = DBConnector(db_path=args.db, init_if_not_exists=True)
+        db = DBConnector(db_path=args.db, init_if_not_exists=False)
         reader = self._get_dataset_reader(args)
         hypertuner = Hypertuner(db, reader, only_index=args.only_index)
         hypertuner.start(args.file)
@@ -291,7 +298,7 @@ class CommandExecutor:
 
     def list_evaluations(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)
-        db = DBConnector(db_path=args.db, init_if_not_exists=True)
+        db = DBConnector(db_path=args.db, init_if_not_exists=False)
         df = db.get_evaluations()
         if args.model is not None:
             df = df[df["model_id"] == args.model]
@@ -308,6 +315,16 @@ class CommandExecutor:
         df["feature_extractor"] = df["feature_extractor"].apply(
             lambda text: str(text)[:10] + ("" if len(text) <= 10 else ".."))
         print(df.to_string())
+
+    def visualize(self, args: argparse.Namespace, unknown: t.Sequence[str]):
+        self._check_unknown_args(unknown, expected_len=0)
+        db = DBConnector(db_path=args.db, init_if_not_exists=False)
+        visualizer = EvaluationsVisualizer(db)
+        visualizer.visualize(args.model_part_name, args.hyperparameter)
+
+    def migrate_db(self, args: argparse.Namespace, unknown: t.Sequence[str]):
+        self._check_unknown_args(unknown, expected_len=0)
+        DBConnector(db_path=args.db, init_if_not_exists=True, migrate_if_needed=True)
 
     def _format_model_dump(self, dump: str) -> str:
         try:
