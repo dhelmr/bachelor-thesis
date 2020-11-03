@@ -56,6 +56,15 @@ class TrafficReader(ABC):
     def __iter__(self) -> t.Iterable[TrafficSequence]:
         raise NotImplementedError()
 
+    def get_train_set_name(self):
+        return self.subset_name
+
+    def get_testset_name(self):
+        return self.subset_name
+
+    @abstractmethod
+    def get_dataset_name(self):
+        raise NotImplementedError()
 
 class FeatureType(Enum):
     INT = 0

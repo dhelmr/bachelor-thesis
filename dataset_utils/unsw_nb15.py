@@ -162,6 +162,15 @@ class UNSWNB15TrafficReader(TrafficReader):
         })
         return parts
 
+    def get_dataset_name(self):
+        return "unsw-nb15"
+
+    def get_train_set_name(self):
+        return ",".join(sorted(self.subset["benign"].keys()))
+
+    def get_testset_name(self):
+        return ",".join(sorted(self.subset["unknown"].keys()))
+
 
 class UNSWNB15Preprocessor(DatasetPreprocessor):
 

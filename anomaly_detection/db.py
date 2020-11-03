@@ -15,10 +15,12 @@ from anomaly_detection.types import ClassificationResults, Features
 
 SCHEMA_CHANGE_NOTES = {
     1: "",
-    2: "Add total_time, packet_read_time, packet_count and is_finished columns to classification_info"
+    2: "Add total_time, packet_read_time, packet_count and is_finished columns to classification_info.",
+    3: "Add is_aggregated and dataset_name columns to the evalations table."
+       " Add train_set_name and dataset column to model table."
 }
 
-DB_SCHEMA_VERSION = 2
+DB_SCHEMA_VERSION = 3
 
 lock = Lock()
 
@@ -83,6 +85,8 @@ class DBConnector:
                     decision_engine TEXT,
                     transformers TEXT,
                     feature_extractor TEXT,
+                    dataset_name TEXT,
+                    train_set_name TEXT,
                     pickle_dump TEXT
                 );
             """)
@@ -108,7 +112,9 @@ class DBConnector:
             c.execute("""
                 CREATE TABLE evaluations (
                     classification_id TEXT REFERENCES classification_info(classification_id),
+                    dataset_name TEXT,
                     traffic_name TEXT,
+                    is_aggregated INT DEFAULT 0,
                     part_name TEXT,
                     precision REAL,
                     balanced_accuracy REAL,
@@ -158,12 +164,14 @@ class DBConnector:
                 sys.exit(1)
 
     def save_model_info(self, model_id: str, decision_engine: str, transformers: t.Sequence[str],
-                        feature_extractor: str, pickle_dump: str):
+                        feature_extractor: str, dataset_name: str, train_set_name: str, pickle_dump: str):
         with self.get_cursor() as c:
             transformer_list = ",".join(transformers)
             c.execute(
-                "INSERT INTO model (model_id, decision_engine, transformers, feature_extractor, pickle_dump) VALUES (?,?,?,?,?);",
-                (model_id, decision_engine, transformer_list, feature_extractor, pickle_dump))
+                "INSERT INTO model (model_id, decision_engine, transformers, feature_extractor, dataset_name,"
+                " train_set_name, pickle_dump) VALUES (?,?,?,?,?,?,?);",
+                (model_id, decision_engine, transformer_list, feature_extractor, dataset_name, train_set_name,
+                 pickle_dump))
 
     def write_custom_model_table(self, model_id, table_name, content):
         table_cols = [
@@ -233,8 +241,9 @@ class DBConnector:
 
     def get_model_infos(self) -> pd.DataFrame:
         with self.get_conn() as conn:
-            df = pd.read_sql_query("SELECT model_id, feature_extractor, transformers, decision_engine FROM model;",
-                                   con=conn, index_col="model_id")
+            df = pd.read_sql_query(
+                "SELECT model_id, feature_extractor, transformers, decision_engine, dataset_name, test_set_name FROM model;",
+                con=conn, index_col="model_id")
         return df
 
     def get_all_classifications(self, with_count=False) -> pd.DataFrame:
@@ -302,18 +311,24 @@ class DBConnector:
                 "INSERT INTO extracted_features (fe_id, traffic_name, pickle_features, model_id) VALUES (?,?,?,?);",
                 (fe_id, traffic_name, pickle_dump, model_id))
 
-    def store_evaluation(self, classification_id, traffic_name, part_name, metrics):
+    def store_evaluation(self, classification_id, traffic_name, part_name, is_aggregated, dataset_name, metrics):
         with self.get_cursor() as c:
-            c.execute(
-                "INSERT INTO evaluations (classification_id, part_name, traffic_name, accuracy, balanced_accuracy, f1_score, false_negatives, false_positives, fdr, fnr, for, fpr, negatives, positives, npv, precision, recall, support, tnr, true_negatives, true_positives, mcc, kappa) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);",
-                (
-                    classification_id, part_name, traffic_name, metrics["accuracy"], metrics["balanced_accuracy"],
-                    metrics["f1_score"],
-                    metrics["false_negatives"], metrics["false_positives"], metrics["fdr"], metrics["fnr"],
-                    metrics["for"],
-                    metrics["fpr"], metrics["negatives"], metrics["positives"], metrics["npv"], metrics["precision"],
-                    metrics["recall"], metrics["support"], metrics["tnr"], metrics["true_negatives"],
-                    metrics["true_positives"], metrics["mcc"], metrics["kappa"]))
+            c.execute("""
+            INSERT INTO evaluations (classification_id, dataset_name, traffic_name, part_name, is_aggregated,
+                accuracy, balanced_accuracy, f1_score, false_negatives, false_positives, fdr, fnr, for, fpr,
+                negatives, positives, npv, precision, recall, support, tnr, true_negatives, true_positives, mcc, kappa)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);
+                """,
+                      (
+                          classification_id, dataset_name, traffic_name, part_name, is_aggregated, metrics["accuracy"],
+                          metrics["balanced_accuracy"],
+                          metrics["f1_score"],
+                          metrics["false_negatives"], metrics["false_positives"], metrics["fdr"], metrics["fnr"],
+                          metrics["for"],
+                          metrics["fpr"], metrics["negatives"], metrics["positives"], metrics["npv"],
+                          metrics["precision"],
+                          metrics["recall"], metrics["support"], metrics["tnr"], metrics["true_negatives"],
+                          metrics["true_positives"], metrics["mcc"], metrics["kappa"]))
 
     def get_evaluations(self):
         with self.get_conn() as conn:
@@ -335,14 +350,22 @@ class DBConnector:
         return df
 
     def migrate(self, old_version, new_version):
+        migrated = False
         with self.get_cursor() as c:
-            if new_version == 2:
+            if new_version >= 2 and old_version < 2:
                 c.execute("ALTER TABLE classification_info ADD COLUMN is_finished INT DEFAULT -1;")
                 c.execute("ALTER TABLE classification_info  ADD COLUMN packet_count INT DEFAULT -1;")
                 c.execute("ALTER TABLE classification_info  ADD COLUMN packet_read_time FLOAT DEFAULT -1;")
                 c.execute("ALTER TABLE classification_info  ADD COLUMN total_time FLOAT DEFAULT -1;")
-            else:
-                raise ValueError("Cannot migrate from database schema version %s to %s" % (old_version, new_version))
+                migrated = True
+            if new_version >= 3 and old_version < 3:
+                c.execute("ALTER TABLE evaluations ADD COLUMN is_aggregated INT DEFAULT 0;")
+                c.execute("ALTER TABLE evaluations ADD COLUMN dataset_name TEXT;")
+                c.execute("ALTER TABLE model ADD COLUMN train_set_name;")
+                c.execute("ALTER TABLE model ADD COLUMN dataset_name;")
+                migrated = True
+        if migrated == False:
+            raise ValueError("Cannot migrate from database schema version %s to %s" % (old_version, new_version))
         # only executed if above migrations where successful
         with self.get_cursor() as c:
             c.execute("UPDATE db_version SET version = ?;", (new_version,))

@@ -53,7 +53,8 @@ class Evaluator:
         if self.report_file is not None:
             self.write_report(json.dumps(
                 evaluation_dict, indent=4, sort_keys=True))
-        self.store_in_db(evaluation_dict, classification_id)
+        self.store_in_db(evaluation_dict, classification_id, self.traffic_reader.get_testset_name(),
+                         self.traffic_reader.get_dataset_name())
         return evaluation_dict
 
     def evaluate_traffic_sequence(self, name, part_name, pred_labels, true_labels):
@@ -136,10 +137,16 @@ class Evaluator:
             f.write(text)
         logging.info("Report written into %s", self.report_file)
 
-    def store_in_db(self, evaluation_dict, classification_id):
+    def store_in_db(self, evaluation_dict, classification_id, testset_name: str, dataset_name: str):
         for part_name, part_evaluations in evaluation_dict.items():
             for sequence_name, metrics in part_evaluations.items():
+                if sequence_name == "total":
+                    sequence_name = testset_name
+                    is_aggregated = True
+                else:
+                    is_aggregated = False
                 try:
-                    self.db.store_evaluation(classification_id, sequence_name, part_name, metrics)
+                    self.db.store_evaluation(classification_id, sequence_name, part_name, is_aggregated, dataset_name,
+                                             metrics)
                 except Exception as e:
                     logging.error("Cannot store %s in db: %s", sequence_name, e)

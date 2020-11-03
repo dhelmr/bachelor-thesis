@@ -36,7 +36,7 @@ class ModelTrainer:
                 self.ad.feature_extractor = previous_model.feature_extractor
                 features_loaded = True
             except Exception as e:
-                logging.error("Features could not be loaded...", e)
+                logging.error("Features could not be loaded...", exc_info=e)
         elif load_features:
             logging.info("Cannot load features from db... Start feature extraction...")
         if not features_loaded:
@@ -47,7 +47,7 @@ class ModelTrainer:
         try:
             self._save_model()
         except Exception as e:
-            logging.error("Could not store model in database: %s ", e)
+            logging.error("Could not store model in database ", exc_info=e)
         if store_features and not features_loaded:
             logging.info("Store extracted features in database...")
             try:
@@ -64,6 +64,8 @@ class ModelTrainer:
         self.db.save_model_info(
             model_id=self.model_id, decision_engine=self.ad.decision_engine.get_name(),
             transformers=transformer_names, feature_extractor=self.ad.feature_extractor.get_name(),
+            dataset_name=self.traffic_reader.get_dataset_name(),
+            train_set_name=self.traffic_reader.get_train_set_name(),
             pickle_dump=pickle_dump)
         self.db.write_custom_model_table(self.model_id,
                                          self.ad.decision_engine.get_name(),

@@ -46,7 +46,9 @@ SMALL_SUBSET = {
         PcapFiles.TUESDAY: [
             (999, 99_999)
         ]
-    }
+    },
+    "test_name": "small",
+    "train_name": "small"
 }
 TINY_SUBSET = {
     "benign": {
@@ -66,14 +68,18 @@ TINY_SUBSET = {
             (99, 1000),
             (2099, 10_000),
         ]
-    }
+    },
+    "test_name": "tiny",
+    "train_name": "tiny"
 }
 
 DEFAULT_SUBSET = {
     "benign": {
         BENIGN_PCAP_FILE: [(0, "end")]
     },
-    "unknown": {pcap_file: [(0, "end")] for pcap_file in PcapFiles if pcap_file is not BENIGN_PCAP_FILE}
+    "unknown": {pcap_file: [(0, "end")] for pcap_file in PcapFiles if pcap_file is not BENIGN_PCAP_FILE},
+    "test_name": "Tuesday, Wednesday, Thursday, Friday",
+    "train_name": "Monday"
 }
 SUBSETS = {
     "default": DEFAULT_SUBSET,
@@ -84,11 +90,14 @@ SUBSETS = {
 for pcap_file in PcapFiles:
     if pcap_file is BENIGN_PCAP_FILE:
         continue
-    SUBSETS[pcap_file.name.lower()] = {
+    name = pcap_file.name.lower()
+    SUBSETS[name] = {
         "benign": {
             BENIGN_PCAP_FILE: [(0, "end")]
         },
-        "unknown": {pcap_file: [(0, "end")]}
+        "unknown": {pcap_file: [(0, "end")]},
+        "test_name": name,
+        "train_name": "Monday"
     }
 
 PCAP_LABEL_FILES = {
@@ -114,6 +123,7 @@ def read_labels_csv(file, nrows=None):
 
 
 class CIC2017TrafficReader(TrafficReader):
+
     def __init__(self, directory: str, subset: str):
         super().__init__(directory, subset)
         if subset not in SUBSETS:
@@ -168,6 +178,15 @@ class CIC2017TrafficReader(TrafficReader):
             for attack_name, attack_ids in attack_parts.items()
         })
         return parts
+
+    def get_dataset_name(self):
+        return "cic-ids-2017"
+
+    def get_train_set_name(self):
+        return self.subset["train_name"]
+
+    def get_testset_name(self):
+        return self.subset["test_name"]
 
 
 def packet_label_file(dataset_path, pcap_file: str):
