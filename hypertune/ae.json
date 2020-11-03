@@ -5,13 +5,16 @@
       "--nf-mode": [
         [
           "subflows_simple",
+          "with_ip"
+        ],
+        [
           "tcp",
+          "subflows_simple",
           "with_ip"
         ]
       ],
       "--flow-timeout": [
-        12,
-        20
+        12
       ],
       "--subflow-timeout": [
         0.5
@@ -22,19 +25,18 @@
     "name": "autoencoder",
     "parameters": {
       "--training-epochs": [
-        50,
         400
       ],
       "--training-batch": [
-        64,
         256
       ],
       "--layers": [
         "*0.8,*0.8,#1",
         "*0.6,*0.8,*0.8,*0.9,#3,#2,#1",
-        "*1.2,*1,2,#1",
         "*2",
-        "*0.5,*0.5,#1"
+        "*2,*1.5,*1.5,#2,#1",
+        "50",
+        "*0.5"
       ],
       "--activation": [
         "relu",

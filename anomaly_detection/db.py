@@ -242,7 +242,7 @@ class DBConnector:
     def get_model_infos(self) -> pd.DataFrame:
         with self.get_conn() as conn:
             df = pd.read_sql_query(
-                "SELECT model_id, feature_extractor, transformers, decision_engine, dataset_name, test_set_name FROM model;",
+                "SELECT model_id, feature_extractor, transformers, decision_engine, dataset_name, train_set_name FROM model;",
                 con=conn, index_col="model_id")
         return df
 
