@@ -13,6 +13,7 @@ from anomaly_detection.classifier import Classifier, CLASSIFICATION_ID_AUTO_GENE
 from anomaly_detection.db import DBConnector
 from anomaly_detection.evaluator import Evaluator
 from anomaly_detection.hypertuner import Hypertuner
+from anomaly_detection.model_info import get_info
 from anomaly_detection.model_trainer import ModelTrainer
 from anomaly_detection.types import DatasetUtils, ParsingException
 from anomaly_detection.visualize import EvaluationsVisualizer
@@ -144,7 +145,11 @@ class CLIParser:
 
         visualize = self._create_subparser("visualize", help="Visualizes evaluations")
         visualize.add_argument("--model-part-name", required=True)
-        visualize.add_argument("--hyperparameter", required=True)
+        visualize.add_argument("--hyperparameter", required=False, default=None)
+        visualize.add_argument("--output-dir", "-o", default=".",
+                               help="Directory where visualizations will be stored into.")
+        visualize.add_argument("--detailed", action="store_true",
+                               help="If set, more information per model is loaded from the db and displayed.")
 
         stats = self._create_subparser("stats", help="Print stats for a dataset")
         self._add_dataset_path_param(stats)
@@ -264,21 +269,13 @@ class CommandExecutor:
     def list_models(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)
         db = DBConnector(db_path=args.db, init_if_not_exists=False)
-        infos = db.get_model_infos()
+
         if args.model is None:
+            infos = db.get_model_infos()
             self._print_dataframe(infos)
         else:
-            model_info = infos[infos.index == args.model]
-            if len(model_info) == 0:
-                logging.error("Not found: %s", args.model)
-                return
-            de_name = model_info["decision_engine"][0]
-            fe_name = model_info["feature_extractor"][0]
-            de_info = db.get_custom_model_info(args.model, de_name)
-            fe_info = db.get_custom_model_info(args.model, fe_name)
-            print(model_info)
-            print(de_info.T)
-            print(fe_info.T)
+            model_info = get_info(db, args.model)
+            print(model_info.pretty())
 
     def hypertune(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)
@@ -319,7 +316,7 @@ class CommandExecutor:
     def visualize(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)
         db = DBConnector(db_path=args.db, init_if_not_exists=False)
-        visualizer = EvaluationsVisualizer(db)
+        visualizer = EvaluationsVisualizer(db, args.output_dir, detailed_info=args.detailed)
         visualizer.visualize(args.model_part_name, args.hyperparameter)
 
     def migrate_db(self, args: argparse.Namespace, unknown: t.Sequence[str]):

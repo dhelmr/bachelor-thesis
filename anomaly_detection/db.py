@@ -338,16 +338,17 @@ class DBConnector:
                 con=conn)
         return df
 
-    def get_evaluations_by_model_param(self, model_part_table_name: str, part_name: str = "all"):
+    def get_evaluations_by_model_param(self, model_part_table_name: str):
         if not self.exists_table(model_part_table_name):
             raise ValueError("Table %s does not exist!" % model_part_table_name)
         with self.get_conn() as c:
             df = pd.read_sql_query(f"""
             SELECT p.*, e.*
             FROM "{model_part_table_name}" p JOIN classification_info c ON p.model_id = c.model_id 
-            JOIN evaluations e ON e.classification_id = c.classification_id WHERE e.part_name = ?""",
-                                   con=c, params=(part_name,))
-        return df
+            JOIN evaluations e ON e.classification_id = c.classification_id WHERE is_aggregated = 1;""",
+                                   con=c)
+        hyperparams = df.columns[:df.columns.tolist().index("classification_id")]
+        return df, hyperparams
 
     def migrate(self, old_version, new_version):
         migrated = False
