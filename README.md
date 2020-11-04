@@ -50,11 +50,11 @@ There are various subcommands:
 ❯ ./main.py --help
 
 usage: main.py [-h]
-               {train,classify,evaluate,list-de,list-classifications,list-fe,preprocess,list-models,list-evaluations,hypertune,stats}
+               {train,classify,evaluate,list-de,list-classifications,list-fe,preprocess,list-models,list-evaluations,migrate-db,hypertune,visualize,stats}
                ...
 
 positional arguments:
-  {train,classify,evaluate,list-de,list-classifications,list-fe,preprocess,list-models,list-evaluations,hypertune,stats}
+  {train,classify,evaluate,list-de,list-classifications,list-fe,preprocess,list-models,list-evaluations,migrate-db,hypertune,visualize,stats}
     train               Creates a classification model from analyzing normal
                         traffic and stores it in the database.
     classify            Feed traffic from a dataset and detect anomalies.
@@ -69,9 +69,11 @@ positional arguments:
                         evaluation afterwards.
     list-models         List available models.
     list-evaluations    Prints evaluations.
+    migrate-db          Migrates database schema
     hypertune           Hypertunes parameters of decision engine and feature
                         extractor by running the train->classify->evaluate
                         pipeline multiple times.
+    visualize           Visualizes evaluations
     stats               Print stats for a dataset
 
 optional arguments:
