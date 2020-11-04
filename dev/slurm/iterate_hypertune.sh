@@ -11,7 +11,11 @@ cd "$BASEDIR/../.." || exit
 
 mkdir -p slurmlogs
 
+START=${START:-0}
 for i in {0..1000}; do
+  if [ $i -lt $START ]; then
+    continue
+  fi
   for f in ./hypertune/activated/*.json; do
     NAME="$f-$i-$ARGS"
     JOB_ARGS=$(echo "--only-index $i -f $f $ARGS" | base64)
