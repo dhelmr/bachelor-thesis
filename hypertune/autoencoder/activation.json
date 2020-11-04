@@ -1,12 +1,8 @@
 {
   "feature_extractor": {
-    "name": "flows",
+    "name": "flow_extractor",
     "parameters": {
       "--nf-mode": [
-        [
-          "subflows_simple",
-          "with_ip"
-        ],
         [
           "tcp",
           "subflows_simple",
@@ -28,31 +24,28 @@
         400
       ],
       "--training-batch": [
-        256
+        64
       ],
       "--layers": [
         "*0.9,*0.8,*0.8,#2,#1",
-        "*2",
-        "*2,*1.5,*1.5,#2,#1",
-        "50",
-        "*0.5",
         "300,200,75,10,75,200,300"
       ],
       "--activation": [
         "relu",
-        "sigmoid"
+        "sigmoid",
+        "tanh",
+        "exponential",
+        "softmax",
+        "selu",
+        "elu"
       ],
       "--loss": [
-        "mse",
-        "mae"
+        "mse"
       ],
       "--dropout-ratio": [
-        0.1,
-        0.2,
-        0.3
+        0.1
       ],
       "--batch-normalization": [
-        "none",
         "after_activation"
       ],
       "--early-stopping-patience": [

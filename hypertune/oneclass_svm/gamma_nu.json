@@ -1,6 +1,6 @@
 {
   "feature_extractor": {
-    "name": "flows",
+    "name": "flow_extractor",
     "parameters": {
       "--nf-mode": [
         [
@@ -22,15 +22,20 @@
     "parameters": {
       "--gamma": [
         0.005,
-        0.01
+        0.001,
+        0.002,
+        0.0001
       ],
       "--kernel": [
-        "rbf"
+        "rbf",
+        "linear"
       ],
       "--nu": [
-        0.001,
+        0.0005,
+        0.0002,
         0.0001,
-        0.000001
+        0.00005,
+        0.00001
       ]
     }
   },

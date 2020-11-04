@@ -4,8 +4,8 @@
     "parameters": {
       "--nf-mode": [
         [
-          "subflows_simple",
           "tcp",
+          "subflows_simple",
           "with_ip"
         ]
       ],
@@ -14,30 +14,6 @@
       ],
       "--subflow-timeout": [
         0.5
-      ],
-      "--w2v-window-size": [
-        5,
-        10
-      ],
-      "--w2v-group-bytes": [
-        1,
-        2,
-        4,
-        8,
-        16
-      ],
-      "--w2v-min-count": [
-        1,
-        2
-      ],
-      "--w2v-training-method": [
-        "cbow",
-        "skip_gram"
-      ],
-      "--w2v-vector-size": [
-        10,
-        20,
-        50
       ]
     }
   },
@@ -45,19 +21,34 @@
     "name": "autoencoder",
     "parameters": {
       "--training-epochs": [
-        200
+        400
       ],
       "--training-batch": [
-        256
+        64
       ],
       "--layers": [
-        "*0.8,*0.8,#1"
+        "*0.9,*0.8,*0.8,#2,#1",
+        "300,200,75,10,75,200,300",
+        "*1.2,*0.7,*0.8,*0.9,*0.9,*0.9,20,#6,#5,#4,#3,#2,#1",
+        "*0.9,*0.9,*0.9,*0.9,*0.9,*0.9,*0.9,*0.9,*0.9,*0.9,*0.9,*0.9,*0.9,#12,#11,#10,#9,#8,#7,#6,#5,#4,#3,#2,#1"
       ],
       "--activation": [
         "relu"
       ],
       "--loss": [
-        "mse"
+        "mse",
+        "mae"
+      ],
+      "--dropout-ratio": [
+        0.05,
+        0.1
+      ],
+      "--batch-normalization": [
+        "none",
+        "after_activation"
+      ],
+      "--early-stopping-patience": [
+        3
       ]
     }
   },

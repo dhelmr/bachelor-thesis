@@ -5,42 +5,36 @@
       "--nf-mode": [
         [
           "subflows_simple",
-          "subflows_detailed",
           "tcp",
           "with_ip"
         ]
       ],
       "--flow-timeout": [
-        20,
-        60
+        12
       ],
       "--subflow-timeout": [
-        2
+        0.5
       ]
     }
   },
   "decision_engine": {
-    "name": "local_outlier_factor",
+    "name": "one_class_svm",
     "parameters": {
-      "--metric": [
-        "minkowski"
+      "--gamma": [
+        0.005
       ],
-      "--minkowski-p": [
-        1,
-        1.5,
-        2,
-        5,
-        0.5
+      "--kernel": [
+        "poly",
+        "sigmoid"
       ],
-      "--algorithm": [
-        "ball_tree",
-        "kd_tree",
-        "brute"
+      "--nu": [
+        0.0001
       ],
-      "--n-neighbors": [
-        5,
-        20,
-        80
+      "--coef0": [
+        0.0,
+        0.1,
+        0.2,
+        1
       ]
     }
   },

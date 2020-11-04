@@ -346,7 +346,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
 
     @staticmethod
     def get_name() -> str:
-        return "flows"
+        return "flow_extractor"
 
     @staticmethod
     def init_parser(parser: argparse.ArgumentParser):
