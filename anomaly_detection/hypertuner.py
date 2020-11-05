@@ -16,6 +16,7 @@ from anomaly_detection.types import TrafficReader
 class HypertuneSettings(dict):
     pass
 
+
 class Hypertuner:
     def __init__(self, db: DBConnector, traffic_reader: TrafficReader, only_index: int = None):
         self.db = db
@@ -32,7 +33,7 @@ class Hypertuner:
 
     def start(self, path: str):
         settings = self._load_file(path)
-        transformers = settings["transformers"]
+        transformer_combinations = self.parse_transformer_combinations(settings)
         fe_name = settings["feature_extractor"]["name"]
         de_name = settings["decision_engine"]["name"]
         # combine all specified parameters
@@ -44,9 +45,12 @@ class Hypertuner:
         for fe_parameter, values in settings["feature_extractor"]["parameters"].items():
             param_lists.append(list(itertools.product([fe_parameter], values)))
 
-        args_product = list(itertools.product(*param_lists))
-        total = len(args_product)
-        for i, args in enumerate(args_product):
+        hyperparam_combinations = list(itertools.product(
+            list(itertools.product(*param_lists)), transformer_combinations)
+        )
+        total = len(hyperparam_combinations)
+        for i, hyperparams in enumerate(hyperparam_combinations):
+            args, transformers = hyperparams
             if self.only_index is not None and self.only_index != i:
                 continue
             # flatten the parameters to a cli-like list
@@ -59,7 +63,18 @@ class Hypertuner:
                     flat_args += [arg[0]] + arg[1]
                 else:
                     flat_args += [arg[0], str(arg[1])]
-            self.exec_hyperparam_config(de_name, fe_name, transformers, flat_args, i, total)
+
+            self.exec_hyperparam_config(de_name, fe_name, transformers, flat_args, 1 + i, total)
+
+    def parse_transformer_combinations(self, settings):
+        json_node = settings["transformers"]
+        if type(json_node) is not list:
+            raise ValueError("Expected transformers definition to be a list, but got: %s" % type(json_node))
+        if len(json_node) == 0 or type(json_node[0]) == str:
+            if sum([0 if type(item) else 1 for item in json_node]) > 0:
+                raise ValueError("Expected a list pure strings, if the first transformer element is a string.")
+            return [json_node]
+        return json_node
 
     def exec_hyperparam_config(self, de_name, fe_name, transformers: List[str], train_args: List[str], i, total):
         try:
@@ -67,8 +82,8 @@ class Hypertuner:
                 de_name=de_name, fe_name=fe_name, args=train_args)
             if len(unknown_args) != 0:
                 raise ValueError("Wrong parameters! %s" % unknown_args)
+            logging.info("Start executing %s/%s: %s; transformers: %s", i, total, train_args, transformers)
             transformers = resource_loaders.build_transformers(transformers)
-            logging.info("Start executing %s/%s: %s", i, total, train_args)
             ad_model = AnomalyDetectorModel(de, fe, transformers)
             model_trainer = ModelTrainer(self.db, self.traffic_reader, ad_model)
 
