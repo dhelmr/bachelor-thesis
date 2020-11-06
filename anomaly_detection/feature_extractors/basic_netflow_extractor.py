@@ -71,26 +71,12 @@ class PacketLengthStats(t.NamedTuple):
     std: float
 
 
-def packet_length_stats(packets: t.List[IPPacket]) -> PacketLengthStats:
-    lengths = [len(ip.data) for _, ip in packets]
-    if len(packets) == 0:
-        return PacketLengthStats(
-            0, 0, 0, 0, 0
-        )
-    return PacketLengthStats(
-        total=sum(lengths),
-        mean=statistics.mean(lengths),
-        min=min(lengths),
-        max=max(lengths),
-        std=statistics.pstdev(lengths)
-    )
-
-
 class FeatureSetMode(Enum):
     SUBFLOWS_DETAILED = "subflows_detailed"
     SUBFLOWS_SIMPLE = "subflows_simple"
     WITH_IP = "with_ip"
     TCP = "tcp"
+    INCLUDE_HEADER_LENGTH = "include_header_length"
 
 
 class BasicNetflowFeatureExtractor(FeatureExtractor):
@@ -323,7 +309,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         else:
             duration = packet_list[-1][0] - packet_list[0][0]
         n_packets = len(packet_list)
-        length_stats = packet_length_stats(packet_list)
+        length_stats = self.packet_length_stats(packet_list)
         ip_stats = self._extract_ip_stats(packet_list)
         if duration == 0:
             packets_per_millisecond = n_packets
@@ -391,8 +377,30 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             params[nf_mode.name] = nf_mode in self.modes
         return params
 
+    def packet_length_stats(self, packets: t.List[IPPacket]) -> PacketLengthStats:
+        if FeatureSetMode.INCLUDE_HEADER_LENGTH in self.modes:
+            lengths = [len(ip) for _, ip in packets]
+        else:
+            # by default, only the IP packet's payload is taken into account
+            lengths = [len(ip.data) for _, ip in packets]
+        if len(packets) == 0:
+            return PacketLengthStats(
+                0, 0, 0, 0, 0
+            )
+        return PacketLengthStats(
+            total=sum(lengths),
+            mean=statistics.mean(lengths),
+            min=min(lengths),
+            max=max(lengths),
+            std=statistics.pstdev(lengths)
+        )
+
 
 def tcp_timeout_on_FIN(packet: IPPacket, flow: NetFlow):
+    """
+    Is used for determining when a TCP flow ends. A TCP flow is closed when a FIN packet is observed, even
+    if the timeout is not yet exceeded.
+    """
     if flow.protocol != TCP:
         return None
     ts, ip = packet
