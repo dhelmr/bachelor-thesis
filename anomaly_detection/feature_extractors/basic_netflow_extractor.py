@@ -19,6 +19,9 @@ IPPacket = t.Tuple[float, dpkt.ip.IP]
 
 
 class FlowIdentifier(t.NamedTuple):
+    """
+    Used for identifying a bi-directional IP-based network flow
+    """
     ip_a: int
     ip_b: int
     port_a: int
@@ -74,9 +77,12 @@ class PacketLengthStats(t.NamedTuple):
 class FeatureSetMode(Enum):
     SUBFLOWS_DETAILED = "subflows_detailed"
     SUBFLOWS_SIMPLE = "subflows_simple"
-    WITH_IP = "with_ip"
+    WITH_IP = "with_ip_addr"
     TCP = "tcp"
     INCLUDE_HEADER_LENGTH = "include_header_length"
+    # the following features are only useful with a OnehotEncoder
+    IP_CATEGORIAL = "ip_categorial"
+    PORT_CATEGORIAL = "port_categorial"
 
 
 class BasicNetflowFeatureExtractor(FeatureExtractor):
@@ -89,6 +95,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         self.subflow_timeout = subflow_timeout
         self.verbose = verbose
         self.modes = modes
+        self.validate()
 
     def fit_extract(self, traffic: TrafficSequence) -> Features:
         return self.extract_features(traffic)
@@ -216,14 +223,14 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             *packet_list_features("forward"),
             *packet_list_features("backward"),
             ("duration", FeatureType.FLOAT),
-            ("src_port", FeatureType.INT),
-            ("dest_port", FeatureType.INT),
+            ("src_port", FeatureType.CATEGORIAL if FeatureSetMode.PORT_CATEGORIAL in self.modes else FeatureType.INT),
+            ("dest_port", FeatureType.CATEGORIAL if FeatureSetMode.PORT_CATEGORIAL in self.modes else FeatureType.INT),
             ("protocol", FeatureType.CATEGORIAL),
         ]
         if FeatureSetMode.WITH_IP in self.modes:
             names_types += [
-                ("src_ip", FeatureType.INT),
-                ("dest_ip", FeatureType.INT)
+                ("src_ip", FeatureType.CATEGORIAL if FeatureSetMode.PORT_CATEGORIAL in self.modes else FeatureType.INT),
+                ("dest_ip", FeatureType.CATEGORIAL if FeatureSetMode.PORT_CATEGORIAL in self.modes else FeatureType.INT)
             ]
         if FeatureSetMode.SUBFLOWS_SIMPLE in self.modes:
             names_types += [
@@ -394,6 +401,11 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             max=max(lengths),
             std=statistics.pstdev(lengths)
         )
+
+    def validate(self):
+        if FeatureSetMode.IP_CATEGORIAL in self.modes and FeatureSetMode.WITH_IP not in self.modes:
+            raise ValueError(
+                f"'{FeatureSetMode.IP_CATEGORIAL.value}' can only be set as a netflow mode if '{FeatureSetMode.WITH_IP.value}' is set as well.")
 
 
 def tcp_timeout_on_FIN(packet: IPPacket, flow: NetFlow):

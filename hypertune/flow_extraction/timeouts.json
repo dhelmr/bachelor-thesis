@@ -4,34 +4,30 @@
     "parameters": {
       "--nf-mode": [
         [
-          "subflows_detailed",
           "tcp",
           "subflows_simple",
-          "with_ip"
-        ],
-        [
-          "tcp",
-          "subflows_simple",
-          "with_ip"
-        ],
-        [
-          "tcp",
-          "subflows_simple"
-        ],
-        [
-          "tcp",
-          "with_ip"
-        ],
-        "tcp",
-        "none"
+          "with_ip_addr"
+        ]
       ],
       "--flow-timeout": [
+        1,
+        2,
         6,
-        12
+        8,
+        10,
+        11,
+        12,
+        16,
+        20,
+        60
       ],
       "--subflow-timeout": [
+        0.2,
         0.5,
-        1
+        0.8,
+        1,
+        1.5,
+        2
       ]
     }
   },

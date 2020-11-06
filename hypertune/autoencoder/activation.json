@@ -6,7 +6,7 @@
         [
           "tcp",
           "subflows_simple",
-          "with_ip"
+          "with_ip_addr"
         ]
       ],
       "--flow-timeout": [
