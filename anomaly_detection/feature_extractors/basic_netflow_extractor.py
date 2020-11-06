@@ -169,12 +169,12 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
     def _make_tcp_features(self, flow: NetFlow, forward_packets: t.Sequence[IPPacket],
                            backward_packets: t.Sequence[IPPacket]):
         if flow.protocol != TCP:
-            return 14 * [0]
+            return 14 * [NOT_APPLICABLE_FEATURE_VALUE]
         features = []
         for pkts in [forward_packets, backward_packets]:
             tcp_packets = [ip_packet.data for _, ip_packet in pkts]
             if len(tcp_packets) == 0:
-                features += 7 * [0]
+                features += 7 * [NOT_APPLICABLE_FEATURE_VALUE]
                 continue
             win_mean = statistics.mean([tcp.win for tcp in tcp_packets])
             total_urg = sum([tcp.flags & dpkt.tcp.TH_URG for tcp in tcp_packets])
@@ -333,7 +333,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
 
     def _extract_ip_stats(self, packet_list: t.List[IPPacket]):
         if len(packet_list) == 0:
-            return [0]
+            return [NOT_APPLICABLE_FEATURE_VALUE]
         ttls = []
         for packet in packet_list:
             _, ip = packet
@@ -341,7 +341,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 continue
             ttls.append(ip.ttl)
         if len(ttls) == 0:
-            return [0]
+            return [NOT_APPLICABLE_FEATURE_VALUE]
         return [sum(ttls) / len(ttls)]
 
     def _extract_time_features(self, packet_list: t.List[IPPacket]):
