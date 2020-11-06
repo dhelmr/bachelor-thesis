@@ -129,7 +129,6 @@ class CLIParser:
         parser_list_evaluations = self._create_subparser("list-evaluations", help="Prints evaluations.")
         parser_list_evaluations.add_argument("--model", "-m", default=None, help="Filter evaluations by model")
         parser_list_evaluations.add_argument("--id", default=None, help="Filter evaluations by classification id")
-        parser_list_evaluations.add_argument("--traffic-name", default="total", help="traffic name selection")
 
         db_migrate = self._create_subparser("migrate-db", help="Migrates database schema")
 
@@ -303,10 +302,12 @@ class CommandExecutor:
             df = df[df["part_name"] == "all"]
         if args.id is not None:
             df = df[df["classification_id"] == args.id]
-        df = df[df["traffic_name"] == args.traffic_name]
-        print(df.columns)
         filter_cols = ["classification_id", "decision_engine", "feature_extractor", "part_name", "precision", "mcc"]
+        df = df[df["is_aggregated"] == 1]
         df = df[filter_cols]
+        if len(df) == 0:
+            print("None")
+            return
         df["decision_engine"] = df["decision_engine"].apply(
             lambda text: str(text)[:10] + ("" if len(text) <= 10 else ".."))
         df["feature_extractor"] = df["feature_extractor"].apply(
