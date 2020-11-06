@@ -64,7 +64,7 @@ class Hypertuner:
                 else:
                     flat_args += [arg[0], str(arg[1])]
 
-            self.exec_hyperparam_config(de_name, fe_name, transformers, flat_args, 1 + i, total)
+            self.exec_hyperparam_config(de_name, fe_name, transformers, flat_args, i, total - 1)
 
     def parse_transformer_combinations(self, settings):
         json_node = settings["transformers"]
