@@ -13,6 +13,9 @@ from dataset_utils.pcap_utils import get_ip_packet
 
 Protocol = int  # see https://en.wikipedia.org/wiki/List_of_IP_protocol_numbers
 TCP = Protocol(6)
+UDP = Protocol(17)
+
+IPPacket = t.Tuple[float, dpkt.ip.IP]
 
 
 class FlowIdentifier(t.NamedTuple):
@@ -35,7 +38,7 @@ class NetFlow(t.NamedTuple):
     dest_port: int
     protocol: Protocol
     start_time: float
-    packets: t.List[Packet]
+    packets: t.List[IPPacket]
     forward_packets_indexes: t.List[int]
     backward_packets_indexes: t.List[int]
 
@@ -45,7 +48,7 @@ class NetFlow(t.NamedTuple):
     def duration(self):
         return self.end_time() - self.start_time
 
-    def add_packet(self, packet: Packet, direction: FlowDirection):
+    def add_packet(self, packet: IPPacket, direction: FlowDirection):
         self.packets.append(packet)
         index = len(self.packets) - 1
         if direction == FlowDirection.BACKWARDS:
@@ -53,7 +56,7 @@ class NetFlow(t.NamedTuple):
         elif direction == FlowDirection.FORWARDS:
             self.forward_packets_indexes.append(index)
 
-    def get_packets_in_direction(self, direction: FlowDirection) -> t.List[Packet]:
+    def get_packets_in_direction(self, direction: FlowDirection) -> t.List[IPPacket]:
         if direction == FlowDirection.FORWARDS:
             return [self.packets[i] for i in self.forward_packets_indexes]
         if direction == FlowDirection.BACKWARDS:
@@ -68,8 +71,8 @@ class PacketLengthStats(t.NamedTuple):
     std: float
 
 
-def packet_length_stats(packets: t.List[Packet]) -> PacketLengthStats:
-    lengths = [len(buf) for ts, buf in packets]
+def packet_length_stats(packets: t.List[IPPacket]) -> PacketLengthStats:
+    lengths = [len(ip.data) for _, ip in packets]
     if len(packets) == 0:
         return PacketLengthStats(
             0, 0, 0, 0, 0
@@ -169,13 +172,13 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             features.append(features_row)
         return Features(data=np.array(features), names=names, types=types)
 
-    def _make_tcp_features(self, flow: NetFlow, forward_packets: t.Sequence[Packet],
-                           backward_packets: t.Sequence[Packet]):
+    def _make_tcp_features(self, flow: NetFlow, forward_packets: t.Sequence[IPPacket],
+                           backward_packets: t.Sequence[IPPacket]):
         if flow.protocol != TCP:
             return 14 * [0]
         features = []
         for pkts in [forward_packets, backward_packets]:
-            tcp_packets = [get_ip_packet(buf).data for _, buf in pkts]
+            tcp_packets = [ip_packet.data for _, ip_packet in pkts]
             if len(tcp_packets) == 0:
                 features += 7 * [0]
                 continue
@@ -265,7 +268,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         names, types = zip(*names_types)
         return list(names), list(types)
 
-    def _extract_sub_flows_features(self, flow: t.List[Packet]):
+    def _extract_sub_flows_features(self, flow: t.List[IPPacket]):
         subflows = self._make_subflows(flow)
         features = [len(subflows)]
         active_times = []
@@ -297,11 +300,11 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         #                  statistics.pstdev(feature_list)]
         return features
 
-    def _make_subflows(self, flow: t.List[Packet]) -> t.List[t.List[Packet]]:
+    def _make_subflows(self, flow: t.List[IPPacket]) -> t.List[t.List[IPPacket]]:
         sub_flows = []
         current_sub_flow = []
         for packet in flow:
-            ts, buf = packet
+            ts, ip = packet
             if len(current_sub_flow) == 0:
                 current_sub_flow.append(packet)
                 continue
@@ -314,7 +317,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         sub_flows.append(current_sub_flow)
         return sub_flows
 
-    def _extract_packet_list_features(self, packet_list: t.List[Packet]):
+    def _extract_packet_list_features(self, packet_list: t.List[IPPacket]):
         if len(packet_list) == 0:
             duration = 0
         else:
@@ -330,13 +333,12 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             bytes_per_millisecond = length_stats.total / duration
         return [*length_stats] + [n_packets, packets_per_millisecond, bytes_per_millisecond] + ip_stats
 
-    def _extract_ip_stats(self, packet_list: t.List[Packet]):
+    def _extract_ip_stats(self, packet_list: t.List[IPPacket]):
         if len(packet_list) == 0:
             return [0]
         ttls = []
         for packet in packet_list:
-            _, buf = packet
-            ip = get_ip_packet(buf)  # TODO refactor with NetFlowGenerator
+            _, ip = packet
             if ip is None:
                 continue
             ttls.append(ip.ttl)
@@ -389,18 +391,19 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             params[nf_mode.name] = nf_mode in self.modes
         return params
 
-def tcp_timeout_on_FIN(packet: Packet, flow: NetFlow):
+
+def tcp_timeout_on_FIN(packet: IPPacket, flow: NetFlow):
     if flow.protocol != TCP:
         return None
-    ts, buf = packet
-    tcp = get_ip_packet(buf).data
+    ts, ip = packet
+    tcp = ip.data
     if type(tcp) is not dpkt.tcp.TCP:
         return None
     return tcp.flags & dpkt.tcp.TH_FIN != 0
 
 
 class NetFlowGenerator:
-    def __init__(self, timeout: int = 10_000, timeout_fn=None):
+    def __init__(self, timeout: int = 10_000, timeout_fn: t.Optional[t.Callable[[IPPacket], bool]] = None):
         self.flows: t.List[NetFlow] = list()
         self.open_flows: t.Dict[FlowIdentifier, int] = dict()
         self.timeout = timeout  # milliseconds
@@ -412,20 +415,21 @@ class NetFlowGenerator:
         if packet_infos is None:
             return None
         flow_id = self.make_flow_id(*packet_infos)
+        ip_packet = (timestamp, packet_infos[0])
         if flow_id not in self.open_flows:
-            flow_index = self.open_flow(packet, flow_id, packet_infos)
+            flow_index = self.open_flow(ip_packet, flow_id, packet_infos)
         else:
             flow_index = self.open_flows[flow_id]
             flow = self.flows[flow_index]
-            if self.is_timeout(packet, flow):
+            if self.is_timeout(ip_packet, flow):
                 self.close_flow(flow_id)
-                flow_index = self.open_flow(packet, flow_id, packet_infos)
+                flow_index = self.open_flow(ip_packet, flow_id, packet_infos)
             else:
                 flow_direction = self.get_packet_direction(packet_infos, flow_id)
-                flow.add_packet(packet, flow_direction)
+                flow.add_packet(ip_packet, flow_direction)
         return flow_index
 
-    def is_timeout(self, packet, flow):
+    def is_timeout(self, packet: IPPacket, flow):
         if self.timeout_fn is None:
             timestamp, _ = packet
             return timestamp - flow.end_time() > self.timeout
@@ -435,14 +439,14 @@ class NetFlowGenerator:
             return timestamp - flow.end_time() > self.timeout
         return is_timeout
 
-    def open_flow(self, packet: Packet, flow_id: FlowIdentifier, packet_infos: t.Tuple) -> int:
+    def open_flow(self, packet: IPPacket, flow_id: FlowIdentifier, packet_infos: t.Tuple) -> int:
         ts, _ = packet
         flow = NetFlow(
-            src_ip=packet_infos[0],
-            dest_ip=packet_infos[1],
-            src_port=packet_infos[2],
-            dest_port=packet_infos[3],
-            protocol=packet_infos[4],
+            src_ip=packet_infos[1],
+            dest_ip=packet_infos[2],
+            src_port=packet_infos[3],
+            dest_port=packet_infos[4],
+            protocol=packet_infos[5],
             start_time=ts,
             packets=[],
             forward_packets_indexes=[],
@@ -472,9 +476,9 @@ class NetFlowGenerator:
         protocol = ip.p
         src_port = get_if_exists(ip.data, key="sport", default=0)
         dest_port = get_if_exists(ip.data, key="dport", default=0)
-        return src_ip, dest_ip, src_port, dest_port, protocol
+        return ip, src_ip, dest_ip, src_port, dest_port, protocol
 
-    def make_flow_id(self, src_ip, dest_ip, src_port, dest_port, protocol) -> FlowIdentifier:
+    def make_flow_id(self, ip_packet, src_ip, dest_ip, src_port, dest_port, protocol) -> FlowIdentifier:
         if src_ip < dest_ip:
             ip_a = src_ip
             ip_b = dest_ip
