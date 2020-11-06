@@ -85,6 +85,9 @@ class FeatureSetMode(Enum):
     PORT_CATEGORIAL = "port_categorial"
 
 
+NOT_APPLICABLE_FEATURE_VALUE = -1
+
+
 class BasicNetflowFeatureExtractor(FeatureExtractor):
 
     def __init__(self, flow_timeout: int = 12, subflow_timeout: int = 0.5, verbose: bool = True,
@@ -143,14 +146,13 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         features = []
         names, types = self._make_flow_names_types()
         for f in tqdm(flows, desc="Extract statistical flow features", disable=(not self.verbose)):
-            duration = f.duration()
             forward_packets = f.get_packets_in_direction(FlowDirection.FORWARDS)
             backward_packets = f.get_packets_in_direction(FlowDirection.BACKWARDS)
             total = self._extract_packet_list_features(f.packets)
             forward = self._extract_packet_list_features(forward_packets)
             backward = self._extract_packet_list_features(backward_packets)
             features_row = total + forward + backward + [
-                duration, f.src_port, f.dest_port, f.protocol]
+                f.src_port, f.dest_port, f.protocol]
             if FeatureSetMode.WITH_IP in self.modes:
                 features_row += [f.src_ip, f.dest_ip]
             if FeatureSetMode.SUBFLOWS_SIMPLE in self.modes:
@@ -198,7 +200,11 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 ("n_packets", FeatureType.INT),
                 ("packets_per_ms", FeatureType.FLOAT),
                 ("bytes_per_ms", FeatureType.FLOAT),
-                ("avg_ttl", FeatureType.FLOAT)
+                ("avg_ttl", FeatureType.FLOAT),
+                ("iat_std", FeatureType.FLOAT),
+                ("iat_min", FeatureType.FLOAT),
+                ("iat_max", FeatureType.FLOAT),
+                ("iat_sum", FeatureType.FLOAT)
             ])
 
         def subflow_features(prefix):
@@ -222,7 +228,6 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             *packet_list_features("total"),
             *packet_list_features("forward"),
             *packet_list_features("backward"),
-            ("duration", FeatureType.FLOAT),
             ("src_port", FeatureType.CATEGORIAL if FeatureSetMode.PORT_CATEGORIAL in self.modes else FeatureType.INT),
             ("dest_port", FeatureType.CATEGORIAL if FeatureSetMode.PORT_CATEGORIAL in self.modes else FeatureType.INT),
             ("protocol", FeatureType.CATEGORIAL),
@@ -318,13 +323,14 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         n_packets = len(packet_list)
         length_stats = self.packet_length_stats(packet_list)
         ip_stats = self._extract_ip_stats(packet_list)
+        time_stats = self._extract_time_features(packet_list)
         if duration == 0:
             packets_per_millisecond = n_packets
             bytes_per_millisecond = length_stats.total
         else:
             packets_per_millisecond = n_packets / duration
             bytes_per_millisecond = length_stats.total / duration
-        return [*length_stats] + [n_packets, packets_per_millisecond, bytes_per_millisecond] + ip_stats
+        return [*length_stats] + [n_packets, packets_per_millisecond, bytes_per_millisecond] + ip_stats + time_stats
 
     def _extract_ip_stats(self, packet_list: t.List[IPPacket]):
         if len(packet_list) == 0:
@@ -338,6 +344,18 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         if len(ttls) == 0:
             return [0]
         return [sum(ttls) / len(ttls)]
+
+    def _extract_time_features(self, packet_list: t.List[IPPacket]):
+        if len(packet_list) <= 1:
+            # inter_arrival_times cannot be calculated if there is only on packet
+            return [NOT_APPLICABLE_FEATURE_VALUE] * 4
+        inter_arrival_times = []
+        last_ts = packet_list[0][0]
+        for ts, packet in packet_list[1:]:
+            inter_arrival_times.append(ts - last_ts)
+            last_ts = ts
+        return [statistics.pstdev(inter_arrival_times),
+                min(inter_arrival_times), max(inter_arrival_times), sum(inter_arrival_times)]
 
     @staticmethod
     def get_name() -> str:
@@ -392,7 +410,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             lengths = [len(ip.data) for _, ip in packets]
         if len(packets) == 0:
             return PacketLengthStats(
-                0, 0, 0, 0, 0
+                *[NOT_APPLICABLE_FEATURE_VALUE] * 5
             )
         return PacketLengthStats(
             total=sum(lengths),
