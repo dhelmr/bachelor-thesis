@@ -151,8 +151,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             total = self._extract_packet_list_features(f.packets)
             forward = self._extract_packet_list_features(forward_packets)
             backward = self._extract_packet_list_features(backward_packets)
-            features_row = total + forward + backward + [
-                f.src_port, f.dest_port, f.protocol]
+            features_row = [f.src_port, f.dest_port, f.protocol] + total + forward + backward
             if FeatureSetMode.WITH_IP in self.modes:
                 features_row += [f.src_ip, f.dest_ip]
             if FeatureSetMode.SUBFLOWS_SIMPLE in self.modes:
@@ -225,12 +224,12 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             ])
 
         names_types = [
-            *packet_list_features("total"),
-            *packet_list_features("forward"),
-            *packet_list_features("backward"),
             ("src_port", FeatureType.CATEGORIAL if FeatureSetMode.PORT_CATEGORIAL in self.modes else FeatureType.INT),
             ("dest_port", FeatureType.CATEGORIAL if FeatureSetMode.PORT_CATEGORIAL in self.modes else FeatureType.INT),
             ("protocol", FeatureType.CATEGORIAL),
+            *packet_list_features("total"),
+            *packet_list_features("forward"),
+            *packet_list_features("backward"),
         ]
         if FeatureSetMode.WITH_IP in self.modes:
             names_types += [
