@@ -6,7 +6,6 @@ import typing as t
 import uuid
 
 import numpy as np
-from tensorflow.python.keras.callbacks import EarlyStopping
 
 tf = None
 keras = None
@@ -164,6 +163,7 @@ class AutoencoderDE(DecisionEngine):
         dim = len(data[0])
         callbacks = []
         if self.early_stopping_patience >= 0:
+            from tensorflow.python.keras.callbacks import EarlyStopping
             callbacks.append(EarlyStopping(patience=self.early_stopping_patience, monitor="loss", mode="min",
                                            restore_best_weights=True))
 
