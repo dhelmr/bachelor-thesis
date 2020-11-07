@@ -80,6 +80,7 @@ class FeatureSetMode(Enum):
     WITH_IP_ADDR = "with_ip_addr"
     TCP = "tcp"
     INCLUDE_HEADER_LENGTH = "include_header_length"
+    HINDSIGHT = "hindsight"
     # the following features are only useful with a OnehotEncoder
     IP_CATEGORIAL = "ip_categorial"
     PORT_CATEGORIAL = "port_categorial"
@@ -98,6 +99,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         self.subflow_timeout = subflow_timeout
         self.verbose = verbose
         self.modes = modes
+        self.hindsight_window = 100
         self.validate()
 
     def fit_extract(self, traffic: TrafficSequence) -> Features:
@@ -145,7 +147,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
     def _extract_flow_features(self, flows: t.List[NetFlow]) -> Features:
         features = []
         names, types = self._make_flow_names_types()
-        for f in tqdm(flows, desc="Extract statistical flow features", disable=(not self.verbose)):
+        for i, f in enumerate(tqdm(flows, desc="Extract statistical flow features", disable=(not self.verbose))):
             forward_packets = f.get_packets_in_direction(FlowDirection.FORWARDS)
             backward_packets = f.get_packets_in_direction(FlowDirection.BACKWARDS)
             total = self._extract_packet_list_features(f.packets)
@@ -163,6 +165,9 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 features_row += subflows_forward + subflows_backward
             if FeatureSetMode.TCP in self.modes:
                 features_row += self._make_tcp_features(f, forward_packets, backward_packets)
+            if FeatureSetMode.HINDSIGHT in self.modes:
+                last_flows = flows[max(0, i - self.hindsight_window):i]
+                features_row += self._make_hindsight_features(f, last_flows)
             features.append(features_row)
         return Features(data=np.array(features), names=names, types=types)
 
@@ -187,6 +192,28 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
 
         # TODO rtt, syn, synack times
         return features
+
+    def _make_hindsight_features(self, flow: NetFlow, last_flows: t.List[NetFlow]):
+        dest_addr_src_port = 0
+        src_addr_dest_port = 0
+        src_addr = 0
+        dest_addr = 0
+        dest_addr_prot = 0
+        src_addr_port = 0
+        for last_flow in last_flows:
+            if last_flow.protocol == flow.protocol and last_flow.src_ip == flow.src_ip:
+                src_addr_port += 1
+            if last_flow.protocol == flow.protocol and last_flow.dest_ip == flow.dest_ip:
+                dest_addr_prot += 1
+            if last_flow.dest_ip == flow.dest_ip:
+                dest_addr += 1
+            if last_flow.src_ip == flow.src_ip:
+                src_addr += 1
+            if last_flow.src_ip == flow.src_ip and last_flow.dest_port == flow.dest_port:
+                src_addr_dest_port += 1
+            if last_flow.dest_ip == flow.dest_ip and last_flow.src_port == flow.src_port:
+                dest_addr_src_port += 1
+        return [dest_addr_src_port, src_addr_dest_port, src_addr, dest_addr, dest_addr_prot, src_addr_port]
 
     def _make_flow_names_types(self):
         def packet_list_features(prefix):
@@ -261,6 +288,15 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 ("tcp_bwd_total_fin", FeatureType.INT),
                 ("tcp_bwd_total_push", FeatureType.INT),
                 ("tcp_bwd_total_rst", FeatureType.INT)
+            ]
+        if FeatureSetMode.HINDSIGHT in self.modes:
+            names_types += [
+                ("hindsight_dest_addr_src_port", FeatureType.INT),
+                ("hindsight_src_addr_dest_port", FeatureType.INT),
+                ("hindsight_src_addr", FeatureType.INT),
+                ("hindsight_dest_addr", FeatureType.INT),
+                ("hindsight_dest_addr_prot", FeatureType.INT),
+                ("hindsight_src_addr_port", FeatureType.INT)
             ]
         names, types = zip(*names_types)
         return list(names), list(types)
