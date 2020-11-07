@@ -77,7 +77,7 @@ class PacketLengthStats(t.NamedTuple):
 class FeatureSetMode(Enum):
     SUBFLOWS_DETAILED = "subflows_detailed"
     SUBFLOWS_SIMPLE = "subflows_simple"
-    WITH_IP = "with_ip_addr"
+    WITH_IP_ADDR = "with_ip_addr"
     TCP = "tcp"
     INCLUDE_HEADER_LENGTH = "include_header_length"
     # the following features are only useful with a OnehotEncoder
@@ -152,7 +152,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             forward = self._extract_packet_list_features(forward_packets)
             backward = self._extract_packet_list_features(backward_packets)
             features_row = [f.src_port, f.dest_port, f.protocol] + total + forward + backward
-            if FeatureSetMode.WITH_IP in self.modes:
+            if FeatureSetMode.WITH_IP_ADDR in self.modes:
                 features_row += [f.src_ip, f.dest_ip]
             if FeatureSetMode.SUBFLOWS_SIMPLE in self.modes:
                 subflows = self._extract_sub_flows_features(f.packets)
@@ -231,7 +231,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             *packet_list_features("forward"),
             *packet_list_features("backward"),
         ]
-        if FeatureSetMode.WITH_IP in self.modes:
+        if FeatureSetMode.WITH_IP_ADDR in self.modes:
             names_types += [
                 ("src_ip", FeatureType.CATEGORIAL if FeatureSetMode.PORT_CATEGORIAL in self.modes else FeatureType.INT),
                 ("dest_ip", FeatureType.CATEGORIAL if FeatureSetMode.PORT_CATEGORIAL in self.modes else FeatureType.INT)
@@ -420,9 +420,9 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         )
 
     def validate(self):
-        if FeatureSetMode.IP_CATEGORIAL in self.modes and FeatureSetMode.WITH_IP not in self.modes:
+        if FeatureSetMode.IP_CATEGORIAL in self.modes and FeatureSetMode.WITH_IP_ADDR not in self.modes:
             raise ValueError(
-                f"'{FeatureSetMode.IP_CATEGORIAL.value}' can only be set as a netflow mode if '{FeatureSetMode.WITH_IP.value}' is set as well.")
+                f"'{FeatureSetMode.IP_CATEGORIAL.value}' can only be set as a netflow mode if '{FeatureSetMode.WITH_IP_ADDR.value}' is set as well.")
 
 
 def tcp_timeout_on_FIN(packet: IPPacket, flow: NetFlow):
