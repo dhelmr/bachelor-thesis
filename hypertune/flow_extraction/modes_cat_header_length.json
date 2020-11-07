@@ -1,0 +1,70 @@
+{
+  "feature_extractor": {
+    "name": "flow_extractor",
+    "parameters": {
+      "--nf-mode": [
+        [
+          "port_categorial",
+          "ip_categorial"
+        ],
+        [
+          "with_ip_addr",
+          "port_categorial",
+          "ip_categorial",
+          "tcp",
+          "subflows_simple"
+        ],
+        [
+          "include_header_length"
+        ],
+        "",
+        [
+          "with_ip_addr",
+          "tcp",
+          "subflows_simple"
+        ]
+      ],
+      "--flow-timeout": [
+        12
+      ],
+      "--subflow-timeout": [
+        0.5
+      ]
+    }
+  },
+  "decision_engine": {
+    "name": "autoencoder",
+    "parameters": {
+      "--training-epochs": [
+        20
+      ],
+      "--training-batch": [
+        64
+      ],
+      "--layers": [
+        "*0.9,*0.8,*0.8,#2,#1"
+      ],
+      "--activation": [
+        "sigmoid"
+      ],
+      "--loss": [
+        "mse"
+      ],
+      "--dropout-ratio": [
+        0.1
+      ],
+      "--batch-normalization": [
+        "after_activation"
+      ],
+      "--early-stopping-patience": [
+        3
+      ]
+    }
+  },
+  "transformers": [
+    "onehot_encoder",
+    "minmax_scaler",
+    "standard_scaler"
+  ],
+  "mode": "grid_search"
+}
