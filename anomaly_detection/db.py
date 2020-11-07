@@ -181,10 +181,12 @@ class DBConnector:
         # TODO check for sqlinjections in content.keys() and table name ??
         with self.get_cursor() as c:
             c.execute(f"""
-                CREATE TABLE IF NOT EXISTS {table_name} ( model_id TEXT PRIMARY KEY REFERENCES model(model_id), {
+                 CREATE TABLE IF NOT EXISTS {table_name} ( model_id TEXT PRIMARY KEY REFERENCES model(model_id), {
             ",".join(["%s %s" % (name, sql_type) for name, sql_type in table_cols])
             });
-            """)
+             """)
+        self.update_hyperparameter_table(table_name, content)
+        with self.get_cursor() as c:
             values = [value if type(value) in [float, int, str, bool]
                       else str(value)
                       for _, value in content.items()]
@@ -201,6 +203,25 @@ class DBConnector:
                 SELECT * FROM {table_name} WHERE model_id = ?;
             """, params=(model_id,), con=conn)
         return df
+
+    def update_hyperparameter_table(self, model_part_name: str, hyperparams: t.Dict[str, t.Any]):
+        if not self.exists_table(model_part_name):
+            raise ValueError("%s does not exist as a table" % model_part_name)
+        with self.get_conn() as c:
+            columns = pd.read_sql_query(f"""
+            PRAGMA table_info({model_part_name});
+            """, con=c)
+        column_names = set(columns["name"].values)
+        must_add = []
+        for hyperparam_name, value in hyperparams.items():
+            if hyperparam_name not in column_names:
+                must_add.append((hyperparam_name, sqlite_type_of(type(value))))
+        with self.get_cursor() as c:
+            for col_name, sqlite_type in must_add:
+                logging.info("Add column %s (type: %s) to table %s", col_name, sqlite_type, model_part_name)
+                c.execute(f"""
+                ALTER TABLE {model_part_name} ADD COLUMN {col_name} {sqlite_type};
+                """)
 
     def load_model(self, model_id: str) -> AnomalyDetectorModel:
         with self.get_conn() as conn:
