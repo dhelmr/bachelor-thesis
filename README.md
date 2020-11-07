@@ -243,3 +243,26 @@ The results of the evaluations can then be viewed in the sqlite database (`class
 
 A standalone netflow generator CLI program can be run with `python netflows.py -r [pcap] -o [features.csv]`. 
 It groups a pcap file's packets into netflows and generated features for each flow.
+
+```
+❯ python netflows.py --help
+
+usage: netflows.py [-h] -p PCAP -o OUTPUT [--flow-timeout FLOW_TIMEOUT]
+                   [--subflow-timeout SUBFLOW_TIMEOUT] [--verbose]
+                   [--nf-mode {subflows_detailed,subflows_simple,with_ip_addr,tcp,include_header_length,hindsight,ip_categorial,port_categorial} [{subflows_detailed,subflows_simple,with_ip_addr,tcp,include_header_length,hindsight,ip_categorial,port_categorial} ...]]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -p PCAP, --pcap PCAP  Pcap file to read
+  -o OUTPUT, --output OUTPUT
+                        CSV output file to write
+  --flow-timeout FLOW_TIMEOUT
+                        Flow timeout in milliseconds
+  --subflow-timeout SUBFLOW_TIMEOUT
+                        Activity timeout (for subflows) in milliseconds
+  --verbose
+  --nf-mode {subflows_detailed,subflows_simple,with_ip_addr,tcp,include_header_length,hindsight,ip_categorial,port_categorial} [{subflows_detailed,subflows_simple,with_ip_addr,tcp,include_header_length,hindsight,ip_categorial,port_categorial} ...]
+                        Feature Selection Modes
+
+```
+

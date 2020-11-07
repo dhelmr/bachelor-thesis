@@ -150,3 +150,7 @@ The results of the evaluations can then be viewed in the sqlite database (`class
 
 A standalone netflow generator CLI program can be run with `python netflows.py -r [pcap] -o [features.csv]`. 
 It groups a pcap file's packets into netflows and generated features for each flow.
+
+```
+$(python netflows.py --help)
+```
