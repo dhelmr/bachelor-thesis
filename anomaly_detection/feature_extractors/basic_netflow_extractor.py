@@ -174,21 +174,43 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
     def _make_tcp_features(self, flow: NetFlow, forward_packets: t.Sequence[IPPacket],
                            backward_packets: t.Sequence[IPPacket]):
         if flow.protocol != TCP:
-            return 14 * [NOT_APPLICABLE_FEATURE_VALUE]
+            return 19 * [NOT_APPLICABLE_FEATURE_VALUE]
         features = []
         for pkts in [forward_packets, backward_packets]:
             tcp_packets = [ip_packet.data for _, ip_packet in pkts]
             if len(tcp_packets) == 0:
-                features += 7 * [NOT_APPLICABLE_FEATURE_VALUE]
+                features += 8 * [NOT_APPLICABLE_FEATURE_VALUE]
                 continue
             win_mean = statistics.mean([tcp.win for tcp in tcp_packets])
-            total_urg = sum([tcp.flags & dpkt.tcp.TH_URG for tcp in tcp_packets])
-            total_syn = sum([tcp.flags & dpkt.tcp.TH_SYN for tcp in tcp_packets])
-            total_ack = sum([tcp.flags & dpkt.tcp.TH_ACK for tcp in tcp_packets])
-            total_fin = sum([tcp.flags & dpkt.tcp.TH_FIN for tcp in tcp_packets])
-            total_push = sum([tcp.flags & dpkt.tcp.TH_PUSH for tcp in tcp_packets])
-            total_rst = sum([tcp.flags & dpkt.tcp.TH_RST for tcp in tcp_packets])
-            features += [win_mean, total_urg, total_syn, total_ack, total_fin, total_push, total_rst]
+            total_urg = sum([1 if tcp.flags & dpkt.tcp.TH_URG != 0 else 0 for tcp in tcp_packets])
+            total_syn = sum([1 if is_tcp_syn(tcp) else 0 for tcp in tcp_packets])
+            total_syn_ack = sum([1 if is_tcp_syn_ack(tcp) else 0 for tcp in tcp_packets])
+            total_ack = sum([1 if is_tcp_ack(tcp) else 0 for tcp in tcp_packets])
+            total_fin = sum([1 if tcp.flags & dpkt.tcp.TH_FIN != 0 else 0 for tcp in tcp_packets])
+            total_push = sum([1 if tcp.flags & dpkt.tcp.TH_PUSH != 0 else 0 for tcp in tcp_packets])
+            total_rst = sum([1 if tcp.flags & dpkt.tcp.TH_RST != 0 else 0 for tcp in tcp_packets])
+            features += [win_mean, total_urg, total_syn, total_syn_ack, total_ack, total_fin, total_push, total_rst]
+
+        ts_syn = -1
+        ts_syn_ack = -1
+        ts_ack = -1
+        syn_from = None
+        for ts, ip_packet in flow.packets:
+            tcp = ip_packet.data
+            if is_tcp_syn(tcp) and ts_syn == -1:
+                ts_syn = ts
+                syn_from = (ip_packet.src, tcp.sport)
+            if is_tcp_syn_ack(tcp) and ts_syn != -1 and ts_syn_ack == -1 and (ip_packet.dst, tcp.dport) == syn_from:
+                ts_syn_ack = ts
+            if is_tcp_ack(tcp) and ts_syn != -1 and ts_syn_ack != -1 and ts_ack == -1 and (
+                    ip_packet.src, tcp.sport) == syn_from:
+                ts_ack = ts
+                break
+        features += [
+            (ts_syn_ack - ts_syn) if ts_syn != -1 and ts_ack != -1 else NOT_APPLICABLE_FEATURE_VALUE,
+            (ts_ack - ts_syn_ack) if ts_ack != -1 and ts_ack != -1 else NOT_APPLICABLE_FEATURE_VALUE,
+            (ts_ack - ts_syn) if ts_ack != -1 and ts_syn != -1 else NOT_APPLICABLE_FEATURE_VALUE
+        ]
 
         # TODO rtt, syn, synack times
         return features
@@ -277,6 +299,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 ("tcp_fwd_win_mean", FeatureType.FLOAT),
                 ("tcp_fwd_total_urg", FeatureType.INT),
                 ("tcp_fwd_total_syn", FeatureType.INT),
+                ("tcp_fwd_total_syn_ack", FeatureType.INT),
                 ("tcp_fwd_total_ack", FeatureType.INT),
                 ("tcp_fwd_total_fin", FeatureType.INT),
                 ("tcp_fwd_total_push", FeatureType.INT),
@@ -284,10 +307,14 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 ("tcp_bwd_win_mean", FeatureType.FLOAT),
                 ("tcp_bwd_total_urg", FeatureType.INT),
                 ("tcp_bwd_total_syn", FeatureType.INT),
+                ("tcp_bwd_total_syn_ack", FeatureType.INT),
                 ("tcp_bwd_total_ack", FeatureType.INT),
                 ("tcp_bwd_total_fin", FeatureType.INT),
                 ("tcp_bwd_total_push", FeatureType.INT),
-                ("tcp_bwd_total_rst", FeatureType.INT)
+                ("tcp_bwd_total_rst", FeatureType.INT),
+                ("tcp_syn_synack", FeatureType.FLOAT),
+                ("tcp_synack_ack", FeatureType.FLOAT),
+                ("tcp_rtt", FeatureType.FLOAT)
             ]
         if FeatureSetMode.HINDSIGHT in self.modes:
             names_types += [
@@ -323,14 +350,6 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 continue
             features += [len(time_list), min(time_list), max(time_list), sum(time_list), statistics.pstdev(time_list),
                          statistics.mean(time_list)]
-        # TODO this seems to result in garbage
-        # subflow_features = [self._extract_packet_list_features(subflow) for subflow in subflows]
-        # by_features = list(zip(*subflow_features))
-        # for feature_list in by_features:
-        #     if len(feature_list) == 0:
-        #         features += [0, 0, 0, 0]
-        #     features += [max(feature_list), min(feature_list), statistics.mean(feature_list),
-        #                  statistics.pstdev(feature_list)]
         return features
 
     def _make_subflows(self, flow: t.List[IPPacket]) -> t.List[t.List[IPPacket]]:
@@ -576,3 +595,15 @@ def get_if_exists(obj, key, default):
         return obj[key]
     else:
         return default
+
+
+def is_tcp_syn(tcp: dpkt.tcp.TCP):
+    return tcp.flags & dpkt.tcp.TH_SYN != 0 and tcp.flags & dpkt.tcp.TH_ACK == 0
+
+
+def is_tcp_syn_ack(tcp: dpkt.tcp.TCP):
+    return tcp.flags & dpkt.tcp.TH_SYN != 0 and tcp.flags & dpkt.tcp.TH_ACK != 0
+
+
+def is_tcp_ack(tcp: dpkt.tcp.TCP):
+    return tcp.flags & dpkt.tcp.TH_SYN == 0 and tcp.flags & dpkt.tcp.TH_ACK != 0
