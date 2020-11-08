@@ -75,8 +75,7 @@ class PacketLengthStats(t.NamedTuple):
 
 
 class FeatureSetMode(Enum):
-    SUBFLOWS_DETAILED = "subflows_detailed"
-    SUBFLOWS_SIMPLE = "subflows_simple"
+    SUBFLOWS = "subflows"
     WITH_IP_ADDR = "with_ip_addr"
     TCP = "tcp"
     INCLUDE_HEADER_LENGTH = "include_header_length"
@@ -156,13 +155,11 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             features_row = [f.src_port, f.dest_port, f.protocol] + total + forward + backward
             if FeatureSetMode.WITH_IP_ADDR in self.modes:
                 features_row += [f.src_ip, f.dest_ip]
-            if FeatureSetMode.SUBFLOWS_SIMPLE in self.modes:
+            if FeatureSetMode.SUBFLOWS in self.modes:
                 subflows = self._extract_sub_flows_features(f.packets)
-                features_row += subflows
-            if FeatureSetMode.SUBFLOWS_DETAILED in self.modes:
                 subflows_forward = self._extract_sub_flows_features(forward_packets)
                 subflows_backward = self._extract_sub_flows_features(backward_packets)
-                features_row += subflows_forward + subflows_backward
+                features_row += subflows + subflows_forward + subflows_backward
             if FeatureSetMode.TCP in self.modes:
                 features_row += self._make_tcp_features(f, forward_packets, backward_packets)
             if FeatureSetMode.HINDSIGHT in self.modes:
@@ -285,12 +282,9 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 ("src_ip", FeatureType.CATEGORIAL if FeatureSetMode.PORT_CATEGORIAL in self.modes else FeatureType.INT),
                 ("dest_ip", FeatureType.CATEGORIAL if FeatureSetMode.PORT_CATEGORIAL in self.modes else FeatureType.INT)
             ]
-        if FeatureSetMode.SUBFLOWS_SIMPLE in self.modes:
+        if FeatureSetMode.SUBFLOWS in self.modes:
             names_types += [
-                *subflow_features("subflows")
-            ]
-        if FeatureSetMode.SUBFLOWS_DETAILED in self.modes:
-            names_types += [
+                *subflow_features("subflows"),
                 *subflow_features("subflows_fwd"),
                 *subflow_features("subflows_bwd")
             ]
@@ -440,7 +434,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
     def get_id(self) -> str:
         modes = sorted([m.value for m in self.modes])
         id_parts = [self.get_name(), "timeout=" + str(self.flow_timeout)]
-        if FeatureSetMode.SUBFLOWS_SIMPLE in self.modes or FeatureSetMode.SUBFLOWS_DETAILED in self.modes:
+        if FeatureSetMode.SUBFLOWS in self.modes:
             # information about subflows must only be displayed if subflows are actually used
             sf_part = f", sf_timeout={self.subflow_timeout}"
         else:
