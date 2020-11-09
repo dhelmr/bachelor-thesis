@@ -5,7 +5,7 @@
       "--nf-mode": [
         [
           "tcp",
-          "subflows_simple",
+          "subflows",
           "with_ip_addr",
           "hindsight"
         ]

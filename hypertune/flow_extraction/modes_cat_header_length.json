@@ -12,7 +12,7 @@
           "port_categorial",
           "ip_categorial",
           "tcp",
-          "subflows_simple"
+          "subflows"
         ],
         [
           "include_header_length"
@@ -21,7 +21,7 @@
         [
           "with_ip_addr",
           "tcp",
-          "subflows_simple"
+          "subflows"
         ]
       ],
       "--flow-timeout": [

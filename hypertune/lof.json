@@ -4,8 +4,7 @@
     "parameters": {
       "--nf-mode": [
         [
-          "subflows_simple",
-          "subflows_detailed",
+          "subflows",
           "tcp",
           "with_ip_addr"
         ]
