@@ -1,0 +1,53 @@
+{
+  "feature_extractor": {
+    "name": "flow_extractor",
+    "parameters": {
+      "--nf-mode": [
+        [
+          "subflows",
+          "tcp",
+          "with_ip_addr"
+        ],
+        [
+          "subflows",
+          "tcp",
+          "with_ip_addr",
+          "hindsight",
+          "port_categorial"
+        ]
+      ],
+      "--flow-timeout": [
+        12
+      ],
+      "--subflow-timeout": [
+        0.5
+      ]
+    }
+  },
+  "decision_engine": {
+    "name": "one_class_svm",
+    "parameters": {
+      "--gamma": [
+        0.005
+      ],
+      "--kernel": [
+        "sigmoid"
+      ],
+      "--nu": [
+        0.0001
+      ]
+    }
+  },
+  "transformers": [
+    [
+      "onehot_encoder",
+      "minmax_scaler",
+      "standard_scaler"
+    ],
+    [
+      "minmax_scaler",
+      "standard_scaler"
+    ]
+  ],
+  "mode": "grid_search"
+}
