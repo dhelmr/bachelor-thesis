@@ -157,9 +157,9 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 features_row += [f.src_ip, f.dest_ip]
             if FeatureSetMode.SUBFLOWS in self.modes:
                 subflows = self._extract_sub_flows_features(f.packets)
-                subflows_forward = self._extract_sub_flows_features(forward_packets)
-                subflows_backward = self._extract_sub_flows_features(backward_packets)
-                features_row += subflows + subflows_forward + subflows_backward
+                # subflows_forward = self._extract_sub_flows_features(forward_packets)
+                # subflows_backward = self._extract_sub_flows_features(backward_packets)
+                features_row += subflows  # + subflows_forward + subflows_backward
             if FeatureSetMode.TCP in self.modes:
                 features_row += self._make_tcp_features(f, forward_packets, backward_packets)
             if FeatureSetMode.HINDSIGHT in self.modes:
