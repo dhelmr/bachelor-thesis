@@ -1,7 +1,7 @@
 import csv
 import datetime
+import itertools
 import logging
-import math
 from abc import ABC, abstractmethod
 from typing import Tuple, Any, List, Set, Sequence
 
@@ -74,12 +74,18 @@ class PacketLabelAssociator(ABC):
 
         timestamp = round(timestamp)
         potential_attack_flows = attack_flows.loc[attack_flows.index.isin(flow_ids)]
-        attacks = potential_attack_flows["attack"].values[0]
-        benigns = potential_attack_flows["benign"].values[0]
-        if type(attacks) is float and math.isnan(attacks):
-            return TrafficType.BENIGN, flow_ids, None
-        if type(benigns) is float and math.isnan(benigns):
-            benigns = []
+        # attacks = potential_attack_flows["attack"].values
+        # if len(attacks) != 1:
+        #     raise RuntimeError("Unexpected length of selected attack flows for %s (len: %s)", flow_ids, len(attacks))
+        # attacks = attacks[0]
+        # benigns = potential_attack_flows["benign"].values
+        # if len(benigns) != 1:
+        #     raise RuntimeError("Unexpected length of selected benign flows for %s (len: %s)", flow_ids, len(benigns))
+        # benigns = benigns[0]
+        attacks = list(sorted(itertools.chain(*(potential_attack_flows["attack"].dropna().values.tolist())),
+                              key=lambda item: item[0]))
+        benigns = list(sorted(itertools.chain(*(potential_attack_flows["benign"].dropna().values.tolist())),
+                              key=lambda item: item[0]))
 
         timestamp = datetime.datetime.utcfromtimestamp(timestamp)
         attack_info = self.is_attack(timestamp, attacks, benigns)
