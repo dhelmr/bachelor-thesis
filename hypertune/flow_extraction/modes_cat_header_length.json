@@ -36,7 +36,7 @@
     "name": "autoencoder",
     "parameters": {
       "--training-epochs": [
-        20
+        400
       ],
       "--training-batch": [
         64
@@ -51,13 +51,13 @@
         "mse"
       ],
       "--dropout-ratio": [
-        0.1
+        -1
       ],
       "--batch-normalization": [
         "after_activation"
       ],
       "--early-stopping-patience": [
-        3
+        -1
       ]
     }
   },
