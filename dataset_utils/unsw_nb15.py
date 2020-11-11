@@ -282,6 +282,8 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
             if stats_packet_count != true_total_packets:
                 logging.error("Expected stats to have %s packets of attack %s; but got %s!", true_total_packets,
                               stats_name, stats_packet_count)
+            else:
+                logging.info("%s as expected (%s packets)", stats_name, stats_packet_count)
         logging.info("Expected %s attack packet; got %s", total_attack_count, total_stats_count)
 
 
