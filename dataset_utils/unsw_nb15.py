@@ -263,6 +263,8 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
             _read_flow_labels_csv(os.path.join(dataset_path, CSV_FOLDER, csv), column_names)
             for csv in CSV_FILES
         ], ignore_index=True)
+        total_attack_count = 0
+        total_stats_count = 0
         for attack in true_labels[FlowCsvColumns.ATTACK_CATEGORY.value].unique():
             if type(attack) is not str:
                 continue
@@ -275,9 +277,12 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
                 FlowCsvColumns.DEST_PKT_COUNT.value]
             true_total_packets = pkts_per_flow.sum()
             stats_packet_count = int(stats[stats_name].sum())
+            total_attack_count += true_total_packets
+            total_stats_count += stats_packet_count
             if stats_packet_count != true_total_packets:
-                logging.error("Expected stats to have %s packets of attack %s; but only got %s!", true_total_packets,
+                logging.error("Expected stats to have %s packets of attack %s; but got %s!", true_total_packets,
                               stats_name, stats_packet_count)
+        logging.info("Expected %s attack packet; got %s", total_attack_count, total_stats_count)
 
 
 def iter_pcaps(dataset_path: str, skip_not_found=True, yield_relative=False):
