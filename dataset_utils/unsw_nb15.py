@@ -55,11 +55,14 @@ class FlowCsvColumns(Enum):
     SRC_PORT = "sport"
     DEST_IP = "dstip"
     DEST_PORT = "dsport"
+    SOURCE_PKT_COUNT = "Spkts"
+    DEST_PKT_COUNT = "Dpkts"
     START_TIME = "Stime"
     PROTOCOL = "proto"
     END_TIME = "Ltime"
     ATTACK_CATEGORY = "attack_cat"
     LABEL = "Label"
+    ""
 
 
 class UNSWNB15TrafficReader(TrafficReader):
@@ -178,6 +181,7 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
         parser = argparse.ArgumentParser()
         parser.add_argument("--only-ranges", required=False, action="store_true")
         parser.add_argument("--only-stats", action="store_true", help="Only make stats")
+        parser.add_argument("--only-validate", action="store_true", help="Only validate")
         parsed = parser.parse_args(args)
         if parsed.only_stats == True and parsed.only_ranges == True:
             raise ValueError("--only-stats and --only-ranges cannot be specified at the same time.")
@@ -185,19 +189,21 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
 
     def preprocess(self, dataset_path: str, additional_args):
         parsed = self._parse_args(additional_args)
-        if parsed.only_ranges != True and parsed.only_stats != True:
+        if parsed.only_ranges == False and parsed.only_stats == False and parsed.only_validate == False:
             label_associator = UNSWNB15LabelAssociator(dataset_path)
             for pcap in iter_pcaps(dataset_path, yield_relative=True):
                 logging.info("Make ranges for %s" % pcap)
                 full_path = os.path.join(dataset_path, pcap)
                 label_associator.associate_pcap_labels(full_path, packet_id_prefix=pcap)
 
-        if parsed.only_stats != True:
+        if parsed.only_stats != True and parsed.only_validate != True:
             ranges = self._make_ranges(dataset_path)
             ranges_path = os.path.join(dataset_path, RANGES_FILE)
             with open(ranges_path, "w") as f:
                 json.dump(ranges, f)
-        self._make_stats(dataset_path)
+        if parsed.only_validate == False:
+            self._make_stats(dataset_path)
+        self._validate(dataset_path)
 
     def _make_ranges(self, dataset_path) -> dict:
         ranges = {
@@ -249,6 +255,29 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
             })
             data.append(pcap_info)
         pandas.DataFrame(data).set_index("pcap").to_csv(output_file)
+
+    def _validate(self, dataset_path):
+        stats = get_stats(dataset_path)
+        column_names = load_column_names(os.path.join(dataset_path, CSV_FOLDER, CSV_FEATURE_NAMES_FILE))
+        true_labels = pandas.concat([
+            _read_flow_labels_csv(os.path.join(dataset_path, CSV_FOLDER, csv), column_names)
+            for csv in CSV_FILES
+        ], ignore_index=True)
+        for attack in true_labels[FlowCsvColumns.ATTACK_CATEGORY.value].unique():
+            if type(attack) is not str:
+                continue
+            stats_name = attack.strip().lower()
+            if stats_name not in stats.columns:
+                logging.error("Attack %s is not found in stats!", stats_name)
+                continue
+            filtered = true_labels[true_labels[FlowCsvColumns.ATTACK_CATEGORY.value] == attack]
+            pkts_per_flow = filtered[FlowCsvColumns.SOURCE_PKT_COUNT.value] + filtered[
+                FlowCsvColumns.DEST_PKT_COUNT.value]
+            true_total_packets = pkts_per_flow.sum()
+            stats_packet_count = int(stats[stats_name].sum())
+            if stats_packet_count != true_total_packets:
+                logging.error("Expected stats to have %s packets of attack %s; but only got %s!", true_total_packets,
+                              stats_name, stats_packet_count)
 
 
 def iter_pcaps(dataset_path: str, skip_not_found=True, yield_relative=False):
@@ -312,28 +341,11 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
         return datetime.datetime.utcfromtimestamp(epoch_time)
 
     def _load_attack_flows(self, dataset_path):
-        column_names = self._load_column_names(os.path.join(dataset_path, CSV_FOLDER, CSV_FEATURE_NAMES_FILE))
-        flow_features = pandas.concat([
-            self._read_flow_labels_csv(os.path.join(dataset_path, CSV_FOLDER, csv), column_names)
+        column_names = load_column_names(os.path.join(dataset_path, CSV_FOLDER, CSV_FEATURE_NAMES_FILE))
+        df = pandas.concat([
+            _read_flow_labels_csv(os.path.join(dataset_path, CSV_FOLDER, csv), column_names)
             for csv in CSV_FILES
         ], ignore_index=True)
-        flow_features.set_index(COL_FLOW_ID, inplace=True)
-        self._validate_flow_infos(flow_features)
-        return self.find_attack_flows(flow_features)
-
-    def _read_flow_labels_csv(self, csv_file, column_names, nrows=None, encoding=None) -> pandas.DataFrame:
-        logging.debug("Read flow features from %s", csv_file)
-        if encoding is None:
-            ip_pattern = re.compile("^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
-            encoding = get_encoding_for_csv(csv_file, lambda df: ip_pattern.match(df[0][0]))
-            if encoding is None:
-                logging.warning("Cannot determine encoding for %s; use utf_8", csv_file)
-                encoding = "utf_8"
-        df = pandas.read_csv(csv_file, sep=",", low_memory=False, header=None, names=column_names,
-                             encoding=encoding, nrows=nrows)
-        df.dropna(how="all", inplace=True)  # drop all empty rows (some csv are miss-formatted)
-        df[COL_TRAFFIC_TYPE] = df[FlowCsvColumns.LABEL.value].apply(label_to_traffic_type)
-        # make flow ids
         proto_as_numbers = df[FlowCsvColumns.PROTOCOL.value].apply(self.proto_to_number)
         df[COL_FLOW_ID] = df[FlowCsvColumns.SRC_IP.value] + "-" + df[FlowCsvColumns.DEST_IP.value] + "-" + \
                           df[FlowCsvColumns.SRC_PORT.value].astype(str) + "-" + df[
@@ -346,12 +358,9 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
         df[COL_START_TIME] = df[FlowCsvColumns.START_TIME.value]
         df[COL_INFO] = df[FlowCsvColumns.ATTACK_CATEGORY.value]
         self.drop_non_required_cols(df)
-        return df
-
-    def _load_column_names(self, csv_file):
-        df = pandas.read_csv(csv_file, sep=",", encoding="latin1")
-        column_names = [row[FEATURE_NAME_COLUMN_FIELD].strip() for _, row in df.iterrows()]
-        return column_names
+        df.set_index(COL_FLOW_ID, inplace=True)
+        self._validate_flow_infos(df)
+        return self.find_attack_flows(df)
 
     def proto_to_number(self, p_name):
         """
@@ -368,10 +377,36 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
                 return ""
 
 
-def print_stats(dataset_path):
+def get_stats(dataset_path):
     csv_path = os.path.join(dataset_path, "attack_stats.csv")
     df = pandas.read_csv(csv_path, index_col="pcap")
+    return df
+
+
+def print_stats(dataset_path):
+    df = get_stats(dataset_path)
     print(df)
+
+
+def load_column_names(csv_file):
+    df = pandas.read_csv(csv_file, sep=",", encoding="latin1")
+    column_names = [row[FEATURE_NAME_COLUMN_FIELD].strip() for _, row in df.iterrows()]
+    return column_names
+
+
+def _read_flow_labels_csv(csv_file, column_names, nrows=None, encoding=None) -> pandas.DataFrame:
+    logging.debug("Read flow features from %s", csv_file)
+    if encoding is None:
+        ip_pattern = re.compile("^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
+        encoding = get_encoding_for_csv(csv_file, lambda df: ip_pattern.match(df[0][0]))
+        if encoding is None:
+            logging.warning("Cannot determine encoding for %s; use utf_8", csv_file)
+            encoding = "utf_8"
+    df = pandas.read_csv(csv_file, sep=",", low_memory=False, header=None, names=column_names,
+                         encoding=encoding, nrows=nrows)
+    df.dropna(how="all", inplace=True)  # drop all empty rows (some csv are miss-formatted)
+    df[COL_TRAFFIC_TYPE] = df[FlowCsvColumns.LABEL.value].apply(label_to_traffic_type)
+    return df
 
 
 UNSWNB15 = DatasetUtils(os.path.join("data", "unsw-nb15"), UNSWNB15TrafficReader, UNSWNB15Preprocessor, print_stats)

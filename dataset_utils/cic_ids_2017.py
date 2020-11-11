@@ -302,10 +302,13 @@ class CICIDS2017LabelAssociator(PacketLabelAssociator):
         else:
             return TrafficType.ATTACK, label
 
-
-def print_stats(dataset_path):
+def get_stats(dataset_path):
     csv_path = os.path.join(dataset_path, "attack_stats.csv")
     df = pandas.read_csv(csv_path, index_col="pcap")
+    return df
+
+def print_stats(dataset_path):
+    df = get_stats(dataset_path)
     with pandas.option_context('float_format', '{:10.0f}'.format):
         df["fraction_attacks"] = df["fraction_attacks"].apply(lambda frac: f"{(frac * 100):3.3f}%")
         print(df.T.replace(np.nan, '0', regex=True))
