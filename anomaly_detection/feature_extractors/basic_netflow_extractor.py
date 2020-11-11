@@ -284,9 +284,9 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             ]
         if FeatureSetMode.SUBFLOWS in self.modes:
             names_types += [
-                *subflow_features("subflows"),
-                *subflow_features("subflows_fwd"),
-                *subflow_features("subflows_bwd")
+                *subflow_features("subflows")
+                #          *subflow_features("subflows_fwd"),
+                #           *subflow_features("subflows_bwd")
             ]
         if FeatureSetMode.TCP in self.modes:
             names_types += [
