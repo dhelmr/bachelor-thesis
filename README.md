@@ -12,6 +12,7 @@ Note: This repository is **work in progress**.
    1. [CIC-IDS-2017](#cic-ids-2017)
    1. [UNSW-NB-15](#unsw-nb-15)
    1. [Preprocessing](#preprocessing)
+   1. [Docker](#docker)
 1. [Usage](#usage)
    1. [List decision engines and feature extractors](#list-decision-engines-and-feature-extractors)
    1. [Simulate traffic, detect anomalies and create evaluation report](#simulate-traffic-detect-anomalies-and-create-evaluation-report)
@@ -59,8 +60,22 @@ drwxr-xr-x 3 daniel users    4096 17. Okt 10:44 'UNSW-NB15 - CSV Files'/
 Afterwards, the datasets must be preprocessed once: 
 
 ```
-❯  ./main.py preprocess --dataset cic-ids-2017 
-❯  ./main.py preprocess --dataset unsw-nb15
+❯  bin/run_canids preprocess --dataset cic-ids-2017 
+❯  bin/run_canids preprocess --dataset unsw-nb15
+```
+
+## Docker
+
+You can also build a docker image to run the commands of the next sections inside a container:
+
+```
+❯ docker build . -t canids:latest -f docker/Dockerfile
+```
+
+In order to run, the data directory must be mounted inside the container:
+
+```
+docker run -v (pwd)/data:/data -it canids [CMDS]
 ```
 
 # Usage
@@ -68,11 +83,11 @@ Afterwards, the datasets must be preprocessed once:
 There are various subcommands:
 
 ```
-❯ ./main.py --help
+❯ bin/run_canids --help
 
-usage: main.py [-h]
-               {train,classify,evaluate,list-de,list-classifications,list-fe,preprocess,list-models,list-evaluations,migrate-db,hypertune,visualize,stats}
-               ...
+usage: run_canids [-h]
+                  {train,classify,evaluate,list-de,list-classifications,list-fe,preprocess,list-models,list-evaluations,migrate-db,hypertune,visualize,stats}
+                  ...
 
 positional arguments:
   {train,classify,evaluate,list-de,list-classifications,list-fe,preprocess,list-models,list-evaluations,migrate-db,hypertune,visualize,stats}
@@ -105,7 +120,7 @@ optional arguments:
 For help of the subcommands just type `--help`, for example:
 
 ```
-❯ ./main.py train --help
+❯ bin/run_canids train --help
 ```
 
 ## List decision engines and feature extractors
@@ -119,7 +134,7 @@ An anomaly detection model consists of:
 Feature extractors can be listed with:
 
 ```
-❯ ./main.py list-fe --short
+❯ bin/run_canids list-fe --short
 
 flow_extractor
 flows_word2vec
@@ -127,10 +142,10 @@ test_extractor
 
 ```
 
-You can list available decision engines with `./main.py list-de --short` or:
+You can list available decision engines with `bin/run_canids list-de --short` or:
 
 ```
-❯ ./main.py list-de --short
+❯ bin/run_canids list-de --short
 
 autoencoder
 local_outlier_factor
@@ -145,20 +160,20 @@ Without `--short`, more information will be printed. Then you can see, that feat
 First build and train a model by analyzing normal traffic:
 
 ```
-./main.py train --src data/cic-ids-2017 --dataset cic-ids-2017 --model-id oc_svm --decision-engine one_class_svm --kernel rbf --gamma 0.005
+bin/run_canids train --src data/cic-ids-2017 --dataset cic-ids-2017 --model-id oc_svm --decision-engine one_class_svm --kernel rbf --gamma 0.005
 ```
 
 Then read unknown traffic from a dataset and detect anomalies using the created model. The classifications will be written into an internal database.
 
 ```
-./main.py classify --src data/cic-ids-2017 --dataset cic-ids-2017  --id oc_svm_c1 --model-id oc_svm
+bin/run_canids classify --src data/cic-ids-2017 --dataset cic-ids-2017  --id oc_svm_c1 --model-id oc_svm
 ```
 
 Evaluate the classification and generate a report containing different metrics. The metrics are stored in the sqlite database and,
  optionally, in a json file:
 
 ```
-./main.py evaluate --src data/cic-ids-2017 --dataset cic-ids-2017 -id oc_svm_1 --output evaluation.json 
+bin/run_canids evaluate --src data/cic-ids-2017 --dataset cic-ids-2017 -id oc_svm_1 --output evaluation.json 
 ```
 
 Example content of the resulting report: 
@@ -166,38 +181,6 @@ Example content of the resulting report:
 ```
 ❯ cat evaluation.json | head -n 32
 
-{
-    "all": {
-        "01/15.pcap@UNSW-NB15:unknown": {
-            "accuracy": 0.9987106908440785,
-            "balanced_accuracy": Infinity,
-            "f1_score": 0.0,
-            "false_negatives": 0,
-            "false_positives": 2400,
-            "fdr": 1.0,
-            "fnr": Infinity,
-            "for": 0.0,
-            "fpr": 0.0012893091559215283,
-            "kappa": 0.0,
-            "mcc": Infinity,
-            "negatives": 1861462,
-            "npv": 1.0,
-            "positives": 0,
-            "precision": 0.0,
-            "recall": Infinity,
-            "support": 1861462,
-            "tnr": 0.9987106908440785,
-            "true_negatives": 1859062,
-            "true_positives": 0
-        },
-        "02/2.pcap@UNSW-NB15:unknown": {
-            "accuracy": 0.9852358261224796,
-            "balanced_accuracy": 0.7597047176356007,
-            "f1_score": 0.6776935096611914,
-            "false_negatives": 49272,
-            "false_positives": 1470,
-            "fdr": 0.026816987740805605,
-            "fnr": 0.48014968134245456,
 
 ```
 
@@ -234,7 +217,7 @@ Examples for such files can be found in the `hypertune/` folder.
 For example, a set of different parameter configurations for a autoencoder on the unsw-nb15 dataset can be run with:
 
 ```
-❯ python main.py hypertune -f hypertune/ae.json --dataset unsw-nb15 --subset 1-5/15,55,56
+❯ bin/run_canids hypertune -f hypertune/ae.json --dataset unsw-nb15 --subset 1-5/15,55,56
 ```
 
 The results of the evaluations can then be viewed in the sqlite database (`classifications.db` by default).
@@ -246,25 +229,4 @@ It groups a pcap file's packets into netflows and generated features for each fl
 
 ```
 ❯ python netflows.py --help
-
-usage: netflows.py [-h] -p PCAP -o OUTPUT [--one-hot]
-                   [--flow-timeout FLOW_TIMEOUT]
-                   [--subflow-timeout SUBFLOW_TIMEOUT] [--verbose]
-                   [--nf-mode {subflows,with_ip_addr,tcp,include_header_length,hindsight,ip_categorial,port_categorial} [{subflows,with_ip_addr,tcp,include_header_length,hindsight,ip_categorial,port_categorial} ...]]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -p PCAP, --pcap PCAP  Pcap file to read
-  -o OUTPUT, --output OUTPUT
-                        CSV output file to write
-  --one-hot             Onehot-encode categorial features
-  --flow-timeout FLOW_TIMEOUT
-                        Flow timeout in milliseconds
-  --subflow-timeout SUBFLOW_TIMEOUT
-                        Activity timeout (for subflows) in milliseconds
-  --verbose
-  --nf-mode {subflows,with_ip_addr,tcp,include_header_length,hindsight,ip_categorial,port_categorial} [{subflows,with_ip_addr,tcp,include_header_length,hindsight,ip_categorial,port_categorial} ...]
-                        Feature Selection Modes
-
-```
 

@@ -46,6 +46,20 @@ Afterwards, the datasets must be preprocessed once:
 ❯  bin/run_canids preprocess --dataset unsw-nb15
 ```
 
+## Docker
+
+You can also build a docker image to run the commands of the next sections inside a container:
+
+```
+❯ docker build . -t canids:latest -f docker/Dockerfile
+```
+
+In order to run, the data directory must be mounted inside the container:
+
+```
+docker run -v (pwd)/data:/data -it canids [CMDS]
+```
+
 # Usage
 
 There are various subcommands:
