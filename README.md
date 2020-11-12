@@ -176,12 +176,10 @@ Evaluate the classification and generate a report containing different metrics. 
 bin/run_canids evaluate --src data/cic-ids-2017 --dataset cic-ids-2017 -id oc_svm_1 --output evaluation.json 
 ```
 
-Example content of the resulting report: 
+The evaluations can the be viewed with:
 
 ```
-❯ cat evaluation.json | head -n 32
-
-
+bin/run_canids list-evaluations
 ```
 
 ## Subsets
@@ -224,9 +222,30 @@ The results of the evaluations can then be viewed in the sqlite database (`class
 
 # Misc
 
-A standalone netflow generator CLI program can be run with `python netflows.py -r [pcap] -o [features.csv]`. 
+A standalone netflow generator CLI program can be run with `bin/extract_flows-r [pcap] -o [features.csv]`. 
 It groups a pcap file's packets into netflows and generated features for each flow.
 
 ```
-❯ python netflows.py --help
+❯ bin/extract_flows --help
+
+usage: extract_flows [-h] -p PCAP -o OUTPUT [--one-hot]
+                     [--flow-timeout FLOW_TIMEOUT]
+                     [--subflow-timeout SUBFLOW_TIMEOUT] [--verbose]
+                     [--nf-mode {subflows,with_ip_addr,tcp,include_header_length,hindsight,ip_categorial,port_categorial} [{subflows,with_ip_addr,tcp,include_header_length,hindsight,ip_categorial,port_categorial} ...]]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -p PCAP, --pcap PCAP  Pcap file to read
+  -o OUTPUT, --output OUTPUT
+                        CSV output file to write
+  --one-hot             Onehot-encode categorial features
+  --flow-timeout FLOW_TIMEOUT
+                        Flow timeout in milliseconds
+  --subflow-timeout SUBFLOW_TIMEOUT
+                        Activity timeout (for subflows) in milliseconds
+  --verbose
+  --nf-mode {subflows,with_ip_addr,tcp,include_header_length,hindsight,ip_categorial,port_categorial} [{subflows,with_ip_addr,tcp,include_header_length,hindsight,ip_categorial,port_categorial} ...]
+                        Feature Selection Modes
+
+```
 
