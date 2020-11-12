@@ -42,8 +42,8 @@ drwxr-xr-x 3 daniel users    4096 17. Okt 10:44 'UNSW-NB15 - CSV Files'/
 Afterwards, the datasets must be preprocessed once: 
 
 ```
-❯  ./main.py preprocess --dataset cic-ids-2017 
-❯  ./main.py preprocess --dataset unsw-nb15
+❯  bin/run_canids preprocess --dataset cic-ids-2017 
+❯  bin/run_canids preprocess --dataset unsw-nb15
 ```
 
 # Usage
@@ -51,13 +51,13 @@ Afterwards, the datasets must be preprocessed once:
 There are various subcommands:
 
 ```
-$(./main.py --help)
+$(bin/run_canids --help)
 ```
 
 For help of the subcommands just type `--help`, for example:
 
 ```
-❯ ./main.py train --help
+❯ bin/run_canids train --help
 ```
 
 ## List decision engines and feature extractors
@@ -71,13 +71,13 @@ An anomaly detection model consists of:
 Feature extractors can be listed with:
 
 ```
-$(./main.py list-fe --short)
+$(bin/run_canids list-fe --short)
 ```
 
-You can list available decision engines with `./main.py list-de --short` or:
+You can list available decision engines with `bin/run_canids list-de --short` or:
 
 ```
-$(./main.py list-de --short)
+$(bin/run_canids list-de --short)
 ```
 
 Without `--short`, more information will be printed. Then you can see, that feature extractors and decision engines can take additional CLI parameters. Those can just be added when specifying them in the `train` command (see examples below).
@@ -87,20 +87,20 @@ Without `--short`, more information will be printed. Then you can see, that feat
 First build and train a model by analyzing normal traffic:
 
 ```
-./main.py train --src data/cic-ids-2017 --dataset cic-ids-2017 --model-id oc_svm --decision-engine one_class_svm --kernel rbf --gamma 0.005
+bin/run_canids train --src data/cic-ids-2017 --dataset cic-ids-2017 --model-id oc_svm --decision-engine one_class_svm --kernel rbf --gamma 0.005
 ```
 
 Then read unknown traffic from a dataset and detect anomalies using the created model. The classifications will be written into an internal database.
 
 ```
-./main.py classify --src data/cic-ids-2017 --dataset cic-ids-2017  --id oc_svm_c1 --model-id oc_svm
+bin/run_canids classify --src data/cic-ids-2017 --dataset cic-ids-2017  --id oc_svm_c1 --model-id oc_svm
 ```
 
 Evaluate the classification and generate a report containing different metrics. The metrics are stored in the sqlite database and,
  optionally, in a json file:
 
 ```
-./main.py evaluate --src data/cic-ids-2017 --dataset cic-ids-2017 -id oc_svm_1 --output evaluation.json 
+bin/run_canids evaluate --src data/cic-ids-2017 --dataset cic-ids-2017 -id oc_svm_1 --output evaluation.json 
 ```
 
 Example content of the resulting report: 
@@ -129,7 +129,7 @@ and the 14th for the training step (by first filtering out all attack instances 
 By default, that is when `--subset default` or nothing is specified, the following pcap files are used for the training step:
 
 ```
--$(python -c "from dataset_utils.unsw_nb15 import DEFAULT_BENIGN_PCAPS;print(DEFAULT_BENIGN_PCAPS)")
+-$(python -c "from canids.dataset_utils.unsw_nb15 import DEFAULT_BENIGN_PCAPS;print(DEFAULT_BENIGN_PCAPS)")
 ```
 
 ## Hypertune
@@ -141,7 +141,7 @@ Examples for such files can be found in the `hypertune/` folder.
 For example, a set of different parameter configurations for a autoencoder on the unsw-nb15 dataset can be run with:
 
 ```
-❯ python main.py hypertune -f hypertune/ae.json --dataset unsw-nb15 --subset 1-5/15,55,56
+❯ bin/run_canids hypertune -f hypertune/ae.json --dataset unsw-nb15 --subset 1-5/15,55,56
 ```
 
 The results of the evaluations can then be viewed in the sqlite database (`classifications.db` by default).
