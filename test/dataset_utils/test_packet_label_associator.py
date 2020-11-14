@@ -59,7 +59,7 @@ packets = list(sorted(list(itertools.chain(*attack_packets.values())) + benign_p
 
 
 def make_ts(time):
-    return datetime.datetime.utcfromtimestamp(time).astimezone(tzinfo=pytz.utc)
+    return datetime.datetime.utcfromtimestamp(time).astimezone(tz=pytz.utc)
 
 class PacketLabelAssociatorTest(unittest.TestCase):
     def __init__(self, *args, **kwargs):
