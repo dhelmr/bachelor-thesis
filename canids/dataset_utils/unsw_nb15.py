@@ -11,6 +11,7 @@ from typing import List, Tuple
 
 import dpkt
 import pandas
+import pytz
 from pandas import Series
 
 from canids.dataset_utils import pcap_utils
@@ -325,7 +326,7 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
         self.unrecognized_proto_counter = 0
         self.flow_formatter = pcap_utils.FlowIDFormatter()
         self.attack_flows, self.attack_flow_ids = self._load_attack_flows(dataset_path)
-        self.modify_packet = self._correct_packet_timestamp
+        # self.modify_packet = self._correct_packet_timestamp
 
     def get_attack_flows(self, pcap_file):
         # all attack flows are loaded on startup
@@ -345,7 +346,7 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
 
     def date_cell_to_timestamp(self, cell_content) -> datetime.datetime:
         epoch_time = cell_content
-        return datetime.datetime.utcfromtimestamp(epoch_time)
+        return datetime.datetime.utcfromtimestamp(epoch_time).replace(tzinfo=pytz.utc)
 
     def _load_attack_flows(self, dataset_path):
         column_names = load_column_names(os.path.join(dataset_path, CSV_FOLDER, CSV_FEATURE_NAMES_FILE))
