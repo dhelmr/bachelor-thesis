@@ -24,4 +24,4 @@ jobs:
 
       # Runs a single command using the runners shell
       - name: Unit tests
-        run: pip3 install -r requirements.txt && python3 -m unittest discover test/
+        run: pip3 install --upgrade pip && pip3 install -r requirements.txt && python3 -m unittest discover test/
