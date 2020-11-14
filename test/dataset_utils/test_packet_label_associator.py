@@ -5,6 +5,7 @@ import unittest
 from typing import List, Tuple
 
 import pandas
+import pytz
 
 from canids.dataset_utils.packet_label_associator import PacketLabelAssociator, AdditionalInfo, COL_INFO, \
     COL_START_TIME, COL_FLOW_ID, COL_TRAFFIC_TYPE, COL_REVERSE_FLOW_ID
@@ -57,22 +58,25 @@ benign_packets = [
 packets = list(sorted(list(itertools.chain(*attack_packets.values())) + benign_packets, key=lambda i: i[0]))
 
 
+def make_ts(time):
+    return datetime.datetime.utcfromtimestamp(time).astimezone(tzinfo=pytz.utc)
+
 class PacketLabelAssociatorTest(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.attack_flows = pandas.DataFrame([
-            ["1-80-2-443", "2-443-1-80", datetime.datetime.utcfromtimestamp(1000), "Attack A", TrafficType.ATTACK],
-            ["1-80-2-443", "2-443-1-80", datetime.datetime.utcfromtimestamp(2000), "", TrafficType.BENIGN],
-            ["2-443-1-80", "1-80-2-443", datetime.datetime.utcfromtimestamp(4000), "Attack B", TrafficType.ATTACK],
-            ["2-443-3-9000", "3-9000-2-443", datetime.datetime.utcfromtimestamp(1000), "Attack A", TrafficType.ATTACK],
-            ["3-9000-2-443", "2-433-3-9000", datetime.datetime.utcfromtimestamp(4000), "", TrafficType.BENIGN],
-            ["2-443-3-9000", "3-9000-2-443", datetime.datetime.utcfromtimestamp(6000), "Attack B", TrafficType.ATTACK],
-            ["4-1111-2-443", "2-443-4-1111", datetime.datetime.utcfromtimestamp(1000), "Attack C", TrafficType.ATTACK],
-            ["2-443-4-1111", "4-1111-2-443", datetime.datetime.utcfromtimestamp(3000), "Attack E", TrafficType.ATTACK],
-            ["4-1111-2-443", "2-443-4-1111", datetime.datetime.utcfromtimestamp(5000), "", TrafficType.BENIGN],
-            ["2-443-1-80", "1-80-2-443", datetime.datetime.utcfromtimestamp(3000), "Attack C", TrafficType.ATTACK],
-            ["5-5151-2-443", "2-443-5-5151", datetime.datetime.utcfromtimestamp(1000), "", TrafficType.BENIGN],
-            ["6-666-5-443", "5-443-6-666", datetime.datetime.utcfromtimestamp(2000), "Attack Z", TrafficType.ATTACK],
+            ["1-80-2-443", "2-443-1-80", make_ts(1000), "Attack A", TrafficType.ATTACK],
+            ["1-80-2-443", "2-443-1-80", make_ts(2000), "", TrafficType.BENIGN],
+            ["2-443-1-80", "1-80-2-443", make_ts(4000), "Attack B", TrafficType.ATTACK],
+            ["2-443-3-9000", "3-9000-2-443", make_ts(1000), "Attack A", TrafficType.ATTACK],
+            ["3-9000-2-443", "2-433-3-9000", make_ts(4000), "", TrafficType.BENIGN],
+            ["2-443-3-9000", "3-9000-2-443", make_ts(6000), "Attack B", TrafficType.ATTACK],
+            ["4-1111-2-443", "2-443-4-1111", make_ts(1000), "Attack C", TrafficType.ATTACK],
+            ["2-443-4-1111", "4-1111-2-443", make_ts(3000), "Attack E", TrafficType.ATTACK],
+            ["4-1111-2-443", "2-443-4-1111", make_ts(5000), "", TrafficType.BENIGN],
+            ["2-443-1-80", "1-80-2-443", make_ts(3000), "Attack C", TrafficType.ATTACK],
+            ["5-5151-2-443", "2-443-5-5151", make_ts(1000), "", TrafficType.BENIGN],
+            ["6-666-5-443", "5-443-6-666", make_ts(2000), "Attack Z", TrafficType.ATTACK],
         ], columns=[COL_FLOW_ID, COL_REVERSE_FLOW_ID, COL_START_TIME, COL_INFO, COL_TRAFFIC_TYPE])
         self.attack_flows.set_index(COL_FLOW_ID, inplace=True)
         self.associator = PacketLabelAssociatorTestImpl(self.attack_flows, packets)
