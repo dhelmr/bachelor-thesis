@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from typing import Tuple, Any, List, Set, Sequence
 
 import pandas
+import pytz
 
 from canids.dataset_utils import pcap_utils
 from canids.types import Packet, TrafficType
@@ -120,7 +121,7 @@ class PacketLabelAssociator(ABC):
         benigns = list(sorted(itertools.chain(*(potential_attack_flows["benign"].dropna().values.tolist())),
                               key=lambda item: item[0]))
 
-        timestamp = datetime.datetime.utcfromtimestamp(timestamp)
+        timestamp = datetime.datetime.utcfromtimestamp(timestamp).replace(tzinfo=pytz.utc)
         attack_info = self.is_attack(timestamp, attacks, benigns)
         return attack_info[0], flow_ids, attack_info[1]
 
