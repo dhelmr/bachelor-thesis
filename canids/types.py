@@ -81,7 +81,7 @@ class Features(NamedTuple):
     data: np.ndarray
 
     def validate(self):
-        if len(self.names) != len(self.types) or (len(self.data) >= 0 and len(self.data[0]) != len(self.types)):
+        if len(self.names) != len(self.types) or (len(self.data) > 0 and len(self.data[0]) != len(self.types)):
             raise ValueError("Lengths of features names, feature types or data do not match!")
 
     def as_pandas(self, copy: bool = False) -> pandas.DataFrame:

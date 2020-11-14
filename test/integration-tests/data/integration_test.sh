@@ -8,7 +8,7 @@
 set -eux
 set -o pipefail
 
-cp /integration_test/assert.py /app
+cp /data/assert.py /app
 cd /app
 
 python bin/run_canids migrate-db --db /sqlite.db

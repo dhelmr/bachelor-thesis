@@ -43,10 +43,10 @@ DEFAULT_BENIGN_PCAPS = [
 
 TINY_SUBSET = {
     "benign": {
-        "01/1.pcap": [[0, 200]]
+        "01/1.pcap": [[0, 20]]
     },
     "unknown": {
-        "01/1.pcap": [[400, 1000]]
+        "01/1.pcap": [[21, 30]]
     }
 }
 
