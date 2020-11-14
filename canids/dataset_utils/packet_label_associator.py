@@ -72,8 +72,6 @@ class PacketLabelAssociator(ABC):
         if flow_id not in attack_ids and reverse_id not in attack_ids:
             return TrafficType.BENIGN, flow_ids, None
 
-        timestamp = round(
-            timestamp)  # TODO this should probably be removed (was added before conversion to datetime was made)
         potential_attack_flows = attack_flows.loc[attack_flows.index.isin(flow_ids)]
         # attacks = potential_attack_flows["attack"].values
         # if len(attacks) != 1:
@@ -135,10 +133,10 @@ class PacketLabelAssociator(ABC):
         in_both = pandas.concat([in_both, in_both_reversed_id])
 
         benign_times = in_both.groupby(in_both.index).apply(
-            lambda elements: sorted([
+            lambda elements: sorted(list(set([
                 (self.date_cell_to_timestamp(r[f"{COL_START_TIME}_y"]), r[f"{COL_INFO}_y"]) for _, r in
                 elements.iterrows()
-            ], key=lambda item: item[0])
+            ])), key=lambda item: item[0])
         )
         attack_times = attacks.groupby(attacks.index).apply(
             lambda elements: sorted([

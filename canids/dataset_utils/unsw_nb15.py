@@ -14,9 +14,9 @@ import pandas
 from pandas import Series
 
 from canids.dataset_utils import pcap_utils
-from canids.dataset_utils.PacketLabelAssociator import PacketLabelAssociator, COL_FLOW_ID, COL_REVERSE_FLOW_ID, \
-    COL_START_TIME, COL_INFO, COL_TRAFFIC_TYPE, AdditionalInfo
 from canids.dataset_utils.encoding_utils import get_encoding_for_csv
+from canids.dataset_utils.packet_label_associator import PacketLabelAssociator, COL_FLOW_ID, COL_REVERSE_FLOW_ID, \
+    COL_START_TIME, COL_INFO, COL_TRAFFIC_TYPE, AdditionalInfo
 from canids.dataset_utils.pcap_utils import SubsetPacketReader
 from canids.dataset_utils.reader_utils import ranges_of_list
 from canids.types import DatasetPreprocessor, TrafficReader, TrafficSequence, DatasetUtils, TrafficType, \
@@ -325,6 +325,7 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
         self.unrecognized_proto_counter = 0
         self.flow_formatter = pcap_utils.FlowIDFormatter()
         self.attack_flows, self.attack_flow_ids = self._load_attack_flows(dataset_path)
+        self.modify_packet = self._correct_packet_timestamp
 
     def get_attack_flows(self, pcap_file):
         # all attack flows are loaded on startup
@@ -382,6 +383,10 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
                 self.unrecognized_proto_counter += 1
                 return ""
 
+    def _correct_packet_timestamp(self, packet) -> Packet:
+        ts, buf = packet
+        new_ts = round(ts)
+        return new_ts, buf
 
 def get_stats(dataset_path):
     csv_path = os.path.join(dataset_path, "attack_stats.csv")
