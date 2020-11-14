@@ -5,9 +5,10 @@ from enum import Enum
 
 import dpkt
 import numpy as np
+import pytz
 from pandas import Series
 
-from canids.dataset_utils.PacketLabelAssociator import *
+from canids.dataset_utils.packet_label_associator import *
 from canids.dataset_utils.pcap_utils import FlowIDFormatter, SubsetPacketReader
 from canids.dataset_utils.reader_utils import ranges_of_list
 from canids.types import TrafficSequence, TrafficReader, DatasetPreprocessor, DatasetUtils
@@ -245,6 +246,8 @@ class CICIDS2017LabelAssociator(PacketLabelAssociator):
         super().__init__(["attack_type"])
         self.dataset_path = dataset_path
         self.flow_formatter = FlowIDFormatter()
+        # The timestamp format in the csv files does not contain any timezone information
+        self.timezone = pytz.timezone("Canada/Atlantic")
 
     def get_attack_flows(self, pcap_file):
         relative_path = pcap_file[len(self.dataset_path):]
@@ -291,9 +294,13 @@ class CICIDS2017LabelAssociator(PacketLabelAssociator):
         date_part = f"{d}/{m}/{y}"
         if time_part[1] == ":":
             time_part = "0" + time_part
+        if time_part.count(":") == 1:
+            time_part += ":00"
         datestr = f"{date_part} {time_part}"
-        result = datetime.datetime.strptime(datestr, "%d/%m/%Y %I:%M")  # example "5/7/2017 8:42" = 5th of July 2017
-        return result
+        parsed_date = datetime.datetime.strptime(datestr,
+                                                 "%d/%m/%Y %I:%M:%S")  # example "5/7/2017 8:42" = 5th of July 2017
+        with_tz = self.timezone.localize(parsed_date, is_dst=None)
+        return with_tz
 
     def parse_label_field(self, label: str) -> Tuple[TrafficType, AdditionalInfo]:
         if label == BENIGN_LABEL:
