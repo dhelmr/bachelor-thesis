@@ -5,7 +5,6 @@ from enum import Enum
 
 import dpkt
 import numpy as np
-import pytz
 from pandas import Series
 
 from canids.dataset_utils.packet_label_associator import *
@@ -249,7 +248,7 @@ class CICIDS2017LabelAssociator(PacketLabelAssociator):
         # The timestamp format in the csv files does not contain any timezone information
         self.timezone = pytz.timezone("Canada/Atlantic")
 
-    def get_attack_flows(self, pcap_file):
+    def _get_attack_flows(self, pcap_file):
         relative_path = pcap_file[len(self.dataset_path):]
         if relative_path.startswith(os.path.sep):
             relative_path = relative_path[1:]
@@ -261,8 +260,8 @@ class CICIDS2017LabelAssociator(PacketLabelAssociator):
         df[COL_REVERSE_FLOW_ID] = df.index.map(lambda flow: self.reverse_flow_id(flow))
         df[COL_TRAFFIC_TYPE], df[COL_INFO] = zip(*df["Label"].apply(self.parse_label_field))
         df[COL_START_TIME] = df["Timestamp"]
-        self.drop_non_required_cols(df)
-        return self.find_attack_flows(df)
+        self._drop_non_required_cols(df)
+        return self._find_attack_flows(df)
 
     def reverse_flow_id(self, flow_id: str):
         splitted = flow_id.split("-")
@@ -278,12 +277,12 @@ class CICIDS2017LabelAssociator(PacketLabelAssociator):
     def output_csv_file(self, pcap_file) -> str:
         return packet_label_file(self.dataset_path, pcap_file)
 
-    def unpack_additional_info(self, additional_info: AdditionalInfo) -> List[str]:
+    def _unpack_additional_info(self, additional_info: AdditionalInfo) -> List[str]:
         if type(additional_info) is not str:
             return [""]
         return [additional_info.strip().lower()]
 
-    def date_cell_to_timestamp(self, cell_content) -> datetime.datetime:
+    def _date_cell_to_timestamp(self, cell_content) -> datetime.datetime:
         # the date is java-style formatted
         date_part, time_part = cell_content.split(" ")
         d, m, y = date_part.split("/")

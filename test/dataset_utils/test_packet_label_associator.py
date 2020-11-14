@@ -19,8 +19,8 @@ class PacketLabelAssociatorTestImpl(PacketLabelAssociator):
         self.flows = flows
         self.packets = packets
 
-    def get_attack_flows(self, pcap_file):
-        return self.find_attack_flows(self.flows)
+    def _get_attack_flows(self, pcap_file):
+        return self._find_attack_flows(self.flows)
 
     def make_flow_ids(self, packet: Packet) -> Tuple[str, str]:
         ts, buf = packet
@@ -32,13 +32,13 @@ class PacketLabelAssociatorTestImpl(PacketLabelAssociator):
     def output_csv_file(self, pcap_file) -> str:
         return self.output_file.name
 
-    def date_cell_to_timestamp(self, cell_content) -> datetime.datetime:
+    def _date_cell_to_timestamp(self, cell_content) -> datetime.datetime:
         return cell_content
 
-    def unpack_additional_info(self, additional_info: AdditionalInfo) -> List[str]:
+    def _unpack_additional_info(self, additional_info: AdditionalInfo) -> List[str]:
         return [additional_info if additional_info is not None else ""]
 
-    def open_pcap(self, pcap_file):
+    def _open_pcap(self, pcap_file):
         return self.packets
 
 
@@ -78,7 +78,7 @@ class PacketLabelAssociatorTest(unittest.TestCase):
         self.associator = PacketLabelAssociatorTestImpl(self.attack_flows, packets)
 
     def test_find_attack_flows(self):
-        result, indexes = self.associator.find_attack_flows(self.attack_flows)
+        result, indexes = self.associator._find_attack_flows(self.attack_flows)
         expected_attack_flows = {"1-80-2-443", "2-443-1-80", "2-443-3-9000", "4-1111-2-443",
                                  "2-443-4-1111", "6-666-5-443"}
         assert set(result.index.values.tolist()) == expected_attack_flows

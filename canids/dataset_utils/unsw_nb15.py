@@ -328,7 +328,7 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
         self.attack_flows, self.attack_flow_ids = self._load_attack_flows(dataset_path)
         # self.modify_packet = self._correct_packet_timestamp
 
-    def get_attack_flows(self, pcap_file):
+    def _get_attack_flows(self, pcap_file):
         # all attack flows are loaded on startup
         return self.attack_flows, self.attack_flow_ids
 
@@ -339,12 +339,12 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
     def output_csv_file(self, pcap_file) -> str:
         return packet_label_file(pcap_file)
 
-    def unpack_additional_info(self, additional_info: AdditionalInfo):
+    def _unpack_additional_info(self, additional_info: AdditionalInfo):
         if type(additional_info) is not str:
             return [""]
         return [additional_info.strip().lower()]
 
-    def date_cell_to_timestamp(self, cell_content) -> datetime.datetime:
+    def _date_cell_to_timestamp(self, cell_content) -> datetime.datetime:
         epoch_time = cell_content
         return datetime.datetime.utcfromtimestamp(epoch_time).replace(tzinfo=pytz.utc)
 
@@ -365,10 +365,10 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
             str) + "-" + proto_as_numbers
         df[COL_START_TIME] = df[FlowCsvColumns.START_TIME.value]
         df[COL_INFO] = df[FlowCsvColumns.ATTACK_CATEGORY.value]
-        self.drop_non_required_cols(df)
+        self._drop_non_required_cols(df)
         df.set_index(COL_FLOW_ID, inplace=True)
         self._validate_flow_infos(df)
-        return self.find_attack_flows(df)
+        return self._find_attack_flows(df)
 
     def proto_to_number(self, p_name):
         """
