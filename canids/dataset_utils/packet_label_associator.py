@@ -28,6 +28,7 @@ class PacketLabelAssociator(ABC):
         if additional_cols is None:
             additional_cols = []
         self.csv_header = DEFAULT_OUTPUT_HEADER + additional_cols
+        self.modify_packet = None
 
     def associate_pcap_labels(self, pcap_file, packet_id_prefix=None):
         logging.info("Preprocess %s" % pcap_file)
@@ -35,11 +36,13 @@ class PacketLabelAssociator(ABC):
             packet_id_prefix = pcap_file
         attack_flows, attack_ids = self.get_attack_flows(pcap_file)
 
-        pcap_reader = pcap_utils.read_pcap_pcapng(pcap_file)
+        pcap_reader = self.open_pcap(pcap_file)
         with open(self.output_csv_file(pcap_file), "w") as csvfile:
             csvwriter = csv.writer(csvfile)
             csvwriter.writerow(self.csv_header)
             for i, packet in enumerate(pcap_reader):
+                if self.modify_packet is not None:
+                    packet = self.modify_packet(packet)
                 packet_id = "%s-%s" % (packet_id_prefix, i)
                 traffic_type, flow_ids, additional_info = self.associate_packet(packet, attack_flows, attack_ids)
                 if len(flow_ids) == 0:
@@ -49,6 +52,9 @@ class PacketLabelAssociator(ABC):
                 else:
                     flow_id, reverse_id = flow_ids
                 self.write_csv_row(csvwriter, packet_id, flow_id, reverse_id, traffic_type, additional_info)
+
+    def open_pcap(self, pcap_file):
+        return pcap_utils.read_pcap_pcapng(pcap_file)
 
     @abstractmethod
     def get_attack_flows(self, pcap_file):
@@ -62,6 +68,34 @@ class PacketLabelAssociator(ABC):
     @abstractmethod
     def make_flow_ids(self, packet: Packet) -> Tuple[str, str]:
         raise NotImplementedError()
+
+    def find_attack_flows(self, flows) -> Tuple[pandas.DataFrame, Set[str]]:
+        self._validate_flow_infos(flows)
+        attacks = flows.loc[flows[COL_TRAFFIC_TYPE] == TrafficType.ATTACK]
+        benigns = flows.loc[flows[COL_TRAFFIC_TYPE] == TrafficType.BENIGN]
+        in_both = pandas.merge(attacks, benigns, how="inner", left_index=True, right_index=True)
+        in_both_reversed_id = pandas.merge(attacks, benigns, how="inner", left_on=COL_REVERSE_FLOW_ID, right_index=True)
+        in_both = pandas.concat([in_both, in_both_reversed_id])
+
+        benign_times = in_both.groupby(in_both.index).apply(
+            lambda elements: sorted(list(set([
+                (self.date_cell_to_timestamp(r[f"{COL_START_TIME}_y"]), r[f"{COL_INFO}_y"]) for _, r in
+                elements.iterrows()
+            ])), key=lambda item: item[0])
+        )
+        attack_times = attacks.groupby(attacks.index).apply(
+            lambda elements: sorted([
+                (self.date_cell_to_timestamp(r[f"{COL_START_TIME}"]), r[f"{COL_INFO}"]) for _, r in elements.iterrows()
+            ], key=lambda item: item[0])
+        )
+        # convert to Series in case that no items where found; groupby yields an empty Dataframe then
+        if len(attack_times) == 0:
+            attack_times = pandas.Series()
+        if len(benign_times) == 0:
+            benign_times = pandas.Series()
+        result_df = pandas.merge(attack_times.to_frame("attack"), benign_times.to_frame("benign"), how="left",
+                                 right_index=True, left_index=True)
+        return result_df, set(result_df.index.values.tolist())
 
     def associate_packet(self, packet, attack_flows, attack_ids) -> Tuple[TrafficType, Sequence[str], AdditionalInfo]:
         timestamp, buffer = packet
@@ -124,33 +158,7 @@ class PacketLabelAssociator(ABC):
         """ Is called when the timestamp of an attack is read from the flow infos """
         raise NotImplementedError()
 
-    def find_attack_flows(self, flows) -> Tuple[pandas.DataFrame, Set[str]]:
-        self._validate_flow_infos(flows)
-        attacks = flows.loc[flows[COL_TRAFFIC_TYPE] == TrafficType.ATTACK]
-        benigns = flows.loc[flows[COL_TRAFFIC_TYPE] == TrafficType.BENIGN]
-        in_both = pandas.merge(attacks, benigns, how="inner", left_index=True, right_index=True)
-        in_both_reversed_id = pandas.merge(attacks, benigns, how="inner", left_on=COL_REVERSE_FLOW_ID, right_index=True)
-        in_both = pandas.concat([in_both, in_both_reversed_id])
 
-        benign_times = in_both.groupby(in_both.index).apply(
-            lambda elements: sorted(list(set([
-                (self.date_cell_to_timestamp(r[f"{COL_START_TIME}_y"]), r[f"{COL_INFO}_y"]) for _, r in
-                elements.iterrows()
-            ])), key=lambda item: item[0])
-        )
-        attack_times = attacks.groupby(attacks.index).apply(
-            lambda elements: sorted([
-                (self.date_cell_to_timestamp(r[f"{COL_START_TIME}"]), r[f"{COL_INFO}"]) for _, r in elements.iterrows()
-            ], key=lambda item: item[0])
-        )
-        # convert to Series in case that no items where found; groupby yields an empty Dataframe then
-        if len(attack_times) == 0:
-            attack_times = pandas.Series()
-        if len(benign_times) == 0:
-            benign_times = pandas.Series()
-        result_df = pandas.merge(attack_times.to_frame("attack"), benign_times.to_frame("benign"), how="left",
-                                 right_index=True, left_index=True)
-        return result_df, set(result_df.index.values.tolist())
 
     def drop_non_required_cols(self, df: pandas.DataFrame):
         columns_to_drop = [col for col in df.columns if col not in REQUIRED_COLUMNS]
