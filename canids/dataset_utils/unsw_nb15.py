@@ -346,7 +346,7 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
 
     def _date_cell_to_timestamp(self, cell_content) -> datetime.datetime:
         epoch_time = cell_content
-        return datetime.datetime.utcfromtimestamp(epoch_time).replace(tzinfo=pytz.utc)
+        return datetime.datetime.utcfromtimestamp(epoch_time).astimezone(pytz.utc)
 
     def _load_attack_flows(self, dataset_path):
         column_names = load_column_names(os.path.join(dataset_path, CSV_FOLDER, CSV_FEATURE_NAMES_FILE))
