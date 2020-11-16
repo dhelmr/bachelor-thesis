@@ -287,7 +287,7 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
         logging.info("Expected %s attack packet; got %s", total_attack_count, total_stats_count)
 
 
-def iter_pcaps(dataset_path: str, skip_not_found=True, yield_relative=False):
+def iter_pcaps(dataset_path: str, skip_not_found=True, yield_relative=False, quiet=False):
     for folder, pcap_files in PCAP_FILES.items():
         for pcap_file in pcap_files:
             relative_path = os.path.join(folder, pcap_file)
@@ -298,7 +298,7 @@ def iter_pcaps(dataset_path: str, skip_not_found=True, yield_relative=False):
                     yield relative_path
                 else:
                     yield full_path
-            else:
+            elif not quiet:
                 logging.warning("Cannot find %s; skip", full_path)
 
 
