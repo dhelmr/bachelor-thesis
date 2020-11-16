@@ -99,7 +99,7 @@ for pcap_file in PcapFiles:
         "train_name": "Monday"
     }
 
-PCAP_LABEL_FILES = {
+FLOW_LABEL_FILES = {
     PcapFiles.MONDAY: ["labels/Monday-WorkingHours.pcap_ISCX.csv"],
     PcapFiles.TUESDAY: ["labels/Tuesday-WorkingHours.pcap_ISCX.csv"],
     PcapFiles.WEDNESDAY: ["labels/Wednesday-workingHours.pcap_ISCX.csv"],
@@ -209,17 +209,20 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
     def _parse_args(self, args):
         parser = argparse.ArgumentParser()
         parser.add_argument("--only-stats", action="store_true", help="Only make stats")
+        parser.add_argument("--only-validate", action="store_true", help="Only validate")
         parsed = parser.parse_args(args)
         return parsed
 
     def preprocess(self, dataset_path: str, additional_args=[]):
         parsed = self._parse_args(additional_args)
-        if parsed.only_stats != True:
+        if parsed.only_stats == False and parsed.only_validate == False:
             associator = CICIDS2017LabelAssociator(dataset_path)
             for pcap in PcapFiles:
                 full_path = os.path.join(dataset_path, pcap.value)
                 associator.associate_pcap_labels(full_path, packet_id_prefix=pcap.value)
-        self._make_stats(dataset_path)
+        if parsed.only_validate == False:
+            self._make_stats(dataset_path)
+        self._validate(dataset_path)
 
     def _make_stats(self, dataset_path):
         output_file = os.path.join(dataset_path, "attack_stats.csv")
@@ -238,6 +241,40 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
             data.append(pcap_info)
         pandas.DataFrame(data).set_index("pcap").to_csv(output_file)
 
+    def _validate(self, dataset_path):
+        stats = get_stats(dataset_path)
+        for pcap in PcapFiles:
+            self._validate_label_distribution(dataset_path, stats, pcap)
+
+    def _validate_label_distribution(self, dataset_path, stats, pcap: PcapFiles):
+        label_files = FLOW_LABEL_FILES[PcapFiles(pcap.value)]
+        true_labels = pandas.concat([
+            read_labels_csv(os.path.join(dataset_path, f)) for f in label_files
+        ])
+        total_attack_count = 0
+        total_stats_count = 0
+        for label in true_labels["Label"].unique():
+            if label == BENIGN_LABEL:
+                # is not contained in stats
+                continue
+            stats_name = label.strip().lower()
+            if stats_name not in stats.columns:
+                logging.error("Label %s is not found in stats!", stats_name)
+                continue
+            filtered = true_labels[true_labels["Label"] == label]
+            pkts_per_flow = filtered["Total Fwd Packets"] + filtered[
+                "Total Backward Packets"]
+            true_total_packets = pkts_per_flow.sum()
+            stats_packet_count = stats[stats_name].loc[pcap.value].sum()
+            total_attack_count += true_total_packets
+            total_stats_count += stats_packet_count
+            if stats_packet_count != true_total_packets:
+                logging.error("%s | Expected stats to have %s packets of attack %s; but got %s!", pcap.value,
+                              true_total_packets, stats_name, stats_packet_count)
+            else:
+                logging.info("%s | %s as expected (%s packets)", pcap.value, stats_name, stats_packet_count)
+        logging.info("%s | Expected %s attack packets; got %s", pcap.value, total_attack_count, total_stats_count)
+
 
 class CICIDS2017LabelAssociator(PacketLabelAssociator):
 
@@ -252,7 +289,7 @@ class CICIDS2017LabelAssociator(PacketLabelAssociator):
         relative_path = pcap_file[len(self.dataset_path):]
         if relative_path.startswith(os.path.sep):
             relative_path = relative_path[1:]
-        label_files = PCAP_LABEL_FILES[PcapFiles(relative_path)]
+        label_files = FLOW_LABEL_FILES[PcapFiles(relative_path)]
         df = pandas.concat([
             read_labels_csv(os.path.join(self.dataset_path, f)) for f in label_files
         ])
