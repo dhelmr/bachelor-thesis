@@ -3,7 +3,7 @@ import datetime
 import itertools
 import logging
 from abc import ABC, abstractmethod
-from typing import Tuple, Any, List, Set, Sequence
+from typing import Tuple, Any, List, Set, Sequence, NamedTuple, Optional
 
 import pandas
 import pytz
@@ -17,10 +17,17 @@ COL_FLOW_ID = "flow_id"
 COL_REVERSE_FLOW_ID = "reverse_id"
 COL_TRAFFIC_TYPE = "traffic_type"
 COL_START_TIME = "start_time"
+COL_END_TIME = "end_time"
 COL_INFO = "info"
 REQUIRED_COLUMNS = [COL_FLOW_ID, COL_REVERSE_FLOW_ID, COL_TRAFFIC_TYPE, COL_START_TIME, COL_INFO]
 
 DEFAULT_OUTPUT_HEADER = ["packet_id", "flow_id", "reverse_flow_id", "traffic_type"]
+
+
+class FlowIdentification(NamedTuple):
+    start_time: datetime.datetime
+    additional_info: AdditionalInfo
+    traffic_type: TrafficType
 
 
 class PacketLabelAssociator(ABC):
@@ -90,14 +97,22 @@ class PacketLabelAssociator(ABC):
 
         benign_times = in_both.groupby(in_both.index).apply(
             lambda elements: sorted(list(set([
-                (self._date_cell_to_timestamp(r[f"{COL_START_TIME}_y"]), r[f"{COL_INFO}_y"]) for _, r in
+                FlowIdentification(
+                    start_time=self._date_cell_to_timestamp(r[f"{COL_START_TIME}_y"]),
+                    additional_info=r[f"{COL_INFO}_y"],
+                    traffic_type=TrafficType.BENIGN
+                ) for _, r in
                 elements.iterrows()
-            ])), key=lambda item: item[0])
+            ])), key=lambda item: item.start_time)
         )
         attack_times = attacks.groupby(attacks.index).apply(
             lambda elements: sorted([
-                (self._date_cell_to_timestamp(r[f"{COL_START_TIME}"]), r[f"{COL_INFO}"]) for _, r in elements.iterrows()
-            ], key=lambda item: item[0])
+                FlowIdentification(
+                    start_time=self._date_cell_to_timestamp(r[COL_START_TIME]),
+                    additional_info=r[COL_INFO],
+                    traffic_type=TrafficType.ATTACK
+                ) for _, r in elements.iterrows()
+            ], key=lambda item: item.start_time)
         )
         # convert to Series in case that no items where found; groupby yields an empty Dataframe then
         if len(attack_times) == 0:
@@ -129,17 +144,17 @@ class PacketLabelAssociator(ABC):
 
         potential_attack_flows = attack_flows.loc[attack_flows.index.isin(flow_ids)]
         attacks = list(sorted(itertools.chain(*(potential_attack_flows["attack"].dropna().values.tolist())),
-                              key=lambda item: item[0]))
+                              key=lambda item: item.start_time))
         benigns = list(sorted(itertools.chain(*(potential_attack_flows["benign"].dropna().values.tolist())),
-                              key=lambda item: item[0]))
+                              key=lambda item: item.start_time))
 
         timestamp = datetime.datetime.utcfromtimestamp(timestamp).astimezone(tz=pytz.utc)
         attack_info = self._is_attack(timestamp, attacks, benigns)
         return attack_info[0], flow_ids, attack_info[1]
 
     def _is_attack(self, ts: datetime.datetime,
-                   attack_times: List[Tuple[datetime.datetime, AdditionalInfo]],
-                   benign_times: List[Tuple[datetime.datetime, AdditionalInfo]]) -> Tuple[TrafficType, AdditionalInfo]:
+                   attack_times: List[FlowIdentification],
+                   benign_times: List[FlowIdentification]) -> Optional[FlowIdentification]:
         """
         Checks if a packet's timestamp lies within an attack or benign flow
         :param ts: Timestamp of the packet in question
