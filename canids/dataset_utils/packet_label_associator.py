@@ -133,7 +133,7 @@ class PacketLabelAssociator(ABC):
         benigns = list(sorted(itertools.chain(*(potential_attack_flows["benign"].dropna().values.tolist())),
                               key=lambda item: item[0]))
 
-        timestamp = datetime.datetime.utcfromtimestamp(timestamp).replace(tzinfo=pytz.utc)
+        timestamp = datetime.datetime.utcfromtimestamp(timestamp).astimezone(tz=pytz.utc)
         attack_info = self._is_attack(timestamp, attacks, benigns)
         return attack_info[0], flow_ids, attack_info[1]
 

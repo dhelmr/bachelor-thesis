@@ -53,7 +53,8 @@ attack_packets = {
 benign_packets = [
     (2000, "2-443-1-80"), (2002, "1-80-2-443"), (6000, "2-443-5-5151"), (6100, "2-443-5-5151"), (6400, "5-5151-2-443"),
     (6500, "5-5151-2-443"),
-    (6900, "2-443-5-5151")
+    (6900, "2-443-5-5151"),
+    (3001, "6-666-5-443"), (3055, "5-443-6-666")
 ]
 packets = list(sorted(list(itertools.chain(*attack_packets.values())) + benign_packets, key=lambda i: i[0]))
 
@@ -77,6 +78,7 @@ class PacketLabelAssociatorTest(unittest.TestCase):
             ["2-443-1-80", "1-80-2-443", make_ts(3000), "Attack C", TrafficType.ATTACK],
             ["5-5151-2-443", "2-443-5-5151", make_ts(1000), "", TrafficType.BENIGN],
             ["6-666-5-443", "5-443-6-666", make_ts(2000), "Attack Z", TrafficType.ATTACK],
+            ["5-443-6-666", "6-666-5-443", make_ts(3000), "", TrafficType.BENIGN],
         ], columns=[COL_FLOW_ID, COL_REVERSE_FLOW_ID, COL_START_TIME, COL_INFO, COL_TRAFFIC_TYPE])
         self.attack_flows.set_index(COL_FLOW_ID, inplace=True)
         self.associator = PacketLabelAssociatorTestImpl(self.attack_flows, packets)
