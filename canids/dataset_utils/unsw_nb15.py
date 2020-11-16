@@ -194,15 +194,16 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
                 logging.info("Make ranges for %s" % pcap)
                 full_path = os.path.join(dataset_path, pcap)
                 label_associator.associate_pcap_labels(full_path, packet_id_prefix=pcap)
-
+        if not parsed.only_validate:
+            logging.info("Make stats...")
+            self._make_stats(dataset_path)
+        self._validate(dataset_path)
         if parsed.only_stats != True and parsed.only_validate != True:
+            logging.info("Start making ranges...")
             ranges = self._make_ranges(dataset_path)
             ranges_path = os.path.join(dataset_path, RANGES_FILE)
             with open(ranges_path, "w") as f:
                 json.dump(ranges, f)
-        if parsed.only_validate == False:
-            self._make_stats(dataset_path)
-        self._validate(dataset_path)
 
     def _make_ranges(self, dataset_path) -> dict:
         ranges = {
