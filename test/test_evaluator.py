@@ -4,7 +4,6 @@ from canids.evaluator import Evaluator
 
 
 class EvaluatorTest(unittest.TestCase):
-
     def testcase_1(self):
         tp, fp, fn, tn = (123, 987, 1343, 2412)
         metrics = Evaluator.calc_measurements(tn, fp, fn, tp)
@@ -33,5 +32,4 @@ class EvaluatorTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    print("hi")
     unittest.main()

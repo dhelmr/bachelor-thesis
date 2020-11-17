@@ -3,7 +3,11 @@ import unittest
 
 import pandas
 
-from canids.dataset_utils.unsw_nb15 import UNSWNB15Preprocessor, read_packet_labels, iter_pcaps
+from canids.dataset_utils.unsw_nb15 import (
+    UNSWNB15Preprocessor,
+    read_packet_labels,
+    iter_pcaps,
+)
 from canids.types import TrafficType
 
 TEST_DATASET = os.path.join(os.path.dirname(__file__), "test_data")
@@ -36,13 +40,22 @@ def match_ranges_with_labels(labels: pandas.DataFrame, ranges):
         traffic_type = row["traffic_type"]
         benign_counts = 0
         for r in ranges:
-            if traffic_type is TrafficType.ATTACK and in_range(index, range_start=r[0], range_end=r[1]):
-                raise AssertionError("Index %s is of type %s, but found in range %s" % (index, traffic_type, r))
-            if traffic_type is TrafficType.BENIGN and in_range(index, range_start=r[0], range_end=r[1]):
+            if traffic_type is TrafficType.ATTACK and in_range(
+                index, range_start=r[0], range_end=r[1]
+            ):
+                raise AssertionError(
+                    "Index %s is of type %s, but found in range %s"
+                    % (index, traffic_type, r)
+                )
+            if traffic_type is TrafficType.BENIGN and in_range(
+                index, range_start=r[0], range_end=r[1]
+            ):
                 benign_counts += 1
         if traffic_type is TrafficType.BENIGN and benign_counts != 1:
             raise AssertionError(
-                "Index %s is of type %s, but was matched by %s ranges." % (index, traffic_type, benign_counts))
+                "Index %s is of type %s, but was matched by %s ranges."
+                % (index, traffic_type, benign_counts)
+            )
         index += 1
 
 
@@ -53,6 +66,5 @@ def in_range(index, range_start, range_end):
         return range_start <= index < range_end
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
-    pass
