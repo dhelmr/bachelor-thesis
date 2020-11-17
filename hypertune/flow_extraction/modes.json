@@ -22,7 +22,7 @@
           "with_ip_addr"
         ],
         "tcp",
-        "none"
+        null
       ],
       "--flow-timeout": [
         6,
