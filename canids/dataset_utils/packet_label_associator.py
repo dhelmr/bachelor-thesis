@@ -120,32 +120,32 @@ class PacketLabelAssociator(ABC):
         benign_times = in_both.groupby(in_both.index).apply(
             lambda elements: sorted(
                 list(
-                    set(
-                        [
-                            FlowIdentification(
-                                start_time=self._date_cell_to_timestamp(
-                                    r[f"{COL_START_TIME}_y"]
-                                ),
-                                additional_info=r[f"{COL_INFO}_y"],
-                                traffic_type=TrafficType.BENIGN,
-                            )
-                            for _, r in elements.iterrows()
-                        ]
-                    )
+                    {
+                        FlowIdentification(
+                            start_time=self._date_cell_to_timestamp(
+                                r[f"{COL_START_TIME}_y"]
+                            ),
+                            additional_info=r[f"{COL_INFO}_y"],
+                            traffic_type=TrafficType.BENIGN,
+                        )
+                        for _, r in elements.iterrows()
+                    }
                 ),
                 key=lambda item: item.start_time,
             )
         )
         attack_times = attacks.groupby(attacks.index).apply(
             lambda elements: sorted(
-                [
-                    FlowIdentification(
-                        start_time=self._date_cell_to_timestamp(r[COL_START_TIME]),
-                        additional_info=r[COL_INFO],
-                        traffic_type=TrafficType.ATTACK,
-                    )
-                    for _, r in elements.iterrows()
-                ],
+                list(
+                    {
+                        FlowIdentification(
+                            start_time=self._date_cell_to_timestamp(r[COL_START_TIME]),
+                            additional_info=r[COL_INFO],
+                            traffic_type=TrafficType.ATTACK,
+                        )
+                        for _, r in elements.iterrows()
+                    }
+                ),
                 key=lambda item: item.start_time,
             )
         )
@@ -164,7 +164,7 @@ class PacketLabelAssociator(ABC):
         return result_df, set(result_df.index.values.tolist())
 
     def _associate_packet(
-            self, packet, attack_flows, attack_ids
+        self, packet, attack_flows, attack_ids
     ) -> Tuple[TrafficType, Sequence[str], AdditionalInfo]:
         """
         Finds the corresponding labels for a packet, i.e. whether it belongs to an attack or benign traffic and, if it
@@ -207,10 +207,10 @@ class PacketLabelAssociator(ABC):
         return attack_info[0], flow_ids, attack_info[1]
 
     def _is_attack(
-            self,
-            ts: datetime.datetime,
-            attack_times: List[FlowIdentification],
-            benign_times: List[FlowIdentification],
+        self,
+        ts: datetime.datetime,
+        attack_times: List[FlowIdentification],
+        benign_times: List[FlowIdentification],
     ) -> Optional[FlowIdentification]:
         """
         Checks if a packet's timestamp lies within an attack or benign flow
@@ -225,7 +225,7 @@ class PacketLabelAssociator(ABC):
         last_item = (TrafficType.BENIGN, (None, None))
         while len(attack_times) != 0 or len(benign_times) != 0:
             if len(attack_times) > 0 and (
-                    len(benign_times) == 0 or attack_times[0][0] < benign_times[0][0]
+                len(benign_times) == 0 or attack_times[0][0] < benign_times[0][0]
             ):
                 item = attack_times.pop(0)
                 if ts < item[0]:
@@ -249,7 +249,7 @@ class PacketLabelAssociator(ABC):
         raise NotImplementedError()
 
     def _write_csv_row(
-            self, csv_writer, packet_id, flow_id, reverse_id, traffic_type, additional_info
+        self, csv_writer, packet_id, flow_id, reverse_id, traffic_type, additional_info
     ):
         if type(additional_info) is not str:
             additional_cells = ""
