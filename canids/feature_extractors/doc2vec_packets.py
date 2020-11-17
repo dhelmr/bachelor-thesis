@@ -11,7 +11,9 @@ import dpkt as dpkt
 import numpy as np
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
 
-from canids.feature_extractors.basic_packet_feature_extractor import BasicPacketFeatureExtractor
+from canids.feature_extractors.basic_packet_feature_extractor import (
+    BasicPacketFeatureExtractor,
+)
 from canids.types import FeatureExtractor, TrafficType, TrafficSequence
 
 logger = logging.getLogger()
@@ -42,7 +44,6 @@ class DocumentGenerator:
 
 
 class PacketDoc2Vec(FeatureExtractor):
-
     def __init__(self):
         self.statistic_features_extractor = BasicPacketFeatureExtractor()
         self.model: Doc2Vec = None
@@ -52,11 +53,15 @@ class PacketDoc2Vec(FeatureExtractor):
 
     def fit_extract(self, traffic: TrafficSequence) -> np.ndarray:
         if self.model is not None:
-            raise RuntimeError("Doc2Vec model is already trained and loaded in memory, abort.")
+            raise RuntimeError(
+                "Doc2Vec model is already trained and loaded in memory, abort."
+            )
         packet_infos = self._read_packets(traffic)
         doc_gen = self._make_doc_gen(packet_infos)
         logging.info("Start training doc2vec model")
-        self.model = Doc2Vec(doc_gen, vector_size=20, window=5, min_count=4, workers=128)
+        self.model = Doc2Vec(
+            doc_gen, vector_size=20, window=5, min_count=4, workers=128
+        )
         logging.info("Finished training doc2vec model")
         d2v_features = self.model.docvecs.vectors_docs
         return self._append_statistical_features(packet_infos, d2v_features)
@@ -73,19 +78,24 @@ class PacketDoc2Vec(FeatureExtractor):
                 payload = bytes(ip.data)
             else:
                 payload = bytes()
-            statistical_features = self.statistic_features_extractor.analyze_packet(packet)
+            statistical_features = self.statistic_features_extractor.analyze_packet(
+                packet
+            )
             packet_infos.append(PacketInformation(payload, statistical_features))
             progress += 1
             if progress % 1_000_000 == 0:
                 logging.info("Loaded %s packets", progress)
         return packet_infos
 
-    def _append_statistical_features(self, packet_infos: t.List[PacketInformation],
-                                     d2v_features: np.ndarray) -> np.ndarray:
+    def _append_statistical_features(
+        self, packet_infos: t.List[PacketInformation], d2v_features: np.ndarray
+    ) -> np.ndarray:
         _, meta_features = zip(*packet_infos)
         return np.hstack((d2v_features, meta_features))
 
-    def _make_doc_gen(self, packet_infos: t.List[PacketInformation]) -> DocumentGenerator:
+    def _make_doc_gen(
+        self, packet_infos: t.List[PacketInformation]
+    ) -> DocumentGenerator:
         logging.info("Finished loading the packets into memory.")
         payloads, _ = zip(*packet_infos)
         doc_gen = DocumentGenerator(payloads)
@@ -100,7 +110,9 @@ class PacketDoc2Vec(FeatureExtractor):
         d2v_features = workers.infer_vectors()
         return self._append_statistical_features(packet_infos, d2v_features)
 
-    def map_backwards(self, pcap_file: str, de_result: t.Sequence[TrafficType]) -> t.Sequence[TrafficType]:
+    def map_backwards(
+        self, pcap_file: str, de_result: t.Sequence[TrafficType]
+    ) -> t.Sequence[TrafficType]:
         # No dimension reduction was made when extracting the features
         return de_result
 
@@ -128,7 +140,9 @@ class MultiThreadedDoc2VecInferer:
             n_proc = multiprocessing.cpu_count()
         self.n_proc = n_proc
         self.model = model
-        self.model.delete_temporary_training_data(keep_doctags_vectors=False, keep_inference=True)
+        self.model.delete_temporary_training_data(
+            keep_doctags_vectors=False, keep_inference=True
+        )
         global global_parallel_model
         global_parallel_model = self.model
         self.doc_gen = doc_gen
@@ -141,9 +155,14 @@ class MultiThreadedDoc2VecInferer:
         # See https://bugs.python.org/issue35152
         i = 0
         for batch_indexes in self.iter_batch_ranges():
-            logging.info("Infer vector progress: %s perc", i * self.batch_size / len(self.doc_gen.packet_infos) * 100)
+            logging.info(
+                "Infer vector progress: %s perc",
+                i * self.batch_size / len(self.doc_gen.packet_infos) * 100,
+            )
             with multiprocessing.Pool(self.n_proc) as pool:
-                batch_features = pool.map(parallel_infer_vector, self.make_parallel_params(batch_indexes))
+                batch_features = pool.map(
+                    parallel_infer_vector, self.make_parallel_params(batch_indexes)
+                )
             features += batch_features
             i += 1
         return features
@@ -199,7 +218,7 @@ def patch_mp_connection_bpo_17560():
     if not (3, 3) < sys.version_info < (3, 8):
         logger.info(
             patchname + " not applied, not an applicable Python version: %s",
-            sys.version
+            sys.version,
         )
         return
 
@@ -208,8 +227,8 @@ def patch_mp_connection_bpo_17560():
     orig_send_bytes = Connection._send_bytes
     orig_recv_bytes = Connection._recv_bytes
     if (
-            orig_send_bytes.__code__.co_filename == __file__
-            and orig_recv_bytes.__code__.co_filename == __file__
+        orig_send_bytes.__code__.co_filename == __file__
+        and orig_recv_bytes.__code__.co_filename == __file__
     ):
         logger.info(patchname + " already applied, skipping")
         return
@@ -217,7 +236,7 @@ def patch_mp_connection_bpo_17560():
     @functools.wraps(orig_send_bytes)
     def send_bytes(self, buf):
         n = len(buf)
-        if n > 0x7fffffff:
+        if n > 0x7FFFFFFF:
             pre_header = struct.pack("!i", -1)
             header = struct.pack("!Q", n)
             self._send(pre_header)
@@ -229,10 +248,10 @@ def patch_mp_connection_bpo_17560():
     @functools.wraps(orig_recv_bytes)
     def recv_bytes(self, maxsize=None):
         buf = self._recv(4)
-        size, = struct.unpack("!i", buf.getvalue())
+        (size,) = struct.unpack("!i", buf.getvalue())
         if size == -1:
             buf = self._recv(8)
-            size, = struct.unpack("!Q", buf.getvalue())
+            (size,) = struct.unpack("!Q", buf.getvalue())
         if maxsize is not None and size > maxsize:
             return None
         return self._recv(size)

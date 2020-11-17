@@ -9,24 +9,29 @@ from canids.types import FeatureExtractor, TrafficType, Packet, TrafficSequence
 
 
 class BasicPacketFeatureExtractor(FeatureExtractor):
-
     def extract_features(self, traffic: TrafficSequence) -> np.ndarray:
         return self._extract_features(traffic, True)
 
-    def map_backwards(self, traffic: TrafficSequence, de_result: t.Sequence[TrafficType]) -> t.Sequence[TrafficType]:
+    def map_backwards(
+        self, traffic: TrafficSequence, de_result: t.Sequence[TrafficType]
+    ) -> t.Sequence[TrafficType]:
         return de_result
 
     def fit_extract(self, traffic: TrafficSequence) -> np.ndarray:
         return self._extract_features(traffic, False)
 
-    def _extract_features(self, traffic: TrafficSequence, prepare_backwards_mapping: bool):
+    def _extract_features(
+        self, traffic: TrafficSequence, prepare_backwards_mapping: bool
+    ):
         feature_matrix = []
         progress = 0
         for packet in traffic.packet_reader:
             feature_matrix.append(self.analyze_packet(packet))
             progress += 1
             if progress % 500_000 == 0:
-                logging.info("Processed %s packets for meta features extraction", progress)
+                logging.info(
+                    "Processed %s packets for meta features extraction", progress
+                )
         return np.array(feature_matrix)
 
     def analyze_packet(self, packet: Packet):
@@ -54,7 +59,11 @@ class BasicPacketFeatureExtractor(FeatureExtractor):
                 src_port = int(eth.ip.udp.sport)
                 dest_port = int(eth.ip.udp.dport)
                 udp_features = [1, eth.ip.udp.ulen, eth.ip.udp.sum]
-        feature_list = [len(eth), src_ip, dest_ip, src_port, dest_port] + tcp_features + udp_features
+        feature_list = (
+            [len(eth), src_ip, dest_ip, src_port, dest_port]
+            + tcp_features
+            + udp_features
+        )
         return feature_list
 
     def get_name(self) -> str:

@@ -10,7 +10,12 @@ from pandas import Series
 from canids.dataset_utils.packet_label_associator import *
 from canids.dataset_utils.pcap_utils import FlowIDFormatter, SubsetPacketReader
 from canids.dataset_utils.reader_utils import ranges_of_list
-from canids.types import TrafficSequence, TrafficReader, DatasetPreprocessor, DatasetUtils
+from canids.types import (
+    TrafficSequence,
+    TrafficReader,
+    DatasetPreprocessor,
+    DatasetUtils,
+)
 
 
 class PcapFiles(Enum):
@@ -30,100 +35,90 @@ BENIGN_LABEL = "BENIGN"
 
 SMALL_SUBSET = {
     "benign": {
-        BENIGN_PCAP_FILE: [
-            (0, 10_000),
-            (50_000, 1_500_000),
-            (10_000_000, "end")
-        ],
+        BENIGN_PCAP_FILE: [(0, 10_000), (50_000, 1_500_000), (10_000_000, "end")],
     },
     "unknown": {
-        PcapFiles.FRIDAY: [
-            (400, 5000),
-            (50000, 90000),
-            (5_000_000, "end")
-        ],
-        PcapFiles.TUESDAY: [
-            (999, 99_999)
-        ]
+        PcapFiles.FRIDAY: [(400, 5000), (50000, 90000), (5_000_000, "end")],
+        PcapFiles.TUESDAY: [(999, 99_999)],
     },
     "test_name": "small",
-    "train_name": "small"
+    "train_name": "small",
 }
 TINY_SUBSET = {
     "benign": {
-        BENIGN_PCAP_FILE: [
-            (0, 100),
-            (400, 1000)
-        ],
-        PcapFiles.THURSDAY: [
-            (0, 400)
-        ],
+        BENIGN_PCAP_FILE: [(0, 100), (400, 1000)],
+        PcapFiles.THURSDAY: [(0, 400)],
     },
     "unknown": {
-        PcapFiles.THURSDAY: [
-            (999, 12_000)
-        ],
+        PcapFiles.THURSDAY: [(999, 12_000)],
         PcapFiles.WEDNESDAY: [
             (99, 1000),
             (2099, 10_000),
-        ]
+        ],
     },
     "test_name": "tiny",
-    "train_name": "tiny"
+    "train_name": "tiny",
 }
 
 DEFAULT_SUBSET = {
-    "benign": {
-        BENIGN_PCAP_FILE: [(0, "end")]
+    "benign": {BENIGN_PCAP_FILE: [(0, "end")]},
+    "unknown": {
+        pcap_file: [(0, "end")]
+        for pcap_file in PcapFiles
+        if pcap_file is not BENIGN_PCAP_FILE
     },
-    "unknown": {pcap_file: [(0, "end")] for pcap_file in PcapFiles if pcap_file is not BENIGN_PCAP_FILE},
     "test_name": "Tuesday, Wednesday, Thursday, Friday",
-    "train_name": "Monday"
+    "train_name": "Monday",
 }
-SUBSETS = {
-    "default": DEFAULT_SUBSET,
-    "small": SMALL_SUBSET,
-    "tiny": TINY_SUBSET
-}
+SUBSETS = {"default": DEFAULT_SUBSET, "small": SMALL_SUBSET, "tiny": TINY_SUBSET}
 # create one subset for each attack day (training day is monday)
 for pcap_file in PcapFiles:
     if pcap_file is BENIGN_PCAP_FILE:
         continue
     name = pcap_file.name.lower()
     SUBSETS[name] = {
-        "benign": {
-            BENIGN_PCAP_FILE: [(0, "end")]
-        },
+        "benign": {BENIGN_PCAP_FILE: [(0, "end")]},
         "unknown": {pcap_file: [(0, "end")]},
         "test_name": name,
-        "train_name": "Monday"
+        "train_name": "Monday",
     }
 
 FLOW_LABEL_FILES = {
     PcapFiles.MONDAY: ["labels/Monday-WorkingHours.pcap_ISCX.csv"],
     PcapFiles.TUESDAY: ["labels/Tuesday-WorkingHours.pcap_ISCX.csv"],
     PcapFiles.WEDNESDAY: ["labels/Wednesday-workingHours.pcap_ISCX.csv"],
-    PcapFiles.THURSDAY: ["labels/Thursday-WorkingHours-Morning-WebAttacks.pcap_ISCX.csv",
-                         "labels/Thursday-WorkingHours-Afternoon-Infilteration.pcap_ISCX.csv"],
-    PcapFiles.FRIDAY: ["labels/Friday-WorkingHours-Morning.pcap_ISCX.csv",
-                       "labels/Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv",
-                       "labels/Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv",
-                       ]
+    PcapFiles.THURSDAY: [
+        "labels/Thursday-WorkingHours-Morning-WebAttacks.pcap_ISCX.csv",
+        "labels/Thursday-WorkingHours-Afternoon-Infilteration.pcap_ISCX.csv",
+    ],
+    PcapFiles.FRIDAY: [
+        "labels/Friday-WorkingHours-Morning.pcap_ISCX.csv",
+        "labels/Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv",
+        "labels/Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv",
+    ],
 }
 PacketID = str
 
 
 def read_labels_csv(file, nrows=None):
-    df = pandas.read_csv(file, sep=",", low_memory=False, nrows=nrows, index_col="Flow ID", encoding="cp1252")
+    df = pandas.read_csv(
+        file,
+        sep=",",
+        low_memory=False,
+        nrows=nrows,
+        index_col="Flow ID",
+        encoding="cp1252",
+    )
     # remove spaces from column labels
     df.rename(columns=lambda x: x.strip(), inplace=True)
-    df.dropna(how="all", inplace=True)  # drop all empty rows (some csv are miss-formatted)
+    df.dropna(
+        how="all", inplace=True
+    )  # drop all empty rows (some csv are miss-formatted)
     df["Label"] = df["Label"].apply(lambda x: x.upper())
     return df
 
 
 class CIC2017TrafficReader(TrafficReader):
-
     def __init__(self, directory: str, subset: str):
         super().__init__(directory, subset)
         if subset not in SUBSETS:
@@ -131,24 +126,31 @@ class CIC2017TrafficReader(TrafficReader):
         self.subset = SUBSETS[subset]
 
     def read_normal_data(self) -> TrafficSequence:
-        traffic_sequences = [self._make_traffic_sequence(pcap_file, ranges) for pcap_file, ranges in
-                             self.subset["benign"].items()]
+        traffic_sequences = [
+            self._make_traffic_sequence(pcap_file, ranges)
+            for pcap_file, ranges in self.subset["benign"].items()
+        ]
         if len(traffic_sequences) == 1:
             return traffic_sequences[0]
         # if more than one traffic sequences are present, join them into one.
-        joined_ids = [id_item for id_item in itertools.chain(*map(lambda seq: seq.ids, traffic_sequences))]
+        joined_ids = [
+            id_item
+            for id_item in itertools.chain(*map(lambda seq: seq.ids, traffic_sequences))
+        ]
         joined_labels = Series()
         for traffic_sequence in traffic_sequences:
             joined_labels = joined_labels.append(traffic_sequence.labels)
-        joined_reader = itertools.chain(*map(lambda seq: seq.packet_reader, traffic_sequences))
-        parts = {
-            "all": joined_ids
-        }
-        return TrafficSequence(name=f"benign@CIC-IDS-2017:{self.subset_name}",
-                               labels=joined_labels,
-                               packet_reader=joined_reader,
-                               parts=parts,
-                               ids=joined_ids)
+        joined_reader = itertools.chain(
+            *map(lambda seq: seq.packet_reader, traffic_sequences)
+        )
+        parts = {"all": joined_ids}
+        return TrafficSequence(
+            name=f"benign@CIC-IDS-2017:{self.subset_name}",
+            labels=joined_labels,
+            packet_reader=joined_reader,
+            parts=parts,
+            ids=joined_ids,
+        )
 
     def _make_traffic_sequence(self, pcap_file: PcapFiles, ranges) -> TrafficSequence:
         labels = read_packet_labels(self.dataset_dir, pcap_file.value)
@@ -158,7 +160,13 @@ class CIC2017TrafficReader(TrafficReader):
         name = f"{pcap_file.name}@CIC-IDS-2017:{self.subset_name}"
         packet_reader = SubsetPacketReader(full_pcap_path, ranges)
         parts = self._make_parts(labels)
-        return TrafficSequence(name=name, packet_reader=packet_reader, labels=traffic_types, ids=ids, parts=parts)
+        return TrafficSequence(
+            name=name,
+            packet_reader=packet_reader,
+            labels=traffic_types,
+            ids=ids,
+            parts=parts,
+        )
 
     def __iter__(self):
         for pcap_file, ranges in self.subset["unknown"].items():
@@ -166,16 +174,22 @@ class CIC2017TrafficReader(TrafficReader):
 
     def _make_parts(self, labels):
         attacks = labels[labels["traffic_type"] == TrafficType.ATTACK].reset_index()
-        attack_parts = attacks.groupby(attacks["attack_type"])["packet_id"].apply(list).to_dict()
-        attack_parts = {name: indexes for name, indexes in attack_parts.items() if len(indexes) > 0}
-        benigns = labels[labels["traffic_type"] == TrafficType.BENIGN].index.values.tolist()
-        parts = {
-            "all": labels.index.values.tolist()
+        attack_parts = (
+            attacks.groupby(attacks["attack_type"])["packet_id"].apply(list).to_dict()
+        )
+        attack_parts = {
+            name: indexes for name, indexes in attack_parts.items() if len(indexes) > 0
         }
-        parts.update({
-            attack_name: attack_ids + benigns
-            for attack_name, attack_ids in attack_parts.items()
-        })
+        benigns = labels[
+            labels["traffic_type"] == TrafficType.BENIGN
+        ].index.values.tolist()
+        parts = {"all": labels.index.values.tolist()}
+        parts.update(
+            {
+                attack_name: attack_ids + benigns
+                for attack_name, attack_ids in attack_parts.items()
+            }
+        )
         return parts
 
     def get_dataset_name(self):
@@ -189,27 +203,32 @@ class CIC2017TrafficReader(TrafficReader):
 
 
 def packet_label_file(dataset_path, pcap_file: str):
-    return os.path.join(dataset_path, os.path.basename(pcap_file) + "_packet_labels.csv")
+    return os.path.join(
+        dataset_path, os.path.basename(pcap_file) + "_packet_labels.csv"
+    )
 
 
 def read_packet_labels(dataset_path, pcap_file: str):
     packet_labels = packet_label_file(dataset_path, pcap_file)
     if not os.path.exists(packet_labels):
-        raise FileNotFoundError("Cannot find %s. Did you preprocess the dataset first?" % packet_labels)
+        raise FileNotFoundError(
+            "Cannot find %s. Did you preprocess the dataset first?" % packet_labels
+        )
     df = pandas.read_csv(packet_labels, index_col="packet_id")
     df["traffic_type"] = df["traffic_type"].map(lambda value: TrafficType(value))
     return df
 
 
 class CICIDS2017Preprocessor(DatasetPreprocessor):
-
     def __init__(self):
         self.flow_formatter = FlowIDFormatter()
 
     def _parse_args(self, args):
         parser = argparse.ArgumentParser()
         parser.add_argument("--only-stats", action="store_true", help="Only make stats")
-        parser.add_argument("--only-validate", action="store_true", help="Only validate")
+        parser.add_argument(
+            "--only-validate", action="store_true", help="Only validate"
+        )
         parsed = parser.parse_args(args)
         return parsed
 
@@ -231,13 +250,17 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
             labels = read_packet_labels(dataset_path, pcap.value)
             attacks = labels[labels["traffic_type"] == TrafficType.ATTACK]
             attack_perc = len(attacks) / len(labels)
-            pcap_info = attacks.groupby(attacks["attack_type"])["flow_id"].count().to_dict()
-            pcap_info.update({
-                "pcap": pcap.value,
-                "total": len(labels),
-                "num_attacks": len(attacks),
-                "fraction_attacks": attack_perc,
-            })
+            pcap_info = (
+                attacks.groupby(attacks["attack_type"])["flow_id"].count().to_dict()
+            )
+            pcap_info.update(
+                {
+                    "pcap": pcap.value,
+                    "total": len(labels),
+                    "num_attacks": len(attacks),
+                    "fraction_attacks": attack_perc,
+                }
+            )
             data.append(pcap_info)
         pandas.DataFrame(data).set_index("pcap").to_csv(output_file)
 
@@ -248,9 +271,9 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
 
     def _validate_label_distribution(self, dataset_path, stats, pcap: PcapFiles):
         label_files = FLOW_LABEL_FILES[PcapFiles(pcap.value)]
-        true_labels = pandas.concat([
-            read_labels_csv(os.path.join(dataset_path, f)) for f in label_files
-        ])
+        true_labels = pandas.concat(
+            [read_labels_csv(os.path.join(dataset_path, f)) for f in label_files]
+        )
         total_attack_count = 0
         total_stats_count = 0
         for label in true_labels["Label"].unique():
@@ -262,22 +285,37 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
                 logging.error("Label %s is not found in stats!", stats_name)
                 continue
             filtered = true_labels[true_labels["Label"] == label]
-            pkts_per_flow = filtered["Total Fwd Packets"] + filtered[
-                "Total Backward Packets"]
+            pkts_per_flow = (
+                filtered["Total Fwd Packets"] + filtered["Total Backward Packets"]
+            )
             true_total_packets = pkts_per_flow.sum()
             stats_packet_count = stats[stats_name].loc[pcap.value].sum()
             total_attack_count += true_total_packets
             total_stats_count += stats_packet_count
             if stats_packet_count != true_total_packets:
-                logging.error("%s | Expected stats to have %s packets of attack %s; but got %s!", pcap.value,
-                              true_total_packets, stats_name, stats_packet_count)
+                logging.error(
+                    "%s | Expected stats to have %s packets of attack %s; but got %s!",
+                    pcap.value,
+                    true_total_packets,
+                    stats_name,
+                    stats_packet_count,
+                )
             else:
-                logging.info("%s | %s as expected (%s packets)", pcap.value, stats_name, stats_packet_count)
-        logging.info("%s | Expected %s attack packets; got %s", pcap.value, total_attack_count, total_stats_count)
+                logging.info(
+                    "%s | %s as expected (%s packets)",
+                    pcap.value,
+                    stats_name,
+                    stats_packet_count,
+                )
+        logging.info(
+            "%s | Expected %s attack packets; got %s",
+            pcap.value,
+            total_attack_count,
+            total_stats_count,
+        )
 
 
 class CICIDS2017LabelAssociator(PacketLabelAssociator):
-
     def __init__(self, dataset_path):
         super().__init__(["attack_type"])
         self.dataset_path = dataset_path
@@ -286,16 +324,20 @@ class CICIDS2017LabelAssociator(PacketLabelAssociator):
         self.timezone = pytz.timezone("Canada/Atlantic")
 
     def _get_attack_flows(self, pcap_file):
-        relative_path = pcap_file[len(self.dataset_path):]
+        relative_path = pcap_file[len(self.dataset_path) :]
         if relative_path.startswith(os.path.sep):
             relative_path = relative_path[1:]
         label_files = FLOW_LABEL_FILES[PcapFiles(relative_path)]
-        df = pandas.concat([
-            read_labels_csv(os.path.join(self.dataset_path, f)) for f in label_files
-        ])
-        df.dropna(how="all", inplace=True)  # drop all empty rows (some csv are miss-formatted)
+        df = pandas.concat(
+            [read_labels_csv(os.path.join(self.dataset_path, f)) for f in label_files]
+        )
+        df.dropna(
+            how="all", inplace=True
+        )  # drop all empty rows (some csv are miss-formatted)
         df[COL_REVERSE_FLOW_ID] = df.index.map(lambda flow: self.reverse_flow_id(flow))
-        df[COL_TRAFFIC_TYPE], df[COL_INFO] = zip(*df["Label"].apply(self.parse_label_field))
+        df[COL_TRAFFIC_TYPE], df[COL_INFO] = zip(
+            *df["Label"].apply(self.parse_label_field)
+        )
         df[COL_START_TIME] = df["Timestamp"]
         self._drop_non_required_cols(df)
         return self._find_attack_flows(df)
@@ -305,11 +347,15 @@ class CICIDS2017LabelAssociator(PacketLabelAssociator):
         if len(splitted) != 5:
             return "<invalid flow>"
         src_ip, dest_ip, src_port, dest_port, protocol = splitted
-        return self.flow_formatter.format_flow_id(src_ip, dest_ip, src_port, dest_port, protocol, reverse=True)
+        return self.flow_formatter.format_flow_id(
+            src_ip, dest_ip, src_port, dest_port, protocol, reverse=True
+        )
 
     def make_flow_ids(self, packet: Packet) -> Tuple[str, str]:
         timestamp, buf = packet
-        return self.flow_formatter.make_flow_ids(timestamp, buf, packet_type=dpkt.ethernet.Ethernet)
+        return self.flow_formatter.make_flow_ids(
+            timestamp, buf, packet_type=dpkt.ethernet.Ethernet
+        )
 
     def output_csv_file(self, pcap_file) -> str:
         return packet_label_file(self.dataset_path, pcap_file)
@@ -333,8 +379,9 @@ class CICIDS2017LabelAssociator(PacketLabelAssociator):
         if time_part.count(":") == 1:
             time_part += ":00"
         datestr = f"{date_part} {time_part}"
-        parsed_date = datetime.datetime.strptime(datestr,
-                                                 "%d/%m/%Y %I:%M:%S")  # example "5/7/2017 8:42" = 5th of July 2017
+        parsed_date = datetime.datetime.strptime(
+            datestr, "%d/%m/%Y %I:%M:%S"
+        )  # example "5/7/2017 8:42" = 5th of July 2017
         with_tz = self.timezone.localize(parsed_date, is_dst=None)
         return with_tz
 
@@ -353,10 +400,16 @@ def get_stats(dataset_path):
 
 def print_stats(dataset_path):
     df = get_stats(dataset_path)
-    with pandas.option_context('float_format', '{:10.0f}'.format):
-        df["fraction_attacks"] = df["fraction_attacks"].apply(lambda frac: f"{(frac * 100):3.3f}%")
-        print(df.T.replace(np.nan, '0', regex=True))
+    with pandas.option_context("float_format", "{:10.0f}".format):
+        df["fraction_attacks"] = df["fraction_attacks"].apply(
+            lambda frac: f"{(frac * 100):3.3f}%"
+        )
+        print(df.T.replace(np.nan, "0", regex=True))
 
 
-CICIDS2017 = DatasetUtils(os.path.join("data", "cic-ids-2017"), CIC2017TrafficReader, CICIDS2017Preprocessor,
-                          print_stats)
+CICIDS2017 = DatasetUtils(
+    os.path.join("data", "cic-ids-2017"),
+    CIC2017TrafficReader,
+    CICIDS2017Preprocessor,
+    print_stats,
+)

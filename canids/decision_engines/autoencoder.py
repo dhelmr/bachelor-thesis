@@ -13,8 +13,17 @@ keras = None
 from canids.types import DecisionEngine, TrafficType, Features
 
 MODEL_FILE_PATH = ".autoencoders"
-POSSIBLE_ACTIVATIONS = ["relu", "sigmoid", "softmax", "softplus",
-                        "softsign", "tanh", "selu", "elu", "exponential"]
+POSSIBLE_ACTIVATIONS = [
+    "relu",
+    "sigmoid",
+    "softmax",
+    "softplus",
+    "softsign",
+    "tanh",
+    "selu",
+    "elu",
+    "exponential",
+]
 POSSIBLE_LOSS = ["mse", "mae"]
 
 
@@ -64,7 +73,6 @@ def init_keras():
 
 
 class AutoencoderDE(DecisionEngine):
-
     def __init__(self, **kwargs):
         init_keras()
         self.verbose = False
@@ -107,10 +115,16 @@ class AutoencoderDE(DecisionEngine):
                 size_type = LayerSizeType.FIXED_SIZE
             try:
                 value = float(layer)
-                if size_type is LayerSizeType.FIXED_SIZE or size_type is LayerSizeType.REFERENCE:
+                if (
+                    size_type is LayerSizeType.FIXED_SIZE
+                    or size_type is LayerSizeType.REFERENCE
+                ):
                     value = int(value)
             except Exception:
-                raise ValueError("Invalid layer of type %s, must be a number: %s" % (size_type.name, layer))
+                raise ValueError(
+                    "Invalid layer of type %s, must be a number: %s"
+                    % (size_type.name, layer)
+                )
             layers.append(LayerDefinition(size_type, value))
         return layers
 
@@ -123,7 +137,7 @@ class AutoencoderDE(DecisionEngine):
                 keras.layers.Dense(input_dim, name="decoded"),
             ]
         )
-        self.autoencoder.compile(optimizer='adam', loss=self.loss)
+        self.autoencoder.compile(optimizer="adam", loss=self.loss)
 
     def make_hidden_layers(self, input_dim):
         hidden_layers = []
@@ -138,7 +152,11 @@ class AutoencoderDE(DecisionEngine):
                 size = sizes[int(definition.value)]
             else:
                 raise ValueError("Unexpected value: %s" % definition.size_type)
-            hidden_layers.append(keras.layers.Dense(size, activation=self.activation, name="hidden_layer-%s" % i))
+            hidden_layers.append(
+                keras.layers.Dense(
+                    size, activation=self.activation, name="hidden_layer-%s" % i
+                )
+            )
             self._append_normalization_layer(hidden_layers)
             self._append_dropout_layer(hidden_layers)
             sizes.append(size)
@@ -165,15 +183,26 @@ class AutoencoderDE(DecisionEngine):
         callbacks = []
         if self.early_stopping_patience >= 0:
             from tensorflow.python.keras.callbacks import EarlyStopping
-            callbacks.append(EarlyStopping(patience=self.early_stopping_patience, monitor="loss", mode="min",
-                                           restore_best_weights=True))
+
+            callbacks.append(
+                EarlyStopping(
+                    patience=self.early_stopping_patience,
+                    monitor="loss",
+                    mode="min",
+                    restore_best_weights=True,
+                )
+            )
 
         self.init_model(input_dim=dim)
-        self.autoencoder.fit(data, data,
-                             epochs=self.training_epochs,
-                             batch_size=self.training_batch,
-                             callbacks=callbacks,
-                             shuffle=True, verbose=self._get_keras_verbose())
+        self.autoencoder.fit(
+            data,
+            data,
+            epochs=self.training_epochs,
+            batch_size=self.training_batch,
+            callbacks=callbacks,
+            shuffle=True,
+            verbose=self._get_keras_verbose(),
+        )
         # Get train MAE loss.
         pred = self.autoencoder.predict(data)
         train_mae_loss = self.loss_fn(pred, data)
@@ -184,9 +213,10 @@ class AutoencoderDE(DecisionEngine):
             raise RuntimeError("Autoencoder is not trained yet.")
         pred = self.autoencoder.predict(features.data)
         test_losses = self.loss_fn(pred, features.data)
-        classifications = [TrafficType.ATTACK if loss > self.threshold
-                           else TrafficType.BENIGN
-                           for loss in test_losses]
+        classifications = [
+            TrafficType.ATTACK if loss > self.threshold else TrafficType.BENIGN
+            for loss in test_losses
+        ]
         return classifications
 
     def _get_keras_verbose(self):
@@ -202,27 +232,31 @@ class AutoencoderDE(DecisionEngine):
 
     def __str__(self):
 
-        return f"Autoencoder(layer_sizes={self.layer_sizes}, loss={self.loss}, act={self.activation}," \
-               f" train_batch={self.training_batch}, train_epochs={self.training_epochs})"
+        return (
+            f"Autoencoder(layer_sizes={self.layer_sizes}, loss={self.loss}, act={self.activation},"
+            f" train_batch={self.training_batch}, train_epochs={self.training_epochs})"
+        )
 
     def serialize(self) -> bytes:
         """ Saves the model using keras' own method to the file system and remember its id for reloading it later"""
         id = self.get_name() + "_" + uuid.uuid4().__str__()
         filepath = os.path.join(MODEL_FILE_PATH, id)
         self.autoencoder.save(filepath)
-        return pickle.dumps({
-            "id": id,
-            "threshold": self.threshold,
-            "loss": self.loss,
-            "activation": self.activation,
-            "layers": self.layers,
-            "layer_sizes": self.layer_sizes,
-            "training_batch": self.training_batch,
-            "training_epochs": self.training_epochs,
-            "early_stopping_patience": self.early_stopping_patience,
-            "batch_normalization": self.batch_normalization,
-            "dropout_ratio": self.dropout_ratio
-        })
+        return pickle.dumps(
+            {
+                "id": id,
+                "threshold": self.threshold,
+                "loss": self.loss,
+                "activation": self.activation,
+                "layers": self.layers,
+                "layer_sizes": self.layer_sizes,
+                "training_batch": self.training_batch,
+                "training_epochs": self.training_epochs,
+                "early_stopping_patience": self.early_stopping_patience,
+                "batch_normalization": self.batch_normalization,
+                "dropout_ratio": self.dropout_ratio,
+            }
+        )
 
     @staticmethod
     def deserialize(serialized):
@@ -238,10 +272,18 @@ class AutoencoderDE(DecisionEngine):
         training_batch = deserialized["training_batch"]
         dropout_ratio = deserialized["dropout_ratio"]
         batch_normalization = deserialized["batch_normalization"]
-        return AutoencoderDE(autoencoder=model, threshold=threshold, loss=loss, layer_sizes=layer_sizes,
-                             activation=activation, training_epochs=training_epochs, training_batch=training_batch,
-                             early_stopping_patience=deserialized["early_stopping_patience"],
-                             dropout_ratio=dropout_ratio, batch_normalization=batch_normalization)
+        return AutoencoderDE(
+            autoencoder=model,
+            threshold=threshold,
+            loss=loss,
+            layer_sizes=layer_sizes,
+            activation=activation,
+            training_epochs=training_epochs,
+            training_batch=training_batch,
+            early_stopping_patience=deserialized["early_stopping_patience"],
+            dropout_ratio=dropout_ratio,
+            batch_normalization=batch_normalization,
+        )
 
     def get_db_params_dict(self):
         layer_pattern = ",".join([layer.format() for layer in self.layers])
@@ -255,22 +297,32 @@ class AutoencoderDE(DecisionEngine):
             "training_epochs": self.training_epochs,
             "early_stopping_patience": self.early_stopping_patience,
             "batch_normalization": self.batch_normalization.value,
-            "dropout_ratio": self.dropout_ratio
+            "dropout_ratio": self.dropout_ratio,
         }
 
     @staticmethod
     def create_parser(prog_name):
         parser = argparse.ArgumentParser(
-            prog=prog_name,
-            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+            prog=prog_name, formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
         parser.add_argument("--training-epochs", type=int, default=50)
         parser.add_argument("--training-batch", type=int, default=256)
         parser.add_argument("--early-stopping-patience", type=int, default=-1)
         parser.add_argument("--layers", type=str, default="*0.7,*0.8,#1")
-        parser.add_argument("--activation", type=str, default=POSSIBLE_ACTIVATIONS[0], choices=POSSIBLE_ACTIVATIONS)
-        parser.add_argument("--loss", type=str, default=POSSIBLE_LOSS[0], choices=POSSIBLE_LOSS)
+        parser.add_argument(
+            "--activation",
+            type=str,
+            default=POSSIBLE_ACTIVATIONS[0],
+            choices=POSSIBLE_ACTIVATIONS,
+        )
+        parser.add_argument(
+            "--loss", type=str, default=POSSIBLE_LOSS[0], choices=POSSIBLE_LOSS
+        )
         parser.add_argument("--dropout-ratio", type=float, default=-1)
-        parser.add_argument("--batch-normalization", type=lambda x: BatchNormalizationMode(x),
-                            default=BatchNormalizationMode.NONE)
+        parser.add_argument(
+            "--batch-normalization",
+            type=lambda x: BatchNormalizationMode(x),
+            default=BatchNormalizationMode.NONE,
+        )
         parser.add_argument("--verbose", action="store_true", default=False)
         return parser

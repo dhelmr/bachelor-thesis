@@ -81,8 +81,12 @@ class Features(NamedTuple):
     data: np.ndarray
 
     def validate(self):
-        if len(self.names) != len(self.types) or (len(self.data) > 0 and len(self.data[0]) != len(self.types)):
-            raise ValueError("Lengths of features names, feature types or data do not match!")
+        if len(self.names) != len(self.types) or (
+            len(self.data) > 0 and len(self.data[0]) != len(self.types)
+        ):
+            raise ValueError(
+                "Lengths of features names, feature types or data do not match!"
+            )
 
     def as_pandas(self, copy: bool = False) -> pandas.DataFrame:
         if copy is True:
@@ -93,24 +97,16 @@ class Features(NamedTuple):
 
     @staticmethod
     def from_pandas(df: pandas.DataFrame, types: t.List[FeatureType]) -> "Features":
-        return Features(
-            data=df.values,
-            types=types,
-            names=df.columns.tolist()
-        )
+        return Features(data=df.values, types=types, names=df.columns.tolist())
 
     def with_data(self, data):
-        return Features(
-            data=data,
-            types=self.types,
-            names=self.names
-        )
+        return Features(data=data, types=self.types, names=self.names)
 
     def combine(self, other_features: "Features"):
         return Features(
             data=np.hstack((self.data, other_features.data)),
             types=self.types + other_features.types,
-            names=self.names + other_features.names
+            names=self.names + other_features.names,
         )
 
 
@@ -126,7 +122,9 @@ class FeatureExtractor:
         raise NotImplementedError()
 
     @abstractmethod
-    def map_backwards(self, traffic: TrafficSequence, de_result: t.Sequence[TrafficType]) -> t.Sequence[TrafficType]:
+    def map_backwards(
+        self, traffic: TrafficSequence, de_result: t.Sequence[TrafficType]
+    ) -> t.Sequence[TrafficType]:
         raise NotImplementedError()
 
     @staticmethod
@@ -171,7 +169,10 @@ class DecisionEngine(ABC):
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def classify(self, features: Features, ) -> t.Sequence[TrafficType]:
+    def classify(
+        self,
+        features: Features,
+    ) -> t.Sequence[TrafficType]:
         raise NotImplementedError()
 
     @abstractmethod

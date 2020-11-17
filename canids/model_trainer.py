@@ -10,8 +10,13 @@ MODEL_ID_AUTO_GENERATE = "auto"
 
 
 class ModelTrainer:
-    def __init__(self, db: DBConnector, traffic_reader: TrafficReader,
-                 anomaly_detector: AnomalyDetectorModel, model_id: str = MODEL_ID_AUTO_GENERATE):
+    def __init__(
+        self,
+        db: DBConnector,
+        traffic_reader: TrafficReader,
+        anomaly_detector: AnomalyDetectorModel,
+        model_id: str = MODEL_ID_AUTO_GENERATE,
+    ):
         self.traffic_reader: TrafficReader = traffic_reader
         self.db: DBConnector = db
         self.ad: AnomalyDetectorModel = anomaly_detector
@@ -24,11 +29,14 @@ class ModelTrainer:
         if len(traffic.ids) == 0:
             raise ValueError("Empty traffic was loaded.")
         name = traffic[0]
-        logging.info(
-            "Start training of normal profile (%s)", name)
+        logging.info("Start training of normal profile (%s)", name)
         fe_id = self.ad.feature_extractor.get_id()
         features_loaded = False
-        if load_features and traffic.is_consistent and self.db.exist_features(fe_id, traffic.name):
+        if (
+            load_features
+            and traffic.is_consistent
+            and self.db.exist_features(fe_id, traffic.name)
+        ):
             try:
                 logging.info("Load features from database...")
                 features = self.db.load_features(fe_id, traffic.name)
@@ -62,21 +70,31 @@ class ModelTrainer:
             self.model_id = self._auto_generate_id()
             logging.info("Use model id %s" % self.model_id)
         self.db.save_model_info(
-            model_id=self.model_id, decision_engine=self.ad.decision_engine.get_name(),
-            transformers=transformer_names, feature_extractor=self.ad.feature_extractor.get_name(),
+            model_id=self.model_id,
+            decision_engine=self.ad.decision_engine.get_name(),
+            transformers=transformer_names,
+            feature_extractor=self.ad.feature_extractor.get_name(),
             dataset_name=self.traffic_reader.get_dataset_name(),
             train_set_name=self.traffic_reader.get_train_set_name(),
-            pickle_dump=pickle_dump)
-        self.db.write_custom_model_table(self.model_id,
-                                         self.ad.decision_engine.get_name(),
-                                         self.ad.decision_engine.get_db_params_dict())
-        self.db.write_custom_model_table(self.model_id,
-                                         self.ad.feature_extractor.get_name(),
-                                         self.ad.feature_extractor.get_db_params_dict())
+            pickle_dump=pickle_dump,
+        )
+        self.db.write_custom_model_table(
+            self.model_id,
+            self.ad.decision_engine.get_name(),
+            self.ad.decision_engine.get_db_params_dict(),
+        )
+        self.db.write_custom_model_table(
+            self.model_id,
+            self.ad.feature_extractor.get_name(),
+            self.ad.feature_extractor.get_db_params_dict(),
+        )
         logging.debug("Store model with id '%s' in database" % self.model_id)
 
     def _auto_generate_id(self) -> str:
-        base_name = "%s-%s" % (self.ad.feature_extractor.get_name(), self.ad.decision_engine.get_name())
+        base_name = "%s-%s" % (
+            self.ad.feature_extractor.get_name(),
+            self.ad.decision_engine.get_name(),
+        )
         while True:
             random_part = uuid.uuid4().__str__()[:8]
             new_id = f"{base_name}-{random_part}"

@@ -8,7 +8,6 @@ from canids.types import Transformer, Features, FeatureType
 
 
 class ScikitTransformer(Transformer, ABC):
-
     def __init__(self, scaler, name):
         self._scaler = scaler
         self._name = name
@@ -41,7 +40,11 @@ class OneHotEncoder(Transformer):
 
     def fit_transform(self, features: Features) -> Features:
         df = features.as_pandas(copy=False)
-        cat_columns = [features.names[i] for i, tf in enumerate(features.types) if tf == FeatureType.CATEGORIAL]
+        cat_columns = [
+            features.names[i]
+            for i, tf in enumerate(features.types)
+            if tf == FeatureType.CATEGORIAL
+        ]
         for name in cat_columns:
             values = set(df[name].tolist())
             logging.debug("Got values %s for feature %s: ", values, name)
@@ -52,7 +55,9 @@ class OneHotEncoder(Transformer):
         df = features.as_pandas(copy=False)
         return self._transform_df(df, features)
 
-    def _transform_df(self, df: pandas.DataFrame, original_features: Features) -> Features:
+    def _transform_df(
+        self, df: pandas.DataFrame, original_features: Features
+    ) -> Features:
         new_types = []
         for col_name, values in self.feature_values.items():
             for value in values:
@@ -60,9 +65,11 @@ class OneHotEncoder(Transformer):
                 df[new_col_name] = df[col_name].apply(lambda x: 1 if x == value else 0)
                 new_types.append(FeatureType.BINARY)
             df.drop(col_name, axis=1, inplace=True)
-        types = [original_features.types[i] for i, n in enumerate(original_features.names)
-                 if n not in self.feature_values.keys()] \
-                + new_types
+        types = [
+            original_features.types[i]
+            for i, n in enumerate(original_features.names)
+            if n not in self.feature_values.keys()
+        ] + new_types
         return Features.from_pandas(df, types)
 
     def get_name(self):

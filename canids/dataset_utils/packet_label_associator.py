@@ -19,7 +19,13 @@ COL_TRAFFIC_TYPE = "traffic_type"
 COL_START_TIME = "start_time"
 COL_END_TIME = "end_time"
 COL_INFO = "info"
-REQUIRED_COLUMNS = [COL_FLOW_ID, COL_REVERSE_FLOW_ID, COL_TRAFFIC_TYPE, COL_START_TIME, COL_INFO]
+REQUIRED_COLUMNS = [
+    COL_FLOW_ID,
+    COL_REVERSE_FLOW_ID,
+    COL_TRAFFIC_TYPE,
+    COL_START_TIME,
+    COL_INFO,
+]
 
 DEFAULT_OUTPUT_HEADER = ["packet_id", "flow_id", "reverse_flow_id", "traffic_type"]
 
@@ -31,7 +37,6 @@ class FlowIdentification(NamedTuple):
 
 
 class PacketLabelAssociator(ABC):
-
     def __init__(self, additional_cols=None):
         if additional_cols is None:
             additional_cols = []
@@ -52,14 +57,25 @@ class PacketLabelAssociator(ABC):
                 if self.modify_packet is not None:
                     packet = self.modify_packet(packet)
                 packet_id = "%s-%s" % (packet_id_prefix, i)
-                traffic_type, flow_ids, additional_info = self._associate_packet(packet, attack_flows, attack_ids)
+                traffic_type, flow_ids, additional_info = self._associate_packet(
+                    packet, attack_flows, attack_ids
+                )
                 if len(flow_ids) == 0:
                     flow_id, reverse_id = "unknown", "unknown"
                 elif len(flow_ids) != 2:
-                    raise ValueError("Expected to have either zero or two flow ids for packet %s" % i)
+                    raise ValueError(
+                        "Expected to have either zero or two flow ids for packet %s" % i
+                    )
                 else:
                     flow_id, reverse_id = flow_ids
-                self._write_csv_row(csvwriter, packet_id, flow_id, reverse_id, traffic_type, additional_info)
+                self._write_csv_row(
+                    csvwriter,
+                    packet_id,
+                    flow_id,
+                    reverse_id,
+                    traffic_type,
+                    additional_info,
+                )
 
     def _open_pcap(self, pcap_file):
         return pcap_utils.read_pcap_pcapng(pcap_file)
@@ -71,7 +87,9 @@ class PacketLabelAssociator(ABC):
     def _validate_flow_infos(self, flow_infos: pandas.DataFrame):
         for col in REQUIRED_COLUMNS:
             if col != COL_FLOW_ID and col not in flow_infos.columns:
-                raise ValueError("Expected column %s to be present in flow infos!" % col)
+                raise ValueError(
+                    "Expected column %s to be present in flow infos!" % col
+                )
 
     @abstractmethod
     def make_flow_ids(self, packet: Packet) -> Tuple[str, str]:
@@ -91,39 +109,63 @@ class PacketLabelAssociator(ABC):
         self._validate_flow_infos(flows)
         attacks = flows.loc[flows[COL_TRAFFIC_TYPE] == TrafficType.ATTACK]
         benigns = flows.loc[flows[COL_TRAFFIC_TYPE] == TrafficType.BENIGN]
-        in_both = pandas.merge(attacks, benigns, how="inner", left_index=True, right_index=True)
-        in_both_reversed_id = pandas.merge(attacks, benigns, how="inner", left_on=COL_REVERSE_FLOW_ID, right_index=True)
+        in_both = pandas.merge(
+            attacks, benigns, how="inner", left_index=True, right_index=True
+        )
+        in_both_reversed_id = pandas.merge(
+            attacks, benigns, how="inner", left_on=COL_REVERSE_FLOW_ID, right_index=True
+        )
         in_both = pandas.concat([in_both, in_both_reversed_id])
 
         benign_times = in_both.groupby(in_both.index).apply(
-            lambda elements: sorted(list(set([
-                FlowIdentification(
-                    start_time=self._date_cell_to_timestamp(r[f"{COL_START_TIME}_y"]),
-                    additional_info=r[f"{COL_INFO}_y"],
-                    traffic_type=TrafficType.BENIGN
-                ) for _, r in
-                elements.iterrows()
-            ])), key=lambda item: item.start_time)
+            lambda elements: sorted(
+                list(
+                    set(
+                        [
+                            FlowIdentification(
+                                start_time=self._date_cell_to_timestamp(
+                                    r[f"{COL_START_TIME}_y"]
+                                ),
+                                additional_info=r[f"{COL_INFO}_y"],
+                                traffic_type=TrafficType.BENIGN,
+                            )
+                            for _, r in elements.iterrows()
+                        ]
+                    )
+                ),
+                key=lambda item: item.start_time,
+            )
         )
         attack_times = attacks.groupby(attacks.index).apply(
-            lambda elements: sorted([
-                FlowIdentification(
-                    start_time=self._date_cell_to_timestamp(r[COL_START_TIME]),
-                    additional_info=r[COL_INFO],
-                    traffic_type=TrafficType.ATTACK
-                ) for _, r in elements.iterrows()
-            ], key=lambda item: item.start_time)
+            lambda elements: sorted(
+                [
+                    FlowIdentification(
+                        start_time=self._date_cell_to_timestamp(r[COL_START_TIME]),
+                        additional_info=r[COL_INFO],
+                        traffic_type=TrafficType.ATTACK,
+                    )
+                    for _, r in elements.iterrows()
+                ],
+                key=lambda item: item.start_time,
+            )
         )
         # convert to Series in case that no items where found; groupby yields an empty Dataframe then
         if len(attack_times) == 0:
             attack_times = pandas.Series()
         if len(benign_times) == 0:
             benign_times = pandas.Series()
-        result_df = pandas.merge(attack_times.to_frame("attack"), benign_times.to_frame("benign"), how="left",
-                                 right_index=True, left_index=True)
+        result_df = pandas.merge(
+            attack_times.to_frame("attack"),
+            benign_times.to_frame("benign"),
+            how="left",
+            right_index=True,
+            left_index=True,
+        )
         return result_df, set(result_df.index.values.tolist())
 
-    def _associate_packet(self, packet, attack_flows, attack_ids) -> Tuple[TrafficType, Sequence[str], AdditionalInfo]:
+    def _associate_packet(
+            self, packet, attack_flows, attack_ids
+    ) -> Tuple[TrafficType, Sequence[str], AdditionalInfo]:
         """
         Finds the corresponding labels for a packet, i.e. whether it belongs to an attack or benign traffic and, if it
         belongs to an attack, additional info about that
@@ -143,18 +185,33 @@ class PacketLabelAssociator(ABC):
             return TrafficType.BENIGN, flow_ids, None
 
         potential_attack_flows = attack_flows.loc[attack_flows.index.isin(flow_ids)]
-        attacks = list(sorted(itertools.chain(*(potential_attack_flows["attack"].dropna().values.tolist())),
-                              key=lambda item: item.start_time))
-        benigns = list(sorted(itertools.chain(*(potential_attack_flows["benign"].dropna().values.tolist())),
-                              key=lambda item: item.start_time))
+        attacks = list(
+            sorted(
+                itertools.chain(
+                    *(potential_attack_flows["attack"].dropna().values.tolist())
+                ),
+                key=lambda item: item.start_time,
+            )
+        )
+        benigns = list(
+            sorted(
+                itertools.chain(
+                    *(potential_attack_flows["benign"].dropna().values.tolist())
+                ),
+                key=lambda item: item.start_time,
+            )
+        )
 
         timestamp = datetime.datetime.fromtimestamp(timestamp).astimezone(tz=pytz.utc)
         attack_info = self._is_attack(timestamp, attacks, benigns)
         return attack_info[0], flow_ids, attack_info[1]
 
-    def _is_attack(self, ts: datetime.datetime,
-                   attack_times: List[FlowIdentification],
-                   benign_times: List[FlowIdentification]) -> Optional[FlowIdentification]:
+    def _is_attack(
+            self,
+            ts: datetime.datetime,
+            attack_times: List[FlowIdentification],
+            benign_times: List[FlowIdentification],
+    ) -> Optional[FlowIdentification]:
         """
         Checks if a packet's timestamp lies within an attack or benign flow
         :param ts: Timestamp of the packet in question
@@ -167,7 +224,9 @@ class PacketLabelAssociator(ABC):
         attack_times, benign_times = attack_times.copy(), benign_times.copy()
         last_item = (TrafficType.BENIGN, (None, None))
         while len(attack_times) != 0 or len(benign_times) != 0:
-            if len(attack_times) > 0 and (len(benign_times) == 0 or attack_times[0][0] < benign_times[0][0]):
+            if len(attack_times) > 0 and (
+                    len(benign_times) == 0 or attack_times[0][0] < benign_times[0][0]
+            ):
                 item = attack_times.pop(0)
                 if ts < item[0]:
                     return last_item[0], last_item[1][1]
@@ -189,12 +248,16 @@ class PacketLabelAssociator(ABC):
         """
         raise NotImplementedError()
 
-    def _write_csv_row(self, csv_writer, packet_id, flow_id, reverse_id, traffic_type, additional_info):
+    def _write_csv_row(
+            self, csv_writer, packet_id, flow_id, reverse_id, traffic_type, additional_info
+    ):
         if type(additional_info) is not str:
             additional_cells = ""
         else:
             additional_cells = self._unpack_additional_info(additional_info)
-        csv_writer.writerow([packet_id, flow_id, reverse_id, traffic_type.value, *additional_cells])
+        csv_writer.writerow(
+            [packet_id, flow_id, reverse_id, traffic_type.value, *additional_cells]
+        )
 
     def _date_cell_to_timestamp(self, cell_content) -> datetime.datetime:
         """ Is called when the timestamp of an attack is read from the flow infos """

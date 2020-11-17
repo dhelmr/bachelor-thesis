@@ -9,7 +9,14 @@ import numpy as np
 from tqdm import tqdm
 
 from canids.dataset_utils.pcap_utils import get_ip_packet
-from canids.types import FeatureExtractor, TrafficType, Packet, TrafficSequence, Features, FeatureType
+from canids.types import (
+    FeatureExtractor,
+    TrafficType,
+    Packet,
+    TrafficSequence,
+    Features,
+    FeatureType,
+)
 
 Protocol = int  # see https://en.wikipedia.org/wiki/List_of_IP_protocol_numbers
 TCP = Protocol(6)
@@ -22,6 +29,7 @@ class FlowIdentifier(t.NamedTuple):
     """
     Used for identifying a bi-directional IP-based network flow
     """
+
     ip_a: int
     ip_b: int
     port_a: int
@@ -89,9 +97,13 @@ NOT_APPLICABLE_FEATURE_VALUE = -1
 
 
 class BasicNetflowFeatureExtractor(FeatureExtractor):
-
-    def __init__(self, flow_timeout: int = 12, subflow_timeout: int = 0.5, verbose: bool = True,
-                 modes: t.List[FeatureSetMode] = list()):
+    def __init__(
+        self,
+        flow_timeout: int = 12,
+        subflow_timeout: int = 0.5,
+        verbose: bool = True,
+        modes: t.List[FeatureSetMode] = list(),
+    ):
         # Stores the mapping "packet index -> flow index" for each traffic sequence name
         self.packets_to_flows: t.Dict[str, t.List[int]] = dict()
         self.flow_timeout = flow_timeout
@@ -117,8 +129,12 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         mapping = []
         no_flows_count = 0
         packet_count = 0
-        for packet in tqdm(traffic.packet_reader, total=len(traffic.ids), desc="Make netflows",
-                           disable=(not self.verbose)):
+        for packet in tqdm(
+            traffic.packet_reader,
+            total=len(traffic.ids),
+            desc="Make netflows",
+            disable=(not self.verbose),
+        ):
             flow_index = netflow_gen.feed_packet(packet)
             if flow_index is None:
                 no_flows_count += 1
@@ -128,12 +144,18 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         flows = netflow_gen.flows
         self.packets_to_flows[traffic.name] = mapping
         logging.debug(
-            "Reduced %s packets to %s flows; %s packets without flow" % (packet_count, len(flows), no_flows_count))
+            "Reduced %s packets to %s flows; %s packets without flow"
+            % (packet_count, len(flows), no_flows_count)
+        )
         return flows
 
-    def map_backwards(self, traffic: TrafficSequence, de_result: t.Sequence[TrafficType]) -> t.Sequence[TrafficType]:
+    def map_backwards(
+        self, traffic: TrafficSequence, de_result: t.Sequence[TrafficType]
+    ) -> t.Sequence[TrafficType]:
         if traffic.name not in self.packets_to_flows:
-            raise ValueError("No flow <-> packet mapping for %s available" % traffic.name)
+            raise ValueError(
+                "No flow <-> packet mapping for %s available" % traffic.name
+            )
         mapping = self.packets_to_flows[traffic.name]
         packet_classifications = []
         for flow_index in mapping:
@@ -146,13 +168,21 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
     def _extract_flow_features(self, flows: t.List[NetFlow]) -> Features:
         features = []
         names, types = self._make_flow_names_types()
-        for i, f in enumerate(tqdm(flows, desc="Extract statistical flow features", disable=(not self.verbose))):
+        for i, f in enumerate(
+            tqdm(
+                flows,
+                desc="Extract statistical flow features",
+                disable=(not self.verbose),
+            )
+        ):
             forward_packets = f.get_packets_in_direction(FlowDirection.FORWARDS)
             backward_packets = f.get_packets_in_direction(FlowDirection.BACKWARDS)
             total = self._extract_packet_list_features(f.packets)
             forward = self._extract_packet_list_features(forward_packets)
             backward = self._extract_packet_list_features(backward_packets)
-            features_row = [f.src_port, f.dest_port, f.protocol] + total + forward + backward
+            features_row = (
+                [f.src_port, f.dest_port, f.protocol] + total + forward + backward
+            )
             if FeatureSetMode.WITH_IP_ADDR in self.modes:
                 features_row += [f.src_ip, f.dest_ip]
             if FeatureSetMode.SUBFLOWS in self.modes:
@@ -161,15 +191,21 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 # subflows_backward = self._extract_sub_flows_features(backward_packets)
                 features_row += subflows  # + subflows_forward + subflows_backward
             if FeatureSetMode.TCP in self.modes:
-                features_row += self._make_tcp_features(f, forward_packets, backward_packets)
+                features_row += self._make_tcp_features(
+                    f, forward_packets, backward_packets
+                )
             if FeatureSetMode.HINDSIGHT in self.modes:
-                last_flows = flows[max(0, i - self.hindsight_window):i]
+                last_flows = flows[max(0, i - self.hindsight_window) : i]
                 features_row += self._make_hindsight_features(f, last_flows)
             features.append(features_row)
         return Features(data=np.array(features), names=names, types=types)
 
-    def _make_tcp_features(self, flow: NetFlow, forward_packets: t.Sequence[IPPacket],
-                           backward_packets: t.Sequence[IPPacket]):
+    def _make_tcp_features(
+        self,
+        flow: NetFlow,
+        forward_packets: t.Sequence[IPPacket],
+        backward_packets: t.Sequence[IPPacket],
+    ):
         if flow.protocol != TCP:
             return 19 * [NOT_APPLICABLE_FEATURE_VALUE]
         features = []
@@ -179,14 +215,33 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 features += 8 * [NOT_APPLICABLE_FEATURE_VALUE]
                 continue
             win_mean = statistics.mean([tcp.win for tcp in tcp_packets])
-            total_urg = sum([1 if tcp.flags & dpkt.tcp.TH_URG != 0 else 0 for tcp in tcp_packets])
+            total_urg = sum(
+                [1 if tcp.flags & dpkt.tcp.TH_URG != 0 else 0 for tcp in tcp_packets]
+            )
             total_syn = sum([1 if is_tcp_syn(tcp) else 0 for tcp in tcp_packets])
-            total_syn_ack = sum([1 if is_tcp_syn_ack(tcp) else 0 for tcp in tcp_packets])
+            total_syn_ack = sum(
+                [1 if is_tcp_syn_ack(tcp) else 0 for tcp in tcp_packets]
+            )
             total_ack = sum([1 if is_tcp_ack(tcp) else 0 for tcp in tcp_packets])
-            total_fin = sum([1 if tcp.flags & dpkt.tcp.TH_FIN != 0 else 0 for tcp in tcp_packets])
-            total_push = sum([1 if tcp.flags & dpkt.tcp.TH_PUSH != 0 else 0 for tcp in tcp_packets])
-            total_rst = sum([1 if tcp.flags & dpkt.tcp.TH_RST != 0 else 0 for tcp in tcp_packets])
-            features += [win_mean, total_urg, total_syn, total_syn_ack, total_ack, total_fin, total_push, total_rst]
+            total_fin = sum(
+                [1 if tcp.flags & dpkt.tcp.TH_FIN != 0 else 0 for tcp in tcp_packets]
+            )
+            total_push = sum(
+                [1 if tcp.flags & dpkt.tcp.TH_PUSH != 0 else 0 for tcp in tcp_packets]
+            )
+            total_rst = sum(
+                [1 if tcp.flags & dpkt.tcp.TH_RST != 0 else 0 for tcp in tcp_packets]
+            )
+            features += [
+                win_mean,
+                total_urg,
+                total_syn,
+                total_syn_ack,
+                total_ack,
+                total_fin,
+                total_push,
+                total_rst,
+            ]
 
         ts_syn = -1
         ts_syn_ack = -1
@@ -197,16 +252,32 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             if is_tcp_syn(tcp) and ts_syn == -1:
                 ts_syn = ts
                 syn_from = (ip_packet.src, tcp.sport)
-            if is_tcp_syn_ack(tcp) and ts_syn != -1 and ts_syn_ack == -1 and (ip_packet.dst, tcp.dport) == syn_from:
+            if (
+                is_tcp_syn_ack(tcp)
+                and ts_syn != -1
+                and ts_syn_ack == -1
+                and (ip_packet.dst, tcp.dport) == syn_from
+            ):
                 ts_syn_ack = ts
-            if is_tcp_ack(tcp) and ts_syn != -1 and ts_syn_ack != -1 and ts_ack == -1 and (
-                    ip_packet.src, tcp.sport) == syn_from:
+            if (
+                is_tcp_ack(tcp)
+                and ts_syn != -1
+                and ts_syn_ack != -1
+                and ts_ack == -1
+                and (ip_packet.src, tcp.sport) == syn_from
+            ):
                 ts_ack = ts
                 break
         features += [
-            (ts_syn_ack - ts_syn) if ts_syn != -1 and ts_ack != -1 else NOT_APPLICABLE_FEATURE_VALUE,
-            (ts_ack - ts_syn_ack) if ts_ack != -1 and ts_ack != -1 else NOT_APPLICABLE_FEATURE_VALUE,
-            (ts_ack - ts_syn) if ts_ack != -1 and ts_syn != -1 else NOT_APPLICABLE_FEATURE_VALUE
+            (ts_syn_ack - ts_syn)
+            if ts_syn != -1 and ts_ack != -1
+            else NOT_APPLICABLE_FEATURE_VALUE,
+            (ts_ack - ts_syn_ack)
+            if ts_ack != -1 and ts_ack != -1
+            else NOT_APPLICABLE_FEATURE_VALUE,
+            (ts_ack - ts_syn)
+            if ts_ack != -1 and ts_syn != -1
+            else NOT_APPLICABLE_FEATURE_VALUE,
         ]
 
         # TODO rtt, syn, synack times
@@ -222,56 +293,88 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         for last_flow in last_flows:
             if last_flow.protocol == flow.protocol and last_flow.src_ip == flow.src_ip:
                 src_addr_port += 1
-            if last_flow.protocol == flow.protocol and last_flow.dest_ip == flow.dest_ip:
+            if (
+                last_flow.protocol == flow.protocol
+                and last_flow.dest_ip == flow.dest_ip
+            ):
                 dest_addr_prot += 1
             if last_flow.dest_ip == flow.dest_ip:
                 dest_addr += 1
             if last_flow.src_ip == flow.src_ip:
                 src_addr += 1
-            if last_flow.src_ip == flow.src_ip and last_flow.dest_port == flow.dest_port:
+            if (
+                last_flow.src_ip == flow.src_ip
+                and last_flow.dest_port == flow.dest_port
+            ):
                 src_addr_dest_port += 1
-            if last_flow.dest_ip == flow.dest_ip and last_flow.src_port == flow.src_port:
+            if (
+                last_flow.dest_ip == flow.dest_ip
+                and last_flow.src_port == flow.src_port
+            ):
                 dest_addr_src_port += 1
-        return [dest_addr_src_port, src_addr_dest_port, src_addr, dest_addr, dest_addr_prot, src_addr_port]
+        return [
+            dest_addr_src_port,
+            src_addr_dest_port,
+            src_addr,
+            dest_addr,
+            dest_addr_prot,
+            src_addr_port,
+        ]
 
     def _make_flow_names_types(self):
         def packet_list_features(prefix):
-            return map(lambda item: (prefix + "_" + item[0], item[1]), [
-                ("sum_pkg_length", FeatureType.INT),
-                ("mean_pkg_length", FeatureType.FLOAT),
-                ("min_pkg_length", FeatureType.FLOAT),
-                ("max_pkg_length", FeatureType.FLOAT),
-                ("std_pkg_length", FeatureType.FLOAT),
-                ("n_packets", FeatureType.INT),
-                ("packets_per_ms", FeatureType.FLOAT),
-                ("bytes_per_ms", FeatureType.FLOAT),
-                ("avg_ttl", FeatureType.FLOAT),
-                ("iat_std", FeatureType.FLOAT),
-                ("iat_min", FeatureType.FLOAT),
-                ("iat_max", FeatureType.FLOAT),
-                ("iat_sum", FeatureType.FLOAT)
-            ])
+            return map(
+                lambda item: (prefix + "_" + item[0], item[1]),
+                [
+                    ("sum_pkg_length", FeatureType.INT),
+                    ("mean_pkg_length", FeatureType.FLOAT),
+                    ("min_pkg_length", FeatureType.FLOAT),
+                    ("max_pkg_length", FeatureType.FLOAT),
+                    ("std_pkg_length", FeatureType.FLOAT),
+                    ("n_packets", FeatureType.INT),
+                    ("packets_per_ms", FeatureType.FLOAT),
+                    ("bytes_per_ms", FeatureType.FLOAT),
+                    ("avg_ttl", FeatureType.FLOAT),
+                    ("iat_std", FeatureType.FLOAT),
+                    ("iat_min", FeatureType.FLOAT),
+                    ("iat_max", FeatureType.FLOAT),
+                    ("iat_sum", FeatureType.FLOAT),
+                ],
+            )
 
         def subflow_features(prefix):
-            return map(lambda item: (prefix + "_" + item[0], item[1]), [
-                ("n_subflows", FeatureType.INT),
-                ("n_active_times", FeatureType.INT),
-                ("min_active_time", FeatureType.INT),
-                ("max_active_time", FeatureType.INT),
-                ("total_active_time", FeatureType.INT),
-                ("std_active_time", FeatureType.INT),
-                ("mean_active_time", FeatureType.INT),
-                ("n_idle_times", FeatureType.INT),
-                ("min_idle_time", FeatureType.INT),
-                ("max_idle_time", FeatureType.INT),
-                ("total_idle_time", FeatureType.INT),
-                ("std_idle_time", FeatureType.INT),
-                ("mean_idle_time", FeatureType.INT),
-            ])
+            return map(
+                lambda item: (prefix + "_" + item[0], item[1]),
+                [
+                    ("n_subflows", FeatureType.INT),
+                    ("n_active_times", FeatureType.INT),
+                    ("min_active_time", FeatureType.INT),
+                    ("max_active_time", FeatureType.INT),
+                    ("total_active_time", FeatureType.INT),
+                    ("std_active_time", FeatureType.INT),
+                    ("mean_active_time", FeatureType.INT),
+                    ("n_idle_times", FeatureType.INT),
+                    ("min_idle_time", FeatureType.INT),
+                    ("max_idle_time", FeatureType.INT),
+                    ("total_idle_time", FeatureType.INT),
+                    ("std_idle_time", FeatureType.INT),
+                    ("mean_idle_time", FeatureType.INT),
+                ],
+            )
 
         names_types = [
-            ("src_port", FeatureType.CATEGORIAL if FeatureSetMode.PORT_CATEGORIAL in self.modes else FeatureType.INT),
-            ("dest_port", FeatureType.CATEGORIAL if FeatureSetMode.PORT_CATEGORIAL in self.modes else FeatureType.INT),
+            (
+                "src_port",
+                FeatureType.CATEGORIAL
+                if FeatureSetMode.PORT_CATEGORIAL in self.modes
+                else FeatureType.INT,
+            ),
+            (
+                "dest_port",
+                FeatureType.CATEGORIAL
+                if FeatureSetMode.PORT_CATEGORIAL in self.modes
+                else FeatureType.INT,
+            ),
             ("protocol", FeatureType.CATEGORIAL),
             *packet_list_features("total"),
             *packet_list_features("forward"),
@@ -279,8 +382,18 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         ]
         if FeatureSetMode.WITH_IP_ADDR in self.modes:
             names_types += [
-                ("src_ip", FeatureType.CATEGORIAL if FeatureSetMode.PORT_CATEGORIAL in self.modes else FeatureType.INT),
-                ("dest_ip", FeatureType.CATEGORIAL if FeatureSetMode.PORT_CATEGORIAL in self.modes else FeatureType.INT)
+                (
+                    "src_ip",
+                    FeatureType.CATEGORIAL
+                    if FeatureSetMode.PORT_CATEGORIAL in self.modes
+                    else FeatureType.INT,
+                ),
+                (
+                    "dest_ip",
+                    FeatureType.CATEGORIAL
+                    if FeatureSetMode.PORT_CATEGORIAL in self.modes
+                    else FeatureType.INT,
+                ),
             ]
         if FeatureSetMode.SUBFLOWS in self.modes:
             names_types += [
@@ -308,7 +421,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 ("tcp_bwd_total_rst", FeatureType.INT),
                 ("tcp_syn_synack", FeatureType.FLOAT),
                 ("tcp_synack_ack", FeatureType.FLOAT),
-                ("tcp_rtt", FeatureType.FLOAT)
+                ("tcp_rtt", FeatureType.FLOAT),
             ]
         if FeatureSetMode.HINDSIGHT in self.modes:
             names_types += [
@@ -317,7 +430,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 ("hindsight_src_addr", FeatureType.INT),
                 ("hindsight_dest_addr", FeatureType.INT),
                 ("hindsight_dest_addr_prot", FeatureType.INT),
-                ("hindsight_src_addr_port", FeatureType.INT)
+                ("hindsight_src_addr_port", FeatureType.INT),
             ]
         names, types = zip(*names_types)
         return list(names), list(types)
@@ -342,8 +455,14 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             if len(time_list) == 0:
                 features += [0, 0, 0, 0, 0, 0]
                 continue
-            features += [len(time_list), min(time_list), max(time_list), sum(time_list), statistics.pstdev(time_list),
-                         statistics.mean(time_list)]
+            features += [
+                len(time_list),
+                min(time_list),
+                max(time_list),
+                sum(time_list),
+                statistics.pstdev(time_list),
+                statistics.mean(time_list),
+            ]
         return features
 
     def _make_subflows(self, flow: t.List[IPPacket]) -> t.List[t.List[IPPacket]]:
@@ -378,7 +497,12 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         else:
             packets_per_millisecond = n_packets / duration
             bytes_per_millisecond = length_stats.total / duration
-        return [*length_stats] + [n_packets, packets_per_millisecond, bytes_per_millisecond] + ip_stats + time_stats
+        return (
+            [*length_stats]
+            + [n_packets, packets_per_millisecond, bytes_per_millisecond]
+            + ip_stats
+            + time_stats
+        )
 
     def _extract_ip_stats(self, packet_list: t.List[IPPacket]):
         if len(packet_list) == 0:
@@ -402,8 +526,12 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         for ts, packet in packet_list[1:]:
             inter_arrival_times.append(ts - last_ts)
             last_ts = ts
-        return [statistics.pstdev(inter_arrival_times),
-                min(inter_arrival_times), max(inter_arrival_times), sum(inter_arrival_times)]
+        return [
+            statistics.pstdev(inter_arrival_times),
+            min(inter_arrival_times),
+            max(inter_arrival_times),
+            sum(inter_arrival_times),
+        ]
 
     @staticmethod
     def get_name() -> str:
@@ -411,13 +539,28 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
 
     @staticmethod
     def init_parser(parser: argparse.ArgumentParser):
-        parser.add_argument("--flow-timeout", type=float, dest="flow_timeout", default=12_000,
-                            help="Flow timeout in milliseconds")
-        parser.add_argument("--subflow-timeout", type=float, dest="subflow_timeout", default=500,
-                            help="Activity timeout (for subflows) in milliseconds")
+        parser.add_argument(
+            "--flow-timeout",
+            type=float,
+            dest="flow_timeout",
+            default=12_000,
+            help="Flow timeout in milliseconds",
+        )
+        parser.add_argument(
+            "--subflow-timeout",
+            type=float,
+            dest="subflow_timeout",
+            default=500,
+            help="Activity timeout (for subflows) in milliseconds",
+        )
         parser.add_argument("--verbose", action="store_true", default=False)
-        parser.add_argument("--nf-mode", choices=[m.value for m in FeatureSetMode], nargs="+",
-                            help="Feature Selection Modes", default=[])
+        parser.add_argument(
+            "--nf-mode",
+            choices=[m.value for m in FeatureSetMode],
+            nargs="+",
+            help="Feature Selection Modes",
+            default=[],
+        )
 
     @staticmethod
     def init_by_parsed(args: argparse.Namespace):
@@ -425,7 +568,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             flow_timeout=args.flow_timeout,
             subflow_timeout=args.subflow_timeout,
             verbose=args.verbose,
-            modes=[FeatureSetMode(v) for v in args.nf_mode]
+            modes=[FeatureSetMode(v) for v in args.nf_mode],
         )
 
     def __str__(self):
@@ -444,7 +587,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
     def get_db_params_dict(self):
         params = {
             "flow_timeout": self.flow_timeout,
-            "subflow_timeout": self.subflow_timeout
+            "subflow_timeout": self.subflow_timeout,
         }
         for nf_mode in FeatureSetMode:
             params[nf_mode.name] = nf_mode in self.modes
@@ -457,21 +600,23 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             # by default, only the IP packet's payload is taken into account
             lengths = [len(ip.data) for _, ip in packets]
         if len(packets) == 0:
-            return PacketLengthStats(
-                *[NOT_APPLICABLE_FEATURE_VALUE] * 5
-            )
+            return PacketLengthStats(*[NOT_APPLICABLE_FEATURE_VALUE] * 5)
         return PacketLengthStats(
             total=sum(lengths),
             mean=statistics.mean(lengths),
             min=min(lengths),
             max=max(lengths),
-            std=statistics.pstdev(lengths)
+            std=statistics.pstdev(lengths),
         )
 
     def validate(self):
-        if FeatureSetMode.IP_CATEGORIAL in self.modes and FeatureSetMode.WITH_IP_ADDR not in self.modes:
+        if (
+            FeatureSetMode.IP_CATEGORIAL in self.modes
+            and FeatureSetMode.WITH_IP_ADDR not in self.modes
+        ):
             raise ValueError(
-                f"'{FeatureSetMode.IP_CATEGORIAL.value}' can only be set as a netflow mode if '{FeatureSetMode.WITH_IP_ADDR.value}' is set as well.")
+                f"'{FeatureSetMode.IP_CATEGORIAL.value}' can only be set as a netflow mode if '{FeatureSetMode.WITH_IP_ADDR.value}' is set as well."
+            )
 
 
 def tcp_timeout_on_FIN(packet: IPPacket, flow: NetFlow):
@@ -489,7 +634,11 @@ def tcp_timeout_on_FIN(packet: IPPacket, flow: NetFlow):
 
 
 class NetFlowGenerator:
-    def __init__(self, timeout: int = 10_000, timeout_fn: t.Optional[t.Callable[[IPPacket], bool]] = None):
+    def __init__(
+        self,
+        timeout: int = 10_000,
+        timeout_fn: t.Optional[t.Callable[[IPPacket], bool]] = None,
+    ):
         self.flows: t.List[NetFlow] = list()
         self.open_flows: t.Dict[FlowIdentifier, int] = dict()
         self.timeout = timeout  # milliseconds
@@ -525,7 +674,9 @@ class NetFlowGenerator:
             return timestamp - flow.end_time() > self.timeout
         return is_timeout
 
-    def open_flow(self, packet: IPPacket, flow_id: FlowIdentifier, packet_infos: t.Tuple) -> int:
+    def open_flow(
+        self, packet: IPPacket, flow_id: FlowIdentifier, packet_infos: t.Tuple
+    ) -> int:
         ts, _ = packet
         flow = NetFlow(
             src_ip=packet_infos[1],
@@ -536,7 +687,7 @@ class NetFlowGenerator:
             start_time=ts,
             packets=[],
             forward_packets_indexes=[],
-            backward_packets_indexes=[]
+            backward_packets_indexes=[],
         )
         flow.add_packet(packet, FlowDirection.FORWARDS)
         self.flows.append(flow)
@@ -564,7 +715,9 @@ class NetFlowGenerator:
         dest_port = get_if_exists(ip.data, key="dport", default=0)
         return ip, src_ip, dest_ip, src_port, dest_port, protocol
 
-    def make_flow_id(self, ip_packet, src_ip, dest_ip, src_port, dest_port, protocol) -> FlowIdentifier:
+    def make_flow_id(
+        self, ip_packet, src_ip, dest_ip, src_port, dest_port, protocol
+    ) -> FlowIdentifier:
         if src_ip < dest_ip:
             ip_a = src_ip
             ip_b = dest_ip
@@ -577,7 +730,9 @@ class NetFlowGenerator:
             port_b = src_port
         return FlowIdentifier(ip_a, ip_b, port_a, port_b, protocol)
 
-    def get_packet_direction(self, packet_info: t.Tuple, flow_id: FlowIdentifier) -> FlowDirection:
+    def get_packet_direction(
+        self, packet_info: t.Tuple, flow_id: FlowIdentifier
+    ) -> FlowDirection:
         if packet_info[0] == flow_id[0]:
             return FlowDirection.FORWARDS
         else:

@@ -11,11 +11,19 @@ class ModelInfo(NamedTuple):
     fe_info: pd.Series
 
     def pretty(self):
-        return self.model_info.__str__() + "\n\n" + \
-               "Decision Engine: " + self.de_name + "\n" + \
-               self.de_info.drop(columns=["model_id"]).T.__str__() + "\n\n" + \
-               "Feature Extractor: " + self.fe_name + "\n" + \
-               self.fe_info.drop(columns=["model_id"]).T.__str__()
+        return (
+            self.model_info.__str__()
+            + "\n\n"
+            + "Decision Engine: "
+            + self.de_name
+            + "\n"
+            + self.de_info.drop(columns=["model_id"]).T.__str__()
+            + "\n\n"
+            + "Feature Extractor: "
+            + self.fe_name
+            + "\n"
+            + self.fe_info.drop(columns=["model_id"]).T.__str__()
+        )
 
 
 def get_info(db, model_id: str, model_infos=None, detailed_info=True) -> ModelInfo:

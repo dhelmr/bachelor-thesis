@@ -35,7 +35,6 @@ def get_ip_packet(buf, linklayer_hint=None) -> Optional[dpkt.ip.IP]:
 
 
 class FlowIDFormatter:
-
     def __init__(self):
         self.protocol_converter = lambda x: x
 
@@ -46,12 +45,20 @@ class FlowIDFormatter:
         src_ip = socket.inet_ntoa(ip.src)
         dest_ip = socket.inet_ntoa(ip.dst)
         src_port = get_if_exists(ip.data, "sport", 0)
-        dest_port = get_if_exists(ip.data, "dport", 0)  # TODO CHeck if ICMP in cic-ids-2017 uses port 0
+        dest_port = get_if_exists(
+            ip.data, "dport", 0
+        )  # TODO CHeck if ICMP in cic-ids-2017 uses port 0
         protocol = self.protocol_converter(ip.p)
-        return [self.format_flow_id(src_ip, dest_ip, src_port, dest_port, protocol),
-                self.format_flow_id(src_ip, dest_ip, src_port, dest_port, protocol, reverse=True)]
+        return [
+            self.format_flow_id(src_ip, dest_ip, src_port, dest_port, protocol),
+            self.format_flow_id(
+                src_ip, dest_ip, src_port, dest_port, protocol, reverse=True
+            ),
+        ]
 
-    def format_flow_id(self, src_ip, dest_ip, src_port, dest_port, protocol, reverse=False):
+    def format_flow_id(
+        self, src_ip, dest_ip, src_port, dest_port, protocol, reverse=False
+    ):
         if not reverse:
             return "%s-%s-%s-%s-%s" % (src_ip, dest_ip, src_port, dest_port, protocol)
         return "%s-%s-%s-%s-%s" % (dest_ip, src_ip, dest_port, src_port, protocol)
