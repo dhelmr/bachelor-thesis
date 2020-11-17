@@ -4,6 +4,7 @@ import itertools
 import json
 import logging
 import os
+import pprint
 import re
 import socket
 from enum import Enum
@@ -258,11 +259,7 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
 
     def _validate(self, dataset_path):
         stats = get_stats(dataset_path)
-        column_names = load_column_names(os.path.join(dataset_path, CSV_FOLDER, CSV_FEATURE_NAMES_FILE))
-        true_labels = pandas.concat([
-            _read_flow_labels_csv(os.path.join(dataset_path, CSV_FOLDER, csv), column_names)
-            for csv in CSV_FILES
-        ], ignore_index=True)
+        true_labels = load_flows(dataset_path)
         total_attack_count = 0
         total_stats_count = 0
         for attack in true_labels[FlowCsvColumns.ATTACK_CATEGORY.value].unique():
@@ -300,6 +297,7 @@ def iter_pcaps(dataset_path: str, skip_not_found=True, yield_relative=False, qui
                     yield full_path
             elif not quiet:
                 logging.warning("Cannot find %s; skip", full_path)
+
 
 
 def read_packet_labels(pcap) -> pandas.DataFrame:
@@ -347,7 +345,7 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
 
     def _date_cell_to_timestamp(self, cell_content) -> datetime.datetime:
         epoch_time = cell_content
-        return datetime.datetime.utcfromtimestamp(epoch_time).astimezone(pytz.utc)
+        return datetime.datetime.fromtimestamp(epoch_time).astimezone(pytz.utc)
 
     def _load_attack_flows(self, dataset_path):
         column_names = load_column_names(os.path.join(dataset_path, CSV_FOLDER, CSV_FEATURE_NAMES_FILE))
@@ -397,6 +395,8 @@ def get_stats(dataset_path):
 
 
 def print_stats(dataset_path):
+    attacks_by_prot = analyse_flows(dataset_path)
+    pprint.pprint(attacks_by_prot)
     df = get_stats(dataset_path)
     print(df)
 
@@ -406,6 +406,14 @@ def load_column_names(csv_file):
     column_names = [row[FEATURE_NAME_COLUMN_FIELD].strip() for _, row in df.iterrows()]
     return column_names
 
+
+def load_flows(dataset_path) -> pandas.DataFrame:
+    column_names = load_column_names(os.path.join(dataset_path, CSV_FOLDER, CSV_FEATURE_NAMES_FILE))
+    true_labels = pandas.concat([
+        _read_flow_labels_csv(os.path.join(dataset_path, CSV_FOLDER, csv), column_names)
+        for csv in CSV_FILES
+    ], ignore_index=True)
+    return true_labels
 
 def _read_flow_labels_csv(csv_file, column_names, nrows=None, encoding=None) -> pandas.DataFrame:
     logging.debug("Read flow features from %s", csv_file)
@@ -420,6 +428,13 @@ def _read_flow_labels_csv(csv_file, column_names, nrows=None, encoding=None) -> 
     df.dropna(how="all", inplace=True)  # drop all empty rows (some csv are miss-formatted)
     df[COL_TRAFFIC_TYPE] = df[FlowCsvColumns.LABEL.value].apply(label_to_traffic_type)
     return df
+
+
+def analyse_flows(dataset_path):
+    flow_labels = load_flows(dataset_path)
+    flow_labels = flow_labels[flow_labels[COL_TRAFFIC_TYPE] == TrafficType.ATTACK]
+    grouped_by = flow_labels[FlowCsvColumns.PROTOCOL.value].groupby(flow_labels[FlowCsvColumns.PROTOCOL.value]).count()
+    return grouped_by.to_dict()
 
 
 UNSWNB15 = DatasetUtils(os.path.join("data", "unsw-nb15"), UNSWNB15TrafficReader, UNSWNB15Preprocessor, print_stats)
