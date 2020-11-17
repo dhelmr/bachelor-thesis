@@ -546,6 +546,15 @@ def _read_flow_labels_csv(
         how="all", inplace=True
     )  # drop all empty rows (some csv are miss-formatted)
     df[COL_TRAFFIC_TYPE] = df[FlowCsvColumns.LABEL.value].apply(label_to_traffic_type)
+    df[FlowCsvColumns.ATTACK_CATEGORY.value] = (
+        df[FlowCsvColumns.ATTACK_CATEGORY.value].str.strip().str.lower()
+    )
+    # Fix duplicate naming of "backdoors" and "backdoor"; only use "backdoor"
+    df[FlowCsvColumns.ATTACK_CATEGORY.value] = df[
+        FlowCsvColumns.ATTACK_CATEGORY.value
+    ].apply(
+        lambda attack_name: "backdoor" if attack_name == "backdoors" else attack_name
+    )
     return df
 
 
