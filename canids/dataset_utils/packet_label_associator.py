@@ -32,16 +32,19 @@ DEFAULT_OUTPUT_HEADER = ["packet_id", "flow_id", "reverse_flow_id", "traffic_typ
 
 class FlowIdentification(NamedTuple):
     start_time: datetime.datetime
+    end_time: Optional[datetime.datetime]
     additional_info: AdditionalInfo
     traffic_type: TrafficType
 
 
 class PacketLabelAssociator(ABC):
-    def __init__(self, additional_cols=None):
+    def __init__(self, additional_cols=None, use_end_time=False):
         if additional_cols is None:
             additional_cols = []
         self.csv_header = DEFAULT_OUTPUT_HEADER + additional_cols
+        self.use_end_time = use_end_time
         self.modify_packet = None  # TODO can maybe be removed
+        self.unmatched_packets = {"no_flow_ids": [], "attack_without_flow": []}
 
     def associate_pcap_labels(self, pcap_file, packet_id_prefix=None):
         logging.info("Preprocess %s" % pcap_file)
@@ -58,7 +61,7 @@ class PacketLabelAssociator(ABC):
                     packet = self.modify_packet(packet)
                 packet_id = "%s-%s" % (packet_id_prefix, i)
                 traffic_type, flow_ids, additional_info = self._associate_packet(
-                    packet, attack_flows, attack_ids
+                    packet, packet_id, attack_flows, attack_ids
                 )
                 if len(flow_ids) == 0:
                     flow_id, reverse_id = "unknown", "unknown"
@@ -90,6 +93,10 @@ class PacketLabelAssociator(ABC):
                 raise ValueError(
                     "Expected column %s to be present in flow infos!" % col
                 )
+        if self.use_end_time and COL_END_TIME not in flow_infos.columns:
+            raise ValueError(
+                "use_end_time is set, but column '%s' was not found!" % COL_END_TIME
+            )
 
     @abstractmethod
     def make_flow_ids(self, packet: Packet) -> Tuple[str, str]:
@@ -125,6 +132,11 @@ class PacketLabelAssociator(ABC):
                             start_time=self._date_cell_to_timestamp(
                                 r[f"{COL_START_TIME}_y"]
                             ),
+                            end_time=self._date_cell_to_timestamp(
+                                r[f"{COL_END_TIME}_y"]
+                            )
+                            if self.use_end_time
+                            else None,
                             additional_info=r[f"{COL_INFO}_y"],
                             traffic_type=TrafficType.BENIGN,
                         )
@@ -140,6 +152,9 @@ class PacketLabelAssociator(ABC):
                     {
                         FlowIdentification(
                             start_time=self._date_cell_to_timestamp(r[COL_START_TIME]),
+                            end_time=self._date_cell_to_timestamp(r[COL_END_TIME])
+                            if self.use_end_time
+                            else None,
                             additional_info=r[COL_INFO],
                             traffic_type=TrafficType.ATTACK,
                         )
@@ -164,7 +179,7 @@ class PacketLabelAssociator(ABC):
         return result_df, set(result_df.index.values.tolist())
 
     def _associate_packet(
-        self, packet, attack_flows, attack_ids
+        self, packet, packet_id, attack_flows, attack_ids
     ) -> Tuple[TrafficType, Sequence[str], AdditionalInfo]:
         """
         Finds the corresponding labels for a packet, i.e. whether it belongs to an attack or benign traffic and, if it
@@ -179,65 +194,73 @@ class PacketLabelAssociator(ABC):
         timestamp, buffer = packet
         flow_ids = self.make_flow_ids(packet)
         if flow_ids is None or len(flow_ids) == 0:
+            self.unmatched_packets["no_flow_ids"].append((packet[0], packet_id))
             return TrafficType.BENIGN, [], None
         flow_id, reverse_id = flow_ids
         if flow_id not in attack_ids and reverse_id not in attack_ids:
             return TrafficType.BENIGN, flow_ids, None
 
-        potential_attack_flows = attack_flows.loc[attack_flows.index.isin(flow_ids)]
-        attacks = list(
-            sorted(
-                itertools.chain(
-                    *(potential_attack_flows["attack"].dropna().values.tolist())
-                ),
-                key=lambda item: item.start_time,
-            )
-        )
-        benigns = list(
-            sorted(
-                itertools.chain(
-                    *(potential_attack_flows["benign"].dropna().values.tolist())
-                ),
-                key=lambda item: item.start_time,
-            )
+        potential_flows_df = attack_flows.loc[attack_flows.index.isin(flow_ids)]
+        potential_flows = sorted(
+            itertools.chain(
+                *(potential_flows_df["attack"].dropna().values.tolist()),
+                *(potential_flows_df["benign"].dropna().values.tolist()),
+            ),
+            key=lambda item: item.start_time,
         )
 
         timestamp = datetime.datetime.fromtimestamp(timestamp).astimezone(tz=pytz.utc)
-        attack_info = self._is_attack(timestamp, attacks, benigns)
-        return attack_info[0], flow_ids, attack_info[1]
+        matched_flow = self._match_flow(timestamp, potential_flows)
+        if matched_flow is None:
+            self.unmatched_packets["attack_without_flow"].append(
+                (packet[0], packet_id, flow_ids)
+            )
+            return TrafficType.BENIGN, flow_ids, None
+        return matched_flow.traffic_type, flow_ids, matched_flow.additional_info
 
-    def _is_attack(
-        self,
-        ts: datetime.datetime,
-        attack_times: List[FlowIdentification],
-        benign_times: List[FlowIdentification],
+    def _match_flow(
+        self, ts: datetime.datetime, sorted_flows: List[FlowIdentification]
     ) -> Optional[FlowIdentification]:
-        """
-        Checks if a packet's timestamp lies within an attack or benign flow
-        :param ts: Timestamp of the packet in question
-        :param attack_times: Ordered List that contains an tuple (start_time, info) for each attack flows
-        :param benign_times:  Ordered List that contains an tuple (start_time, info) for each benign flows
-        :return: A tuple (traffic_type, info), where 'traffic_type' and 'info' is taken from the found flow. If no
-        matching flow is found (if the timestamp is before the first attack or benign flow,
-        (TrafficType.BENIGN, None) is returned.
-        """
-        attack_times, benign_times = attack_times.copy(), benign_times.copy()
-        last_item = (TrafficType.BENIGN, (None, None))
-        while len(attack_times) != 0 or len(benign_times) != 0:
-            if len(attack_times) > 0 and (
-                len(benign_times) == 0 or attack_times[0][0] < benign_times[0][0]
-            ):
-                item = attack_times.pop(0)
-                if ts < item[0]:
-                    return last_item[0], last_item[1][1]
-                last_item = (TrafficType.ATTACK, item)
-            else:
-                item = benign_times.pop(0)
-                if ts < item[0]:
-                    return last_item[0], last_item[1][1]
-                last_item = (TrafficType.BENIGN, item)
+        last_flow = None
+        for flow in sorted_flows:
+            if flow.start_time > ts:
+                return last_flow
+            if not self.use_end_time or flow.end_time >= ts:
+                last_flow = flow
+        return last_flow
 
-        return last_item[0], last_item[1][1]
+    # def _is_attack(
+    #     self,
+    #     ts: datetime.datetime,
+    #     attack_times: List[FlowIdentification],
+    #     benign_times: List[FlowIdentification],
+    # ) -> Optional[FlowIdentification]:
+    #     """
+    #     Checks if a packet's timestamp lies within an attack or benign flow
+    #     :param ts: Timestamp of the packet in question
+    #     :param attack_times: Ordered List that contains an tuple (start_time, info) for each attack flows
+    #     :param benign_times:  Ordered List that contains an tuple (start_time, info) for each benign flows
+    #     :return: A tuple (traffic_type, info), where 'traffic_type' and 'info' is taken from the found flow. If no
+    #     matching flow is found (if the timestamp is before the first attack or benign flow,
+    #     (TrafficType.BENIGN, None) is returned.
+    #     """
+    #     attack_times, benign_times = attack_times.copy(), benign_times.copy()
+    #     last_item = (TrafficType.BENIGN, (None, None))
+    #     while len(attack_times) != 0 or len(benign_times) != 0:
+    #         if len(attack_times) > 0 and (
+    #             len(benign_times) == 0 or attack_times[0][0] < benign_times[0][0]
+    #         ):
+    #             item = attack_times.pop(0)
+    #             if ts < item[0]:
+    #                 return last_item[0], last_item[1][1]
+    #             last_item = (TrafficType.ATTACK, item)
+    #         else:
+    #             item = benign_times.pop(0)
+    #             if ts < item[0]:
+    #                 return last_item[0], last_item[1][1]
+    #             last_item = (TrafficType.BENIGN, item)
+    #
+    #     return last_item[0], last_item[1][1]
 
     @abstractmethod
     def output_csv_file(self, pcap_file) -> str:

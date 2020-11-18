@@ -235,6 +235,11 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
         parser.add_argument(
             "--only-validate", action="store_true", help="Only validate"
         )
+        parser.add_argument(
+            "--use-end-time",
+            action="store_true",
+            help="Use the end time of each flow for determining whether a packet is part of it or not.",
+        )
         parsed = parser.parse_args(args)
         if parsed.only_stats == True and parsed.only_ranges == True:
             raise ValueError(
@@ -249,11 +254,21 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
             and parsed.only_stats == False
             and parsed.only_validate == False
         ):
-            label_associator = UNSWNB15LabelAssociator(dataset_path)
+            label_associator = UNSWNB15LabelAssociator(
+                dataset_path,
+                use_end_time=parsed.use_end_time
+                if parsed.use_end_time is not None
+                else False,
+            )
             for pcap in iter_pcaps(dataset_path, yield_relative=True):
                 logging.info("Make ranges for %s" % pcap)
                 full_path = os.path.join(dataset_path, pcap)
                 label_associator.associate_pcap_labels(full_path, packet_id_prefix=pcap)
+            report = {
+                "unrecognized_protocols": label_associator.unrecognized_proto_counter,
+                "unmatched_packets": label_associator.unmatched_packets,
+            }
+            self._write_preprocessing_report(dataset_path, report)
         if not parsed.only_validate:
             logging.info("Make stats...")
             self._make_stats(dataset_path)
@@ -320,10 +335,13 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
         pandas.DataFrame(data).set_index("pcap").to_csv(output_file)
 
     def _validate(self, dataset_path):
+        validation_report_path = os.path.join(dataset_path)
         stats = get_stats(dataset_path)
         true_labels = load_flows(dataset_path)
-        total_attack_count = 0
+        total_expected_packets = 0
         total_stats_count = 0
+        total_expected_flows = 0
+        report = {}
         for attack in true_labels[FlowCsvColumns.ATTACK_CATEGORY.value].unique():
             if type(attack) is not str:
                 continue
@@ -334,28 +352,61 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
             filtered = true_labels[
                 true_labels[FlowCsvColumns.ATTACK_CATEGORY.value] == attack
             ]
+            expected_flows = len(filtered)
+            total_expected_flows += expected_flows
             pkts_per_flow = (
                 filtered[FlowCsvColumns.SOURCE_PKT_COUNT.value]
                 + filtered[FlowCsvColumns.DEST_PKT_COUNT.value]
             )
-            true_total_packets = pkts_per_flow.sum()
+            expected_total_packets = pkts_per_flow.sum()
             stats_packet_count = int(stats[stats_name].sum())
-            total_attack_count += true_total_packets
+            total_expected_packets += expected_total_packets
             total_stats_count += stats_packet_count
-            if stats_packet_count != true_total_packets:
+            difference = expected_total_packets - stats_packet_count
+            error = abs(difference) / expected_total_packets
+
+            if stats_packet_count != expected_total_packets:
                 logging.error(
-                    "Expected stats to have %s packets of attack %s; but got %s!",
-                    true_total_packets,
+                    "Expected stats to have %s packets of attack %s; but got %s! (diff=%s, err=%s)",
+                    expected_total_packets,
                     stats_name,
                     stats_packet_count,
+                    abs(stats_packet_count - expected_total_packets),
+                    error,
                 )
             else:
                 logging.info(
                     "%s as expected (%s packets)", stats_name, stats_packet_count
                 )
+            report[attack] = {
+                "expected_flows": expected_flows,
+                "expected_packets": expected_total_packets,
+                "preprocessed_packets": stats_packet_count,
+                "difference": difference,
+                "error": error,
+            }
+        report["total"] = {
+            "total_expected_packets": total_expected_packets,
+            "total_expected_flows": total_expected_flows,
+            "preprocessed_packets": total_stats_count,
+            "difference": total_expected_packets - total_stats_count,
+            "error": abs(
+                total_expected_packets - total_stats_count,
+            )
+            / total_expected_packets,
+        }
         logging.info(
-            "Expected %s attack packet; got %s", total_attack_count, total_stats_count
+            "Expected %s attack packet; got %s",
+            total_expected_packets,
+            total_stats_count,
         )
+        with open(validation_report_path, "w") as f:
+            json.dump(report, f)
+
+    def _write_preprocessing_report(self, dataset_path, report):
+        report_path = os.path.join(dataset_path, "preprocessing_report.json")
+        with open(report_path, "w") as f:
+            json.dump(report, f)
 
 
 def iter_pcaps(
@@ -396,9 +447,9 @@ def packet_label_file(pcap_file):
 
 
 class UNSWNB15LabelAssociator(PacketLabelAssociator):
-    def __init__(self, dataset_path: str):
-        super().__init__(["attack_type"])
-        self.unrecognized_proto_counter = 0
+    def __init__(self, dataset_path: str, **kwargs):
+        super().__init__(["attack_type"], **kwargs)
+        self.unrecognized_proto_counter = {}
         self.flow_formatter = pcap_utils.FlowIDFormatter()
         self.attack_flows, self.attack_flow_ids = self._load_attack_flows(dataset_path)
         # self.modify_packet = self._correct_packet_timestamp
@@ -479,7 +530,9 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
             if p_name.lower() == "nvp":
                 return "11"
             else:
-                self.unrecognized_proto_counter += 1
+                if p_name.lower not in self.unrecognized_proto_counter:
+                    self.unrecognized_proto_counter[p_name.lower()] = 0
+                self.unrecognized_proto_counter[p_name.lower()] += 1
                 return ""
 
     def _correct_packet_timestamp(self, packet) -> Packet:
