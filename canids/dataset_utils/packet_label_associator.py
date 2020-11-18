@@ -287,7 +287,12 @@ class PacketLabelAssociator(ABC):
         raise NotImplementedError()
 
     def _drop_non_required_cols(self, df: pandas.DataFrame):
-        columns_to_drop = [col for col in df.columns if col not in REQUIRED_COLUMNS]
+        columns_to_drop = [
+            col
+            for col in df.columns
+            if col not in REQUIRED_COLUMNS
+            and (col is not COL_END_TIME if self.use_end_time else True)
+        ]
         df.drop(columns=columns_to_drop, inplace=True)
 
     @abstractmethod
