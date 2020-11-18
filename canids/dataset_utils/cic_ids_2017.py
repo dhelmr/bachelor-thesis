@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import re
 from enum import Enum
@@ -239,6 +240,8 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
             for pcap in PcapFiles:
                 full_path = os.path.join(dataset_path, pcap.value)
                 associator.associate_pcap_labels(full_path, packet_id_prefix=pcap.value)
+            report = {"unmatched_packets": associator.unmatched_packets}
+            self._write_preprocessing_report(dataset_path, report)
         if parsed.only_validate == False:
             self._make_stats(dataset_path)
         self._validate(dataset_path)
@@ -266,16 +269,29 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
 
     def _validate(self, dataset_path):
         stats = get_stats(dataset_path)
+        report = {}
         for pcap in PcapFiles:
-            self._validate_label_distribution(dataset_path, stats, pcap)
+            report[pcap.value] = self._validate_label_distribution(
+                dataset_path, stats, pcap
+            )
+        report_path = os.path.join(dataset_path, "validation_report.json")
+        with open(report_path, "w") as f:
+            json.dump(report, f)
+
+    def _write_preprocessing_report(self, dataset_path, report_data):
+        report_path = os.path.join(dataset_path, "preprocessing_report.json")
+        with open(report_path, "w") as f:
+            json.dump(report_data, f)
 
     def _validate_label_distribution(self, dataset_path, stats, pcap: PcapFiles):
         label_files = FLOW_LABEL_FILES[PcapFiles(pcap.value)]
         true_labels = pandas.concat(
             [read_labels_csv(os.path.join(dataset_path, f)) for f in label_files]
         )
-        total_attack_count = 0
+        expected_total_packets = 0
+        expected_total_flows = 0
         total_stats_count = 0
+        report = {}
         for label in true_labels["Label"].unique():
             if label == BENIGN_LABEL:
                 # is not contained in stats
@@ -285,18 +301,19 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
                 logging.error("Label %s is not found in stats!", stats_name)
                 continue
             filtered = true_labels[true_labels["Label"] == label]
+            expected_total_flows += len(filtered)
             pkts_per_flow = (
                 filtered["Total Fwd Packets"] + filtered["Total Backward Packets"]
             )
-            true_total_packets = pkts_per_flow.sum()
+            expected_packet_count = pkts_per_flow.sum()
             stats_packet_count = stats[stats_name].loc[pcap.value].sum()
-            total_attack_count += true_total_packets
+            expected_total_packets += expected_packet_count
             total_stats_count += stats_packet_count
-            if stats_packet_count != true_total_packets:
+            if stats_packet_count != expected_packet_count:
                 logging.error(
                     "%s | Expected stats to have %s packets of attack %s; but got %s!",
                     pcap.value,
-                    true_total_packets,
+                    expected_packet_count,
                     stats_name,
                     stats_packet_count,
                 )
@@ -307,12 +324,29 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
                     stats_name,
                     stats_packet_count,
                 )
+            report[stats_name] = {
+                "expected_flows": len(filtered),
+                "expected_packets": expected_packet_count,
+                "preprocessed_packets": stats_packet_count,
+                "difference": expected_packet_count - stats_packet_count,
+                "error": abs(expected_packet_count - stats_packet_count)
+                / expected_packet_count,
+            }
+        report["total"] = {
+            "expected_flows": expected_total_flows,
+            "expected_packets": expected_total_packets,
+            "preprocessed_packets": total_stats_count,
+            "difference": expected_total_packets - total_stats_count,
+            "error": abs(expected_total_packets - total_stats_count)
+            / expected_total_packets,
+        }
         logging.info(
             "%s | Expected %s attack packets; got %s",
             pcap.value,
-            total_attack_count,
+            expected_total_packets,
             total_stats_count,
         )
+        return report
 
 
 class CICIDS2017LabelAssociator(PacketLabelAssociator):
