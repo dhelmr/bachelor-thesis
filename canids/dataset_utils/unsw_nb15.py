@@ -22,6 +22,7 @@ from canids.dataset_utils.packet_label_associator import (
     COL_FLOW_ID,
     COL_REVERSE_FLOW_ID,
     COL_START_TIME,
+    COL_END_TIME,
     COL_INFO,
     COL_TRAFFIC_TYPE,
     AdditionalInfo,
@@ -513,6 +514,8 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
             + proto_as_numbers
         )
         df[COL_START_TIME] = df[FlowCsvColumns.START_TIME.value]
+        if self.use_end_time:
+            df[COL_END_TIME] = df[FlowCsvColumns.END_TIME.value]
         df[COL_INFO] = df[FlowCsvColumns.ATTACK_CATEGORY.value]
         self._drop_non_required_cols(df)
         df.set_index(COL_FLOW_ID, inplace=True)
