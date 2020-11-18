@@ -11,6 +11,7 @@ class DbEntries(NamedTuple):
 
 
 class HyperparamGrouping(NamedTuple):
+    variable_hyperparam: str
     fixed_hyperparams: List[str]
     groups: Dict[Tuple, List[Dict[str, Any]]]
 
@@ -28,10 +29,18 @@ class HyperparamGrouping(NamedTuple):
 
 
 class EvaluationRetriever:
-    def __init__(self, db: DBConnector, model_part_name: str):
+    def __init__(
+        self,
+        db: DBConnector,
+        model_part_name: str,
+        retrieve_immediately=True,
+    ):
         self.db = db
         self.model_part_name = model_part_name
-        self._db_entries = self._get_db_entries(model_part_name)
+        self.additional_fixed_params = ["dataset_name", "traffic_name", "part_name"]
+        self._db_entries = (
+            self._get_db_entries(model_part_name) if retrieve_immediately else None
+        )
 
     def _get_db_entries(self, model_part_name: str):
         evaluations, hyperparams = self.db.get_evaluations_by_model_param(
@@ -39,15 +48,33 @@ class EvaluationRetriever:
         )
         return DbEntries(evaluations, hyperparams)
 
-    def group_for_hyperparam(self, param_name: str):
-        if param_name not in self._db_entries.hyperparams:
+    def retrieve(self):
+        self._db_entries = self._get_db_entries(self.model_part_name)
+
+    def _check_state(self):
+        if self._db_entries is None:
+            raise RuntimeError(
+                "Database entries are not retrieved yet! First call retrieve(), or use retrieve_immediately=True."
+            )
+
+    def group_for_all(self):
+        self._check_state()
+        groups = {
+            hyperparam: self.group_for_hyperparam(hyperparam)
+            for hyperparam in self._db_entries.hyperparams
+        }
+        return groups
+
+    def group_for_hyperparam(self, variable_param: str):
+        self._check_state()
+        if variable_param not in self._db_entries.hyperparams:
             raise ValueError(
                 "%s is not in hyperparameters of %s"
-                % (param_name, self.model_part_name)
+                % (variable_param, self.model_part_name)
             )
         fixed_params = [
-            param for param in self._db_entries.hyperparams if param != param_name
-        ]
+            param for param in self._db_entries.hyperparams if param != variable_param
+        ] + self.additional_fixed_params
         self._db_entries.evaluations[
             "fixed_param_values"
         ] = self._db_entries.evaluations.apply(
@@ -62,5 +89,7 @@ class EvaluationRetriever:
             ]
         )
         return HyperparamGrouping(
-            groups=grouped.to_dict(), fixed_hyperparams=fixed_params
+            variable_hyperparam=variable_param,
+            groups=grouped.to_dict(),
+            fixed_hyperparams=fixed_params,
         )
