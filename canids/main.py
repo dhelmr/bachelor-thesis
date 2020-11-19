@@ -234,7 +234,6 @@ class CLIParser:
 
         visualize = self._create_subparser("visualize", help="Visualizes evaluations")
         visualize.add_argument("--model-part-name", required=True)
-        visualize.add_argument("--hyperparameter", required=False, default=None)
         visualize.add_argument(
             "--output-dir",
             "-o",
@@ -448,7 +447,7 @@ class CommandExecutor:
         visualizer = EvaluationsVisualizer(
             db, args.output_dir, detailed_info=args.detailed
         )
-        visualizer.visualize(args.model_part_name, args.hyperparameter)
+        visualizer.visualize(args.model_part_name)
 
     def migrate_db(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)

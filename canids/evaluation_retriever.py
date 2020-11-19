@@ -27,6 +27,11 @@ class HyperparamGrouping(NamedTuple):
             for fixed_params, evaluations in self.groups.items()
         ]
 
+    def unique_values(self, fixed_param: str):
+        param_index = self.fixed_hyperparams.index(fixed_param)
+        param_values = {t[param_index] for t in self.groups.keys()}
+        return param_values
+
 
 class EvaluationRetriever:
     def __init__(
@@ -38,9 +43,9 @@ class EvaluationRetriever:
         self.db = db
         self.model_part_name = model_part_name
         self.additional_fixed_params = ["dataset_name", "traffic_name", "part_name"]
-        self._db_entries = (
-            self._get_db_entries(model_part_name) if retrieve_immediately else None
-        )
+        self.ignore_hyperparams = ["model_id"]
+        self._db_entries = None
+        self.retrieve() if retrieve_immediately else None
 
     def _get_db_entries(self, model_part_name: str):
         evaluations, hyperparams = self.db.get_evaluations_by_model_param(
@@ -50,6 +55,8 @@ class EvaluationRetriever:
 
     def retrieve(self):
         self._db_entries = self._get_db_entries(self.model_part_name)
+        if len(self._db_entries.evaluations) == 0:
+            raise ValueError("No evaluations found in database.")
 
     def _check_state(self):
         if self._db_entries is None:
@@ -62,6 +69,7 @@ class EvaluationRetriever:
         groups = {
             hyperparam: self.group_for_hyperparam(hyperparam)
             for hyperparam in self._db_entries.hyperparams
+            if hyperparam not in self.ignore_hyperparams
         }
         return groups
 
@@ -72,17 +80,22 @@ class EvaluationRetriever:
                 "%s is not in hyperparameters of %s"
                 % (variable_param, self.model_part_name)
             )
+        evaluations = self._db_entries.evaluations.copy(deep=True)
         fixed_params = [
-            param for param in self._db_entries.hyperparams if param != variable_param
+            param
+            for param in self._db_entries.hyperparams
+            if param != variable_param and param not in self.ignore_hyperparams
         ] + self.additional_fixed_params
-        self._db_entries.evaluations[
-            "fixed_param_values"
-        ] = self._db_entries.evaluations.apply(
+        if len(evaluations) == 0:
+            return HyperparamGrouping(
+                variable_hyperparam=variable_param,
+                fixed_hyperparams=fixed_params,
+                groups=[],
+            )
+        evaluations["fixed_param_values"] = evaluations.apply(
             lambda row: tuple([row[param] for param in fixed_params]), axis=1
         )
-        grouped = self._db_entries.evaluations.groupby(
-            self._db_entries.evaluations["fixed_param_values"]
-        ).apply(
+        grouped = evaluations.groupby(evaluations["fixed_param_values"]).apply(
             lambda rows: [
                 row.drop(labels="fixed_param_values").to_dict()
                 for _, row in rows.iterrows()
