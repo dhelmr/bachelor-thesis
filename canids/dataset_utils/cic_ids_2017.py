@@ -329,16 +329,14 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
                 "expected_packets": expected_packet_count,
                 "preprocessed_packets": stats_packet_count,
                 "difference": expected_packet_count - stats_packet_count,
-                "error": abs(expected_packet_count - stats_packet_count)
-                / expected_packet_count,
+                "error": calc_error(expected_packet_count, stats_packet_count),
             }
         report["total"] = {
             "expected_flows": expected_total_flows,
             "expected_packets": expected_total_packets,
             "preprocessed_packets": total_stats_count,
             "difference": expected_total_packets - total_stats_count,
-            "error": abs(expected_total_packets - total_stats_count)
-            / expected_total_packets,
+            "error": calc_error(expected_total_packets, total_stats_count),
         }
         logging.info(
             "%s | Expected %s attack packets; got %s",
@@ -447,3 +445,9 @@ CICIDS2017 = DatasetUtils(
     CICIDS2017Preprocessor,
     print_stats,
 )
+
+
+def calc_error(expected, observed):
+    if expected == 0:
+        return 0
+    return abs(expected - observed) / expected
