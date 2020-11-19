@@ -11,6 +11,7 @@ from pandas import Series
 from canids.dataset_utils.packet_label_associator import *
 from canids.dataset_utils.pcap_utils import FlowIDFormatter, SubsetPacketReader
 from canids.dataset_utils.reader_utils import ranges_of_list
+from canids.dataset_utils.validation_utils import make_report_dict
 from canids.types import (
     TrafficSequence,
     TrafficReader,
@@ -324,20 +325,16 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
                     stats_name,
                     stats_packet_count,
                 )
-            report[stats_name] = {
-                "expected_flows": len(filtered),
-                "expected_packets": expected_packet_count,
-                "preprocessed_packets": stats_packet_count,
-                "difference": expected_packet_count - stats_packet_count,
-                "error": calc_error(expected_packet_count, stats_packet_count),
-            }
-        report["total"] = {
-            "expected_flows": expected_total_flows,
-            "expected_packets": expected_total_packets,
-            "preprocessed_packets": total_stats_count,
-            "difference": expected_total_packets - total_stats_count,
-            "error": calc_error(expected_total_packets, total_stats_count),
-        }
+            report[stats_name] = make_report_dict(
+                expected_flows=len(filtered),
+                expected_packets=expected_packet_count,
+                actual_packets=stats_packet_count,
+            )
+        report["total"] = make_report_dict(
+            expected_flows=expected_total_flows,
+            expected_packets=expected_total_packets,
+            actual_packets=total_stats_count,
+        )
         logging.info(
             "%s | Expected %s attack packets; got %s",
             pcap.value,
@@ -445,9 +442,3 @@ CICIDS2017 = DatasetUtils(
     CICIDS2017Preprocessor,
     print_stats,
 )
-
-
-def calc_error(expected, observed):
-    if expected == 0:
-        return 0
-    return abs(expected - observed) / expected

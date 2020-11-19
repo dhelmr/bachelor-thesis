@@ -29,6 +29,7 @@ from canids.dataset_utils.packet_label_associator import (
 )
 from canids.dataset_utils.pcap_utils import SubsetPacketReader
 from canids.dataset_utils.reader_utils import ranges_of_list
+from canids.dataset_utils.validation_utils import make_report_dict
 from canids.types import (
     DatasetPreprocessor,
     TrafficReader,
@@ -340,7 +341,7 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
         stats = get_stats(dataset_path)
         true_labels = load_flows(dataset_path)
         total_expected_packets = 0
-        total_stats_count = 0
+        total_actual_packets = 0
         total_expected_flows = 0
         report = {}
         for attack in true_labels[FlowCsvColumns.ATTACK_CATEGORY.value].unique():
@@ -359,47 +360,40 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
                 filtered[FlowCsvColumns.SOURCE_PKT_COUNT.value]
                 + filtered[FlowCsvColumns.DEST_PKT_COUNT.value]
             )
-            expected_total_packets = pkts_per_flow.sum()
-            stats_packet_count = int(stats[stats_name].sum())
-            total_expected_packets += expected_total_packets
-            total_stats_count += stats_packet_count
-            difference = expected_total_packets - stats_packet_count
-            error = abs(difference) / expected_total_packets
+            expected_attack_packets = pkts_per_flow.sum()
+            actual_attack_packets = int(stats[stats_name].sum())
+            total_expected_packets += expected_attack_packets
+            total_actual_packets += actual_attack_packets
+            difference = expected_attack_packets - actual_attack_packets
+            error = abs(difference) / expected_attack_packets
 
-            if stats_packet_count != expected_total_packets:
+            if actual_attack_packets != expected_attack_packets:
                 logging.error(
                     "Expected stats to have %s packets of attack %s; but got %s! (diff=%s, err=%s)",
-                    expected_total_packets,
+                    expected_attack_packets,
                     stats_name,
-                    stats_packet_count,
-                    abs(stats_packet_count - expected_total_packets),
+                    actual_attack_packets,
+                    abs(actual_attack_packets - expected_attack_packets),
                     error,
                 )
             else:
                 logging.info(
-                    "%s as expected (%s packets)", stats_name, stats_packet_count
+                    "%s as expected (%s packets)", stats_name, actual_attack_packets
                 )
-            report[attack] = {
-                "expected_flows": expected_flows,
-                "expected_packets": expected_total_packets,
-                "preprocessed_packets": stats_packet_count,
-                "difference": difference,
-                "error": error,
-            }
-        report["total"] = {
-            "total_expected_packets": total_expected_packets,
-            "total_expected_flows": total_expected_flows,
-            "preprocessed_packets": total_stats_count,
-            "difference": total_expected_packets - total_stats_count,
-            "error": abs(
-                total_expected_packets - total_stats_count,
+            report[attack] = make_report_dict(
+                expected_flows=expected_flows,
+                expected_packets=expected_attack_packets,
+                actual_packets=actual_attack_packets,
             )
-            / total_expected_packets,
-        }
+        report["total"] = make_report_dict(
+            expected_flows=total_expected_flows,
+            expected_packets=total_expected_packets,
+            actual_packets=total_actual_packets,
+        )
         logging.info(
             "Expected %s attack packet; got %s",
             total_expected_packets,
-            total_stats_count,
+            total_actual_packets,
         )
         with open(validation_report_path, "w") as f:
             json.dump(report, f)
