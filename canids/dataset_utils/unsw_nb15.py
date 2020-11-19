@@ -336,7 +336,7 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
         pandas.DataFrame(data).set_index("pcap").to_csv(output_file)
 
     def _validate(self, dataset_path):
-        validation_report_path = os.path.join(dataset_path)
+        validation_report_path = os.path.join(dataset_path, "validation_report.json")
         stats = get_stats(dataset_path)
         true_labels = load_flows(dataset_path)
         total_expected_packets = 0
