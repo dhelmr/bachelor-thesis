@@ -527,7 +527,7 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
             if p_name.lower() == "nvp":
                 return "11"
             else:
-                if p_name.lower not in self.unrecognized_proto_counter:
+                if p_name.lower() not in self.unrecognized_proto_counter:
                     self.unrecognized_proto_counter[p_name.lower()] = 0
                 self.unrecognized_proto_counter[p_name.lower()] += 1
                 return ""
