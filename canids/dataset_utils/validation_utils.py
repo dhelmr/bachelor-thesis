@@ -12,8 +12,8 @@ def make_report_dict(expected_packets, expected_flows, actual_packets):
         "expected_flows": expected_flows,
         "expected_packets": expected_packets,
         "actual_packets": actual_packets,
-        "difference": expected_flows - actual_packets,
-        "error": calc_error(actual_packets, actual_packets),
+        "difference": expected_packets - actual_packets,
+        "error": calc_error(expected_packets, actual_packets),
     }
     for key, value in report.items():
         if isinstance(value, np.integer):
