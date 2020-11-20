@@ -3,6 +3,7 @@ import datetime
 import itertools
 import json
 import logging
+import math
 import os
 import pprint
 import re
@@ -44,6 +45,7 @@ CSV_FILES = ["UNSW-NB15_1.csv", "UNSW-NB15_2.csv", "UNSW-NB15_3.csv", "UNSW-NB15
 CSV_FEATURE_NAMES_FILE = "NUSW-NB15_features.csv"
 FEATURE_NAME_COLUMN_FIELD = "Name"  # name of the column which specified the feature name in NUSW-NB15_features.csv
 RANGES_FILE = "ranges.json"
+PREPROCESSING_REPORT_FILE = "preprocessing_report.json"
 
 PCAP_FILES = {  # TODO use same names as when downloaded properly
     "01": [f"{i}.pcap" for i in range(1, 54)],
@@ -238,6 +240,12 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
             "--only-validate", action="store_true", help="Only validate"
         )
         parser.add_argument(
+            "--modify-timestamps",
+            choices=["none", "ceil", "round"],
+            default="none",
+            help="Mode Timestamp of packets",
+        )
+        parser.add_argument(
             "--use-end-time",
             action="store_true",
             help="Use the end time of each flow for determining whether a packet is part of it or not.",
@@ -261,6 +269,7 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
                 use_end_time=parsed.use_end_time
                 if parsed.use_end_time is not None
                 else False,
+                packet_modify_mode=parsed.modify_timestamps,
             )
             for pcap in iter_pcaps(dataset_path, yield_relative=True):
                 logging.info("Make ranges for %s" % pcap)
@@ -336,7 +345,7 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
             data.append(pcap_info)
         pandas.DataFrame(data).set_index("pcap").to_csv(output_file)
 
-    def _validate(self, dataset_path):
+    def _validate(self, dataset_path, ignore_unrecognized_protocols=True):
         validation_report_path = os.path.join(dataset_path, "validation_report.json")
         stats = get_stats(dataset_path)
         true_labels = load_flows(dataset_path)
@@ -344,6 +353,14 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
         total_actual_packets = 0
         total_expected_flows = 0
         report = {}
+        with open(os.path.join(dataset_path, PREPROCESSING_REPORT_FILE), "r") as f:
+            preprocessing_report = json.load(f)
+        unmatched_protocols = {
+            proto
+            for proto in preprocessing_report["unrecognized_protocols"].keys()
+            if ignore_unrecognized_protocols
+        }
+        print(unmatched_protocols)
         for attack in true_labels[FlowCsvColumns.ATTACK_CATEGORY.value].unique():
             if type(attack) is not str:
                 continue
@@ -354,6 +371,14 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
             filtered = true_labels[
                 true_labels[FlowCsvColumns.ATTACK_CATEGORY.value] == attack
             ]
+            if ignore_unrecognized_protocols:
+                filtered = filtered[
+                    ~filtered[FlowCsvColumns.PROTOCOL.value]
+                    .str.lower()
+                    .str.strip()
+                    .isin(unmatched_protocols)
+                ]
+
             expected_flows = len(filtered)
             total_expected_flows += expected_flows
             pkts_per_flow = (
@@ -395,11 +420,16 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
             total_expected_packets,
             total_actual_packets,
         )
+        for key, value_list in preprocessing_report["unmatched_packets"].items():
+            report[key] = {
+                "count": len(value_list),
+                "first": value_list[: min(20, len(value_list) - 1)],
+            }
         with open(validation_report_path, "w") as f:
             json.dump(report, f)
 
     def _write_preprocessing_report(self, dataset_path, report):
-        report_path = os.path.join(dataset_path, "preprocessing_report.json")
+        report_path = os.path.join(dataset_path, PREPROCESSING_REPORT_FILE)
         with open(report_path, "w") as f:
             json.dump(report, f)
 
@@ -442,12 +472,17 @@ def packet_label_file(pcap_file):
 
 
 class UNSWNB15LabelAssociator(PacketLabelAssociator):
-    def __init__(self, dataset_path: str, **kwargs):
+    def __init__(self, dataset_path: str, packet_modify_mode: str = "none", **kwargs):
         super().__init__(["attack_type"], **kwargs)
         self.unrecognized_proto_counter = {}
         self.flow_formatter = pcap_utils.FlowIDFormatter()
         self.attack_flows, self.attack_flow_ids = self._load_attack_flows(dataset_path)
-        # self.modify_packet = self._correct_packet_timestamp
+        if packet_modify_mode == "ceil":
+            self.modify_packet = self._ceil_packet_timestamp
+        elif packet_modify_mode == "round":
+            self.modify_packet = self._round_packet_timestamp
+        elif packet_modify_mode != "none":
+            raise ValueError("Unrecognized PacketModifyMode %s." % packet_modify_mode)
 
     def _get_attack_flows(self, pcap_file):
         # all attack flows are loaded on startup
@@ -532,7 +567,12 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
                 self.unrecognized_proto_counter[p_name.lower()] += 1
                 return ""
 
-    def _correct_packet_timestamp(self, packet) -> Packet:
+    def _ceil_packet_timestamp(self, packet) -> Packet:
+        ts, buf = packet
+        new_ts = math.ceil(ts)
+        return new_ts, buf
+
+    def _round_packet_timestamp(self, packet) -> Packet:
         ts, buf = packet
         new_ts = round(ts)
         return new_ts, buf
