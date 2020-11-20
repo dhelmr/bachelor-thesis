@@ -16,6 +16,7 @@ from canids.dataset_utils.packet_label_associator import (
     COL_FLOW_ID,
     COL_TRAFFIC_TYPE,
     COL_REVERSE_FLOW_ID,
+    FlowIdentification,
 )
 from canids.types import TrafficType, Packet
 
@@ -265,6 +266,117 @@ class PacketLabelAssociatorTest(unittest.TestCase):
                     (200, "pcap-1", ("6-666-5-443", "5-443-6-666")),
                 ],
             )
+
+    def test_match_packets(self):
+        potential_flows = [
+            FlowIdentification(
+                start_time=make_ts(2300),
+                end_time=make_ts(4000),
+                traffic_type=TrafficType.ATTACK,
+                additional_info="A",
+            ),
+            FlowIdentification(
+                start_time=make_ts(4001),
+                end_time=make_ts(4100),
+                traffic_type=TrafficType.BENIGN,
+                additional_info="B",
+            ),
+            FlowIdentification(
+                start_time=make_ts(7000),
+                end_time=make_ts(8100),
+                traffic_type=TrafficType.ATTACK,
+                additional_info="C",
+            ),
+            FlowIdentification(
+                start_time=make_ts(9300),
+                end_time=make_ts(9900),
+                traffic_type=TrafficType.ATTACK,
+                additional_info="D",
+            ),
+            FlowIdentification(
+                start_time=make_ts(10010),
+                end_time=make_ts(20000),
+                traffic_type=TrafficType.BENIGN,
+                additional_info="E",
+            ),
+            FlowIdentification(
+                start_time=make_ts(23000),
+                end_time=make_ts(30000),
+                traffic_type=TrafficType.ATTACK,
+                additional_info="F",
+            ),
+        ]
+
+        with_end_time = PacketLabelAssociatorTestImpl(None, None, use_end_time=True)
+        expected_flow_info_with_endtime = {
+            40: None,  # timestamp 40 is not in any flow
+            2300: "A",  # timestamp 2300 is in flow with info "A"
+            2301: "A",
+            3999: "A",
+            4000: "A",
+            4001: "B",
+            4100: "B",
+            4101: None,  # not in any flow, when end_time is considered
+            7000: "C",
+            8000: "C",
+            9300: "D",
+            9900: "D",
+            10000: None,
+            10500: "E",
+            23000: "F",
+            23001: "F",
+            27000: "F",
+            30000: "F",
+            30001: None,
+            40000: None,
+        }
+        assert_matched_flows(
+            self, with_end_time, expected_flow_info_with_endtime, potential_flows
+        )
+
+        without_end_time = PacketLabelAssociatorTestImpl(None, None, use_end_time=False)
+        expected_flow_info_wo_endtime = {
+            40: None,  # timestamp 40 is not in any flow
+            2299: None,
+            2300: "A",  # timestamp 2300 is in flow with info "A"
+            2301: "A",
+            3999: "A",
+            4000: "A",
+            4001: "B",
+            4100: "B",
+            4101: "B",  # now in Flow "B", because endtime is not considered
+            7000: "C",
+            8000: "C",
+            9300: "D",
+            9900: "D",
+            10000: "D",
+            10500: "E",
+            23000: "F",
+            23001: "F",
+            27000: "F",
+            30000: "F",
+            30001: "F",
+            40000: "F",
+        }
+        assert_matched_flows(
+            self, without_end_time, expected_flow_info_wo_endtime, potential_flows
+        )
+
+
+def assert_matched_flows(
+    test_instance,
+    associator: PacketLabelAssociator,
+    expected_flow_info,
+    potential_flows,
+):
+    for ts, expected_info in expected_flow_info.items():
+        matched_flow = associator._match_flow(make_ts(ts), potential_flows)
+        actual_info = None if matched_flow is None else matched_flow.additional_info
+        test_instance.assertEqual(
+            actual_info,
+            expected_info,
+            msg="Matched wrong flow for timestamp %s (use_end_time=%s)" % (ts, "True"),
+        )
 
 
 def assert_traffic_type_attack(df, packet, exp_traffic_type, exp_attack_name=None):

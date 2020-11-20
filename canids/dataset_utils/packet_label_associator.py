@@ -229,39 +229,6 @@ class PacketLabelAssociator(ABC):
                 last_flow = flow
         return last_flow
 
-    # def _is_attack(
-    #     self,
-    #     ts: datetime.datetime,
-    #     attack_times: List[FlowIdentification],
-    #     benign_times: List[FlowIdentification],
-    # ) -> Optional[FlowIdentification]:
-    #     """
-    #     Checks if a packet's timestamp lies within an attack or benign flow
-    #     :param ts: Timestamp of the packet in question
-    #     :param attack_times: Ordered List that contains an tuple (start_time, info) for each attack flows
-    #     :param benign_times:  Ordered List that contains an tuple (start_time, info) for each benign flows
-    #     :return: A tuple (traffic_type, info), where 'traffic_type' and 'info' is taken from the found flow. If no
-    #     matching flow is found (if the timestamp is before the first attack or benign flow,
-    #     (TrafficType.BENIGN, None) is returned.
-    #     """
-    #     attack_times, benign_times = attack_times.copy(), benign_times.copy()
-    #     last_item = (TrafficType.BENIGN, (None, None))
-    #     while len(attack_times) != 0 or len(benign_times) != 0:
-    #         if len(attack_times) > 0 and (
-    #             len(benign_times) == 0 or attack_times[0][0] < benign_times[0][0]
-    #         ):
-    #             item = attack_times.pop(0)
-    #             if ts < item[0]:
-    #                 return last_item[0], last_item[1][1]
-    #             last_item = (TrafficType.ATTACK, item)
-    #         else:
-    #             item = benign_times.pop(0)
-    #             if ts < item[0]:
-    #                 return last_item[0], last_item[1][1]
-    #             last_item = (TrafficType.BENIGN, item)
-    #
-    #     return last_item[0], last_item[1][1]
-
     @abstractmethod
     def output_csv_file(self, pcap_file) -> str:
         """
