@@ -27,7 +27,13 @@ REQUIRED_COLUMNS = [
     COL_INFO,
 ]
 
-DEFAULT_OUTPUT_HEADER = ["packet_id", "flow_id", "reverse_flow_id", "traffic_type"]
+DEFAULT_OUTPUT_HEADER = [
+    "packet_id",
+    "timestamp",
+    "flow_id",
+    "reverse_flow_id",
+    "traffic_type",
+]
 
 
 class FlowIdentification(NamedTuple):
@@ -68,7 +74,7 @@ class PacketLabelAssociator(ABC):
         logging.info("Preprocess %s" % pcap_file)
         if packet_id_prefix is None:
             packet_id_prefix = pcap_file
-        attack_flows, attack_ids = self._load_attack_flows(pcap_file)
+        attack_flows, attack_ids = self._get_flows_for_pcap(pcap_file)
 
         pcap_reader = self._open_pcap(pcap_file)
         with open(self.output_csv_file(pcap_file), "w") as csvfile:
@@ -92,6 +98,7 @@ class PacketLabelAssociator(ABC):
                 self._write_csv_row(
                     csvwriter,
                     packet_id,
+                    packet[0],
                     flow_id,
                     reverse_id,
                     traffic_type,
@@ -102,7 +109,7 @@ class PacketLabelAssociator(ABC):
         return pcap_utils.read_pcap_pcapng(pcap_file)
 
     @abstractmethod
-    def _load_attack_flows(self, pcap_file):
+    def _get_flows_for_pcap(self, pcap_file):
         raise NotImplementedError()  # set(attack_flows.index.values)
 
     def _validate_flow_infos(self, flow_infos: pandas.DataFrame):
@@ -238,7 +245,7 @@ class PacketLabelAssociator(ABC):
 
     def _find_duplicate_flows(self, flows: List[FlowIdentification]):
         for i, selected_flow in enumerate(flows):
-            if selected_flow.end_time < selected_flow.start_time:
+            if self.use_end_time and selected_flow.end_time < selected_flow.start_time:
                 self.report.invalid_flows.add(selected_flow)
                 continue
             next_flow_i = i + 1
@@ -269,14 +276,21 @@ class PacketLabelAssociator(ABC):
         raise NotImplementedError()
 
     def _write_csv_row(
-        self, csv_writer, packet_id, flow_id, reverse_id, traffic_type, additional_info
+        self,
+        csv_writer,
+        packet_id,
+        ts,
+        flow_id,
+        reverse_id,
+        traffic_type,
+        additional_info,
     ):
         if type(additional_info) is not str:
             additional_cells = ""
         else:
             additional_cells = self._unpack_additional_info(additional_info)
         csv_writer.writerow(
-            [packet_id, flow_id, reverse_id, traffic_type.value, *additional_cells]
+            [packet_id, ts, flow_id, reverse_id, traffic_type.value, *additional_cells]
         )
 
     def _date_cell_to_timestamp(self, cell_content) -> datetime.datetime:
