@@ -241,7 +241,7 @@ class CICIDS2017Preprocessor(DatasetPreprocessor):
             for pcap in PcapFiles:
                 full_path = os.path.join(dataset_path, pcap.value)
                 associator.associate_pcap_labels(full_path, packet_id_prefix=pcap.value)
-            report = {"unmatched_packets": associator.unmatched_packets}
+            report = {"unmatched_packets": associator.report.json_serializable()}
             self._write_preprocessing_report(dataset_path, report)
         if parsed.only_validate == False:
             self._make_stats(dataset_path)
@@ -352,7 +352,7 @@ class CICIDS2017LabelAssociator(PacketLabelAssociator):
         # The timestamp format in the csv files does not contain any timezone information
         self.timezone = pytz.timezone("Canada/Atlantic")
 
-    def _get_attack_flows(self, pcap_file):
+    def _get_flows_for_pcap(self, pcap_file):
         relative_path = pcap_file[len(self.dataset_path) :]
         if relative_path.startswith(os.path.sep):
             relative_path = relative_path[1:]
@@ -406,6 +406,7 @@ class CICIDS2017LabelAssociator(PacketLabelAssociator):
         if time_part[1] == ":":
             time_part = "0" + time_part
         if time_part.count(":") == 1:
+            # if the time information is only minute-accurate, assume that the flow starts at second 0
             time_part += ":00"
         datestr = f"{date_part} {time_part}"
         parsed_date = datetime.datetime.strptime(

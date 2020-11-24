@@ -28,7 +28,7 @@ class PacketLabelAssociatorTestImpl(PacketLabelAssociator):
         self.flows = flows
         self.packets = packets
 
-    def _get_attack_flows(self, pcap_file):
+    def _load_attack_flows(self, pcap_file):
         return self._find_attack_flows(self.flows)
 
     def make_flow_ids(self, packet: Packet) -> Tuple[str, str]:
@@ -250,13 +250,13 @@ class PacketLabelAssociatorTest(unittest.TestCase):
                 assert_traffic_type_attack(
                     result_df, packet, TrafficType.BENIGN, exp_attack_name=-1
                 )
-            self.assertEqual(len(associator.unmatched_packets["no_flow_ids"]), 1)
+            self.assertEqual(len(associator.report["no_flow_ids"]), 1)
             self.assertEqual(
-                associator.unmatched_packets["no_flow_ids"][0],
+                associator.report["no_flow_ids"][0],
                 (9999, f"pcap-{len(traffic_packets)-1}"),
             )
             self.assertEqual(
-                associator.unmatched_packets["attack_without_flow"],
+                associator.report["attack_without_flow"],
                 [
                     (
                         100,

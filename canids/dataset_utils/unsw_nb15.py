@@ -277,7 +277,7 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
                 label_associator.associate_pcap_labels(full_path, packet_id_prefix=pcap)
             report = {
                 "unrecognized_protocols": label_associator.unrecognized_proto_counter,
-                "unmatched_packets": label_associator.unmatched_packets,
+                "unmatched_packets": label_associator.report.json_serializable(),
             }
             self._write_preprocessing_report(dataset_path, report)
         if not parsed.only_validate:
@@ -484,7 +484,7 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
         elif packet_modify_mode != "none":
             raise ValueError("Unrecognized PacketModifyMode %s." % packet_modify_mode)
 
-    def _get_attack_flows(self, pcap_file):
+    def _get_flows_for_pcap(self, pcap_file):
         # all attack flows are loaded on startup
         return self.attack_flows, self.attack_flow_ids
 

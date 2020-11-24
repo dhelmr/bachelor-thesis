@@ -37,20 +37,38 @@ class FlowIdentification(NamedTuple):
     traffic_type: TrafficType
 
 
+class Report(NamedTuple):
+    no_flow_ids = []
+    attack_without_flow = []
+    duplicate_flows = set()
+    invalid_flows = set()
+
+    def json_serializable(self) -> dict:
+        return {
+            "attack_without_flow": self.attack_without_flow,
+            "no_flow_id": self.no_flow_ids,
+            "duplicate_flows": list(self.duplicate_flows),
+            "invalid_flows": list(self.invalid_flows),
+        }
+
+
 class PacketLabelAssociator(ABC):
-    def __init__(self, additional_cols=None, use_end_time=False):
+    def __init__(
+        self, additional_cols=None, use_end_time=False, find_duplicate_flows=True
+    ):
         if additional_cols is None:
             additional_cols = []
         self.csv_header = DEFAULT_OUTPUT_HEADER + additional_cols
+        self.find_duplicate_flows = find_duplicate_flows
         self.use_end_time = use_end_time
         self.modify_packet = None  # TODO can maybe be removed
-        self.unmatched_packets = {"no_flow_ids": [], "attack_without_flow": []}
+        self.report = Report()
 
     def associate_pcap_labels(self, pcap_file, packet_id_prefix=None):
         logging.info("Preprocess %s" % pcap_file)
         if packet_id_prefix is None:
             packet_id_prefix = pcap_file
-        attack_flows, attack_ids = self._get_attack_flows(pcap_file)
+        attack_flows, attack_ids = self._load_attack_flows(pcap_file)
 
         pcap_reader = self._open_pcap(pcap_file)
         with open(self.output_csv_file(pcap_file), "w") as csvfile:
@@ -84,7 +102,7 @@ class PacketLabelAssociator(ABC):
         return pcap_utils.read_pcap_pcapng(pcap_file)
 
     @abstractmethod
-    def _get_attack_flows(self, pcap_file):
+    def _load_attack_flows(self, pcap_file):
         raise NotImplementedError()  # set(attack_flows.index.values)
 
     def _validate_flow_infos(self, flow_infos: pandas.DataFrame):
@@ -194,7 +212,7 @@ class PacketLabelAssociator(ABC):
         timestamp, buffer = packet
         flow_ids = self.make_flow_ids(packet)
         if flow_ids is None or len(flow_ids) == 0:
-            self.unmatched_packets["no_flow_ids"].append((packet[0], packet_id))
+            self.report.no_flow_ids.append((packet[0], packet_id))
             return TrafficType.BENIGN, [], None
         flow_id, reverse_id = flow_ids
         if flow_id not in attack_ids and reverse_id not in attack_ids:
@@ -208,15 +226,27 @@ class PacketLabelAssociator(ABC):
             ),
             key=lambda item: item.start_time,
         )
+        if self.find_duplicate_flows:
+            self._find_duplicate_flows(potential_flows)
 
         timestamp = datetime.datetime.fromtimestamp(timestamp).astimezone(tz=pytz.utc)
         matched_flow = self._match_flow(timestamp, potential_flows)
         if matched_flow is None:
-            self.unmatched_packets["attack_without_flow"].append(
-                (packet[0], packet_id, flow_ids)
-            )
+            self.report.attack_without_flow.append((packet[0], packet_id, flow_ids))
             return TrafficType.BENIGN, flow_ids, None
         return matched_flow.traffic_type, flow_ids, matched_flow.additional_info
+
+    def _find_duplicate_flows(self, flows: List[FlowIdentification]):
+        for i, selected_flow in enumerate(flows):
+            if selected_flow.end_time < selected_flow.start_time:
+                self.report.invalid_flows.add(selected_flow)
+                continue
+            next_flow_i = i + 1
+            for other_flow in flows[next_flow_i:]:
+                if self.use_end_time and other_flow.start_time < selected_flow.end_time:
+                    self.report.duplicate_flows.add((selected_flow, other_flow))
+                elif other_flow.start_time == selected_flow.start_time:
+                    self.report.duplicate_flows.add((selected_flow, other_flow))
 
     def _match_flow(
         self, ts: datetime.datetime, sorted_flows: List[FlowIdentification]
