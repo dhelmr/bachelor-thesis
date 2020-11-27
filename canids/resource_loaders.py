@@ -5,16 +5,13 @@ import typing as t
 from canids.dataset_utils.cic_ids_2017 import CICIDS2017
 from canids.dataset_utils.unsw_nb15 import UNSWNB15
 from canids.decision_engines.autoencoder import AutoencoderDE
-from canids.decision_engines.local_outlier_factor import LocalOutlierFactorDE
 from canids.decision_engines.one_class_svm import OneClassSVMDE
 from canids.feature_extractors.basic_netflow_extractor import (
     BasicNetflowFeatureExtractor,
 )
 from canids.feature_extractors.testing_extractor import (
-    TestingFeatureExtractor,
     DummyDataset,
 )
-from canids.feature_extractors.word2vec_flows import NetflowWord2Vec
 from canids.transformers import (
     StandardScalerTransformer,
     OneHotEncoder,
@@ -61,7 +58,11 @@ def build_transformers(names: t.Sequence[str]):
 DATASET_PATH = os.path.join(os.path.dirname(__file__), "data/cic-ids-2017/")
 DECISION_ENGINES = {
     de.get_name(): (de, de.create_parser)
-    for de in [AutoencoderDE, LocalOutlierFactorDE, OneClassSVMDE]
+    for de in [
+        AutoencoderDE,
+        #   LocalOutlierFactorDE,
+        OneClassSVMDE,
+    ]
 }
 TRANSFORMERS = {
     "minmax_scaler": MinMaxScalerTransformer,
@@ -70,7 +71,11 @@ TRANSFORMERS = {
 }
 FEATURE_EXTRACTORS = {
     fe.get_name(): fe
-    for fe in [BasicNetflowFeatureExtractor, NetflowWord2Vec, TestingFeatureExtractor]
+    for fe in [
+        BasicNetflowFeatureExtractor,
+        # NetflowWord2Vec,
+        # #TestingFeatureExtractor
+    ]
 }
 
 DATASET_UTILS = {
