@@ -137,8 +137,6 @@ Feature extractors can be listed with:
 ❯ bin/run_canids list-fe --short
 
 flow_extractor
-flows_word2vec
-test_extractor
 
 ```
 
@@ -148,7 +146,6 @@ You can list available decision engines with `bin/run_canids list-de --short` or
 ❯ bin/run_canids list-de --short
 
 autoencoder
-local_outlier_factor
 one_class_svm
 
 ```

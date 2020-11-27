@@ -476,6 +476,33 @@ def packet_label_file(pcap_file):
     return "%s_packet_labels.csv" % pcap_file
 
 
+# This dict contains a mapping of protocol names which are used by the dataset
+# but not recognized by python's socket.getprotobyname() method
+# Besides, the following protocols are used in the dataset, but cannot be mapped
+# to an IP protocol number:
+#  no attacks: arp (10064 flows), udt (8), rtp (7),
+#  all attacks: ip (137), any (411), pri-enc (137), zero (137), isis (137), sccopmce (137), ib (137)
+MISSING_PROTOCOL_MAPPINGS = {
+    "nvp": 11,
+    "sep": 33,
+    "ospf": 89,
+    "swipe": 53,
+    "ipnip": 4,
+    "argus": 13,
+    "bbn-rcc": 10,
+    "st2": 5,
+    "dcn": 19,
+    "mhrp": 48,
+    "ipv6-no": 59,
+    "micp": 95,
+    "aes-sp3-d": 96,
+    "ipx-n-ip": 111,
+    "sm": 122,
+    "unas": 144,  # unas = "unassigned" and actually is used for all numbers from 144 to 252. When reading the packet in
+    # UNSWNB15LabelAssociator below, those numbers are therefore mapped to 144 in _convert_packet_protocol
+}
+
+
 class UNSWNB15LabelAssociator(PacketLabelAssociator):
     def __init__(self, dataset_path: str, packet_modify_mode: str = "none", **kwargs):
         super().__init__(["attack_type"], **kwargs)
@@ -483,6 +510,7 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
         self.flow_formatter = (
             canids.dataset_utils.packet_label_associator.FlowIDFormatter()
         )
+        self.flow_formatter.protocol_converter = self._convert_packet_protocol
         self.attack_flows, self.attack_flow_ids = self._load_attack_flows(dataset_path)
         if packet_modify_mode == "ceil":
             self.modify_packet = self._ceil_packet_timestamp
@@ -500,6 +528,7 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
         flow_ids = self.flow_formatter.make_flow_ids(
             timestamp, buf, packet_type=dpkt.sll.SLL
         )
+
         return flow_ids
 
     def output_csv_file(self, pcap_file) -> str:
@@ -571,12 +600,13 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
         try:
             return str(socket.getprotobyname(p_name.lower()))
         except:
-            if p_name.lower() == "nvp":
-                return "11"
+            p_name = p_name.lower()
+            if p_name in MISSING_PROTOCOL_MAPPINGS:
+                return str(MISSING_PROTOCOL_MAPPINGS[p_name])
             else:
-                if p_name.lower() not in self.unrecognized_proto_counter:
-                    self.unrecognized_proto_counter[p_name.lower()] = 0
-                self.unrecognized_proto_counter[p_name.lower()] += 1
+                if p_name not in self.unrecognized_proto_counter:
+                    self.unrecognized_proto_counter[p_name] = 0
+                self.unrecognized_proto_counter[p_name] += 1
                 return ""
 
     def _ceil_packet_timestamp(self, packet) -> Packet:
@@ -588,6 +618,13 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
         ts, buf = packet
         new_ts = round(ts)
         return new_ts, buf
+
+    def _convert_packet_protocol(self, protocol_number: int):
+        # map all protocol number with protocol name "unassigned" to 144, which is used in the flow labels
+        if 144 <= protocol_number <= 252:
+            return 144
+        else:
+            return protocol_number
 
 
 def get_stats(dataset_path):
