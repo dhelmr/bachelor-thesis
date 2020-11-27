@@ -9,24 +9,29 @@ import pprint
 import re
 import socket
 from enum import Enum
-from typing import List, Tuple
+from typing import List
 
 import dpkt
 import pandas
 import pytz
 from pandas import Series
 
-from canids.dataset_utils import pcap_utils
+import canids.dataset_utils.packet_label_associator
 from canids.dataset_utils.encoding_utils import get_encoding_for_csv
 from canids.dataset_utils.packet_label_associator import (
     PacketLabelAssociator,
     COL_FLOW_ID,
     COL_REVERSE_FLOW_ID,
     COL_START_TIME,
+    COL_SRC_IP,
+    COL_SRC_PKTS,
+    COL_DEST_PKTS,
+    COL_SRC_PORT,
     COL_END_TIME,
     COL_INFO,
     COL_TRAFFIC_TYPE,
     AdditionalInfo,
+    FlowIdentification,
 )
 from canids.dataset_utils.pcap_utils import SubsetPacketReader
 from canids.dataset_utils.reader_utils import ranges_of_list
@@ -475,7 +480,9 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
     def __init__(self, dataset_path: str, packet_modify_mode: str = "none", **kwargs):
         super().__init__(["attack_type"], **kwargs)
         self.unrecognized_proto_counter = {}
-        self.flow_formatter = pcap_utils.FlowIDFormatter()
+        self.flow_formatter = (
+            canids.dataset_utils.packet_label_associator.FlowIDFormatter()
+        )
         self.attack_flows, self.attack_flow_ids = self._load_attack_flows(dataset_path)
         if packet_modify_mode == "ceil":
             self.modify_packet = self._ceil_packet_timestamp
@@ -488,11 +495,12 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
         # all attack flows are loaded on startup
         return self.attack_flows, self.attack_flow_ids
 
-    def make_flow_ids(self, packet: Packet) -> Tuple[str, str]:
+    def make_flow_ids(self, packet: Packet) -> FlowIdentification:
         timestamp, buf = packet
-        return self.flow_formatter.make_flow_ids(
+        flow_ids = self.flow_formatter.make_flow_ids(
             timestamp, buf, packet_type=dpkt.sll.SLL
         )
+        return flow_ids
 
     def output_csv_file(self, pcap_file) -> str:
         return packet_label_file(pcap_file)
@@ -546,6 +554,10 @@ class UNSWNB15LabelAssociator(PacketLabelAssociator):
         if self.use_end_time:
             df[COL_END_TIME] = df[FlowCsvColumns.END_TIME.value]
         df[COL_INFO] = df[FlowCsvColumns.ATTACK_CATEGORY.value]
+        df[COL_SRC_PORT] = df[FlowCsvColumns.SRC_PORT.value]
+        df[COL_SRC_IP] = df[FlowCsvColumns.SRC_IP.value]
+        df[COL_SRC_PKTS] = df[FlowCsvColumns.SOURCE_PKT_COUNT.value]
+        df[COL_DEST_PKTS] = df[FlowCsvColumns.DEST_PKT_COUNT.value]
         self._drop_non_required_cols(df)
         df.set_index(COL_FLOW_ID, inplace=True)
         self._validate_flow_infos(df)

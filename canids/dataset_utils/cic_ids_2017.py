@@ -4,12 +4,12 @@ import os
 import re
 from enum import Enum
 
-import dpkt
 import numpy as np
 from pandas import Series
 
 from canids.dataset_utils.packet_label_associator import *
-from canids.dataset_utils.pcap_utils import FlowIDFormatter, SubsetPacketReader
+from canids.dataset_utils.packet_label_associator import FlowIDFormatter
+from canids.dataset_utils.pcap_utils import SubsetPacketReader
 from canids.dataset_utils.reader_utils import ranges_of_list
 from canids.dataset_utils.validation_utils import make_report_dict
 from canids.types import (
@@ -368,6 +368,10 @@ class CICIDS2017LabelAssociator(PacketLabelAssociator):
             *df["Label"].apply(self.parse_label_field)
         )
         df[COL_START_TIME] = df["Timestamp"]
+        df[COL_SRC_IP] = df["Source IP"]
+        df[COL_SRC_PORT] = df["Source Port"]
+        df[COL_DEST_PKTS] = df["Total Backward Packets"]
+        df[COL_SRC_PKTS] = df["Total Fwd Packets"]
         self._drop_non_required_cols(df)
         return self._find_attack_flows(df)
 

@@ -2,7 +2,7 @@ import datetime
 import itertools
 import tempfile
 import unittest
-from typing import List, Tuple
+from typing import List
 
 import pandas
 import pytz
@@ -16,7 +16,13 @@ from canids.dataset_utils.packet_label_associator import (
     COL_FLOW_ID,
     COL_TRAFFIC_TYPE,
     COL_REVERSE_FLOW_ID,
+    COL_SRC_IP,
+    COL_DEST_PKTS,
+    COL_SRC_PKTS,
+    COL_SRC_PORT,
+    FlowProperties,
     FlowIdentification,
+    SrcIdentification,
 )
 from canids.types import TrafficType, Packet
 
@@ -28,17 +34,20 @@ class PacketLabelAssociatorTestImpl(PacketLabelAssociator):
         self.flows = flows
         self.packets = packets
 
-    def _load_attack_flows(self, pcap_file):
-        return self._find_attack_flows(self.flows)
-
-    def make_flow_ids(self, packet: Packet) -> Tuple[str, str]:
+    def make_flow_ids(self, packet: Packet) -> FlowIdentification:
         ts, buf = packet
         flow_id = str(buf)
         splitted = flow_id.split("-")
         if len(splitted) != 4:
             return None
         reverse_id = "-".join([splitted[2], splitted[3], splitted[0], splitted[1]])
-        return flow_id, reverse_id
+        return FlowIdentification(
+            flow_id,
+            reverse_id,
+            uni_from_src=SrcIdentification(
+                ip_address=splitted[0], port=int(splitted[1])
+            ),
+        )
 
     def output_csv_file(self, pcap_file) -> str:
         return self.output_file.name
@@ -51,6 +60,9 @@ class PacketLabelAssociatorTestImpl(PacketLabelAssociator):
 
     def _open_pcap(self, pcap_file):
         return self.packets
+
+    def _get_flows_for_pcap(self, pcap_file):
+        return self._find_attack_flows(self.flows)
 
 
 attack_packets = {
@@ -69,6 +81,7 @@ attack_packets = {
     "Attack C": [(3030, "1-80-2-443"), (1200, "2-443-4-1111"), (1500, "4-1111-2-443")],
     "Attack E": [(3002, "4-1111-2-443")],
     "Attack Z": [(2020, "5-443-6-666"), (2090, "5-443-6-666"), (2091, "6-666-5-443")],
+    "Attack Uni": [(2000, "4-333-5-333"), (2100, "4-333-5-333")],
 }
 benign_packets = [
     (2000, "2-443-1-80"),
@@ -86,9 +99,14 @@ benign_packets = [
     (200, "6-666-5-443"),  # not in any flow
     (9999, "A-B"),  # no valid flow
 ]
+# the following packet must be classified as attack "Attack-Uni", if recognize_uni_flows=False and classified
+# as benign else
+special_unidirectional_packet = (99900, "5-333-4-333")
 traffic_packets = list(
     sorted(
-        list(itertools.chain(*attack_packets.values())) + benign_packets,
+        list(itertools.chain(*attack_packets.values()))
+        + benign_packets
+        + [special_unidirectional_packet],
         key=lambda i: i[0],
     )
 )
@@ -110,6 +128,10 @@ class PacketLabelAssociatorTest(unittest.TestCase):
                     make_ts(1999.99),
                     "Attack A",
                     TrafficType.ATTACK,
+                    "1",
+                    88,
+                    4,
+                    33,
                 ],
                 [
                     "1-80-2-443",
@@ -118,6 +140,10 @@ class PacketLabelAssociatorTest(unittest.TestCase):
                     make_ts(2900),
                     "",
                     TrafficType.BENIGN,
+                    "1",
+                    88,
+                    20,
+                    4,
                 ],
                 [
                     "2-443-1-80",
@@ -126,6 +152,10 @@ class PacketLabelAssociatorTest(unittest.TestCase):
                     make_ts(5100),
                     "Attack B",
                     TrafficType.ATTACK,
+                    "2",
+                    443,
+                    20,
+                    4,
                 ],
                 [
                     "2-443-3-9000",
@@ -134,6 +164,10 @@ class PacketLabelAssociatorTest(unittest.TestCase):
                     make_ts(3800),
                     "Attack A",
                     TrafficType.ATTACK,
+                    "2",
+                    443,
+                    20,
+                    4,
                 ],
                 [
                     "3-9000-2-443",
@@ -142,6 +176,10 @@ class PacketLabelAssociatorTest(unittest.TestCase):
                     make_ts(4900),
                     "",
                     TrafficType.BENIGN,
+                    "3",
+                    9000,
+                    4,
+                    4,
                 ],
                 [
                     "2-443-3-9000",
@@ -150,6 +188,10 @@ class PacketLabelAssociatorTest(unittest.TestCase):
                     make_ts(6950),
                     "Attack B",
                     TrafficType.ATTACK,
+                    "2",
+                    443,
+                    44,
+                    222,
                 ],
                 [
                     "4-1111-2-443",
@@ -158,6 +200,10 @@ class PacketLabelAssociatorTest(unittest.TestCase):
                     make_ts(1500),
                     "Attack C",
                     TrafficType.ATTACK,
+                    "4",
+                    1111,
+                    3,
+                    2,
                 ],
                 [
                     "2-443-4-1111",
@@ -166,6 +212,10 @@ class PacketLabelAssociatorTest(unittest.TestCase):
                     make_ts(3002),
                     "Attack E",
                     TrafficType.ATTACK,
+                    "2",
+                    443,
+                    22,
+                    33,
                 ],
                 [
                     "4-1111-2-443",
@@ -174,6 +224,10 @@ class PacketLabelAssociatorTest(unittest.TestCase):
                     make_ts(6000),
                     "",
                     TrafficType.BENIGN,
+                    "4",
+                    1111,
+                    222,
+                    3,
                 ],
                 [
                     "2-443-1-80",
@@ -182,6 +236,10 @@ class PacketLabelAssociatorTest(unittest.TestCase):
                     make_ts(3100),
                     "Attack C",
                     TrafficType.ATTACK,
+                    "2",
+                    443,
+                    44,
+                    22,
                 ],
                 [
                     "5-5151-2-443",
@@ -190,6 +248,10 @@ class PacketLabelAssociatorTest(unittest.TestCase):
                     make_ts(2900),
                     "",
                     TrafficType.BENIGN,
+                    "5",
+                    5151,
+                    2,
+                    2,
                 ],
                 [
                     "6-666-5-443",
@@ -198,6 +260,10 @@ class PacketLabelAssociatorTest(unittest.TestCase):
                     make_ts(2900),
                     "Attack Z",
                     TrafficType.ATTACK,
+                    "6",
+                    666,
+                    44,
+                    44,
                 ],
                 [
                     "5-443-6-666",
@@ -206,6 +272,22 @@ class PacketLabelAssociatorTest(unittest.TestCase):
                     make_ts(3900),
                     "",
                     TrafficType.BENIGN,
+                    "5",
+                    443,
+                    3,
+                    2,
+                ],
+                [  # unidirectional flow
+                    "4-333-5-333",
+                    "5-333-4-333",
+                    make_ts(2000),
+                    make_ts(100_000),
+                    "Attack Uni",
+                    TrafficType.ATTACK,
+                    "4",
+                    333,
+                    2,
+                    0,
                 ],
             ],
             columns=[
@@ -215,15 +297,28 @@ class PacketLabelAssociatorTest(unittest.TestCase):
                 COL_END_TIME,
                 COL_INFO,
                 COL_TRAFFIC_TYPE,
+                COL_SRC_IP,
+                COL_SRC_PORT,
+                COL_SRC_PKTS,
+                COL_DEST_PKTS,
             ],
         )
         self.attack_flows.set_index(COL_FLOW_ID, inplace=True)
 
     def test_find_attack_flows(self):
         global traffic_packets
-        for use_end_time in [True, False]:
+
+        def iter_configurations():
+            for use_end_time in [True, False]:
+                for recognize_uni_flows in [True, False]:
+                    yield use_end_time, recognize_uni_flows
+
+        for use_end_time, recognize_uni_flows in iter_configurations():
             associator = PacketLabelAssociatorTestImpl(
-                self.attack_flows, traffic_packets, use_end_time=use_end_time
+                self.attack_flows,
+                traffic_packets,
+                use_end_time=use_end_time,
+                recognize_uni_flows=recognize_uni_flows,
             )
             result, indexes = associator._find_attack_flows(self.attack_flows)
             expected_attack_flows = {
@@ -233,6 +328,7 @@ class PacketLabelAssociatorTest(unittest.TestCase):
                 "4-1111-2-443",
                 "2-443-4-1111",
                 "6-666-5-443",
+                "4-333-5-333",
             }
             assert set(result.index.values.tolist()) == expected_attack_flows
             assert indexes == expected_attack_flows
@@ -242,6 +338,8 @@ class PacketLabelAssociatorTest(unittest.TestCase):
             )
             result_df = result_df.fillna(value=-1)
             for attack_name, packets in attack_packets.items():
+                if not recognize_uni_flows and attack_name == "Attack Uni":
+                    packets = packets + [special_unidirectional_packet]
                 for packet in packets:
                     assert_traffic_type_attack(
                         result_df, packet, TrafficType.ATTACK, attack_name
@@ -250,56 +348,73 @@ class PacketLabelAssociatorTest(unittest.TestCase):
                 assert_traffic_type_attack(
                     result_df, packet, TrafficType.BENIGN, exp_attack_name=-1
                 )
-            self.assertEqual(len(associator.report["no_flow_ids"]), 1)
+            self.assertEqual(len(associator.report.no_flow_ids), 1)
             self.assertEqual(
-                associator.report["no_flow_ids"][0],
-                (9999, f"pcap-{len(traffic_packets)-1}"),
+                associator.report.no_flow_ids[0],
+                (9999, f"pcap-{len(traffic_packets) - 2}"),
             )
-            self.assertEqual(
-                associator.report["attack_without_flow"],
-                [
+
+            expected_no_flow_packets = [
+                (
+                    100,
+                    "pcap-0",
+                    ["1-80-2-443", "2-443-1-80"],
+                ),
+                (200, "pcap-1", ["6-666-5-443", "5-443-6-666"]),
+            ]
+            if recognize_uni_flows:
+                expected_no_flow_packets += [
                     (
-                        100,
-                        "pcap-0",
-                        ("1-80-2-443", "2-443-1-80"),
-                    ),
-                    (200, "pcap-1", ("6-666-5-443", "5-443-6-666")),
-                ],
+                        99900,
+                        f"pcap-{len(traffic_packets) - 1}",
+                        ["5-333-4-333", "4-333-5-333"],
+                    )
+                ]
+            self.assertEqual(
+                associator.report.attack_without_flow,
+                expected_no_flow_packets,
+                msg=f"Not equal for use_end_time={use_end_time} and recognize_uni_flows={recognize_uni_flows}",
             )
 
     def test_match_packets(self):
         potential_flows = [
-            FlowIdentification(
+            FlowProperties(
+                ids=FlowIdentification("", ""),
                 start_time=make_ts(2300),
                 end_time=make_ts(4000),
                 traffic_type=TrafficType.ATTACK,
                 additional_info="A",
             ),
-            FlowIdentification(
+            FlowProperties(
+                ids=FlowIdentification("", ""),
                 start_time=make_ts(4001),
                 end_time=make_ts(4100),
                 traffic_type=TrafficType.BENIGN,
                 additional_info="B",
             ),
-            FlowIdentification(
+            FlowProperties(
+                ids=FlowIdentification("", ""),
                 start_time=make_ts(7000),
                 end_time=make_ts(8100),
                 traffic_type=TrafficType.ATTACK,
                 additional_info="C",
             ),
-            FlowIdentification(
+            FlowProperties(
+                ids=FlowIdentification("", ""),
                 start_time=make_ts(9300),
                 end_time=make_ts(9900),
                 traffic_type=TrafficType.ATTACK,
                 additional_info="D",
             ),
-            FlowIdentification(
+            FlowProperties(
+                ids=FlowIdentification("", ""),
                 start_time=make_ts(10010),
                 end_time=make_ts(20000),
                 traffic_type=TrafficType.BENIGN,
                 additional_info="E",
             ),
-            FlowIdentification(
+            FlowProperties(
+                ids=FlowIdentification("", ""),
                 start_time=make_ts(23000),
                 end_time=make_ts(30000),
                 traffic_type=TrafficType.ATTACK,

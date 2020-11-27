@@ -486,8 +486,10 @@ class CommandExecutor:
         self,
         unknown: t.Sequence[str],
         expected_len,
-        subparsers: t.List[argparse.ArgumentParser] = [],
+        subparsers=None,
     ):
+        if subparsers is None:
+            subparsers = []
         if len(unknown) != expected_len:
             for subparser in subparsers:
                 subparser.print_usage()
