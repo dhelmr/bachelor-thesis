@@ -75,7 +75,10 @@ class NetflowPayloadAnalyser(BasicNetflowFeatureExtractor):
         return self.get_id()
 
     def get_id(self) -> str:
-        return f"PayloadFlowAnalyser"
+        return (
+            f"PayloadFlowAnalyser(base_extractor=%s)"
+            % super(NetflowPayloadAnalyser, self).get_id()
+        )
 
     @staticmethod
     def get_name() -> str:
