@@ -9,6 +9,7 @@ from canids.decision_engines.one_class_svm import OneClassSVMDE
 from canids.feature_extractors.basic_netflow_extractor import (
     BasicNetflowFeatureExtractor,
 )
+from canids.feature_extractors.payload_flows import NetflowPayloadAnalyser
 from canids.feature_extractors.testing_extractor import (
     DummyDataset,
 )
@@ -73,6 +74,7 @@ FEATURE_EXTRACTORS = {
     fe.get_name(): fe
     for fe in [
         BasicNetflowFeatureExtractor,
+        NetflowPayloadAnalyser
         # NetflowWord2Vec,
         # #TestingFeatureExtractor
     ]

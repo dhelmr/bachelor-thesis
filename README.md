@@ -3,24 +3,6 @@
 Note: This repository is **work in progress**.
 
 <!-- ToC start -->
-# Table of Contents
-
-1. [Comparison of Anomaly-Based Network Intrusion Detection Approaches Under Practical Aspects](#comparison-of-anomaly-based-network-intrusion-detection-approaches-under-practical-aspects)
-   1. [](#)
-1. [Installation](#installation)
-1. [Dataset preparation](#dataset-preparation)
-   1. [CIC-IDS-2017](#cic-ids-2017)
-   1. [UNSW-NB-15](#unsw-nb-15)
-   1. [Preprocessing](#preprocessing)
-   1. [Docker](#docker)
-1. [Usage](#usage)
-   1. [List decision engines and feature extractors](#list-decision-engines-and-feature-extractors)
-   1. [Simulate traffic, detect anomalies and create evaluation report](#simulate-traffic-detect-anomalies-and-create-evaluation-report)
-   1. [Subsets](#subsets)
-         1. [CIC-IDS-2017 subsets](#cic-ids-2017-subsets)
-         1. [UNSW-NB15 Subsets](#unsw-nb15-subsets)
-   1. [Hypertune](#hypertune)
-1. [Misc](#misc)
 <!-- ToC end -->
 
 ---
@@ -137,6 +119,7 @@ Feature extractors can be listed with:
 ❯ bin/run_canids list-fe --short
 
 flow_extractor
+flows_payload
 
 ```
 
@@ -225,24 +208,15 @@ It groups a pcap file's packets into netflows and generated features for each fl
 ```
 ❯ bin/extract_flows --help
 
-usage: extract_flows [-h] -p PCAP -o OUTPUT [--one-hot]
-                     [--flow-timeout FLOW_TIMEOUT]
-                     [--subflow-timeout SUBFLOW_TIMEOUT] [--verbose]
-                     [--nf-mode {subflows,with_ip_addr,tcp,include_header_length,hindsight,ip_categorial,port_categorial} [{subflows,with_ip_addr,tcp,include_header_length,hindsight,ip_categorial,port_categorial} ...]]
+usage: extract_flows [-h] -p PCAP -o OUTPUT [--payloads] [--one-hot]
 
 optional arguments:
   -h, --help            show this help message and exit
   -p PCAP, --pcap PCAP  Pcap file to read
   -o OUTPUT, --output OUTPUT
                         CSV output file to write
+  --payloads            Analyse payloads
   --one-hot             Onehot-encode categorial features
-  --flow-timeout FLOW_TIMEOUT
-                        Flow timeout in milliseconds
-  --subflow-timeout SUBFLOW_TIMEOUT
-                        Activity timeout (for subflows) in milliseconds
-  --verbose
-  --nf-mode {subflows,with_ip_addr,tcp,include_header_length,hindsight,ip_categorial,port_categorial} [{subflows,with_ip_addr,tcp,include_header_length,hindsight,ip_categorial,port_categorial} ...]
-                        Feature Selection Modes
 
 ```
 
