@@ -1,10 +1,9 @@
 #!/bin/bash
 #SBATCH --partition=clara-job
-#SBATCH --mem=42000
+#SBATCH --mem=50000
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 
-# cd /nfs/user/di328kepe/bachelor-thesis_old
 module load Python
 if [[ ! -d venv3.7 ]]; then
         python3.7 -m venv venv3.7
