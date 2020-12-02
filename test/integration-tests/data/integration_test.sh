@@ -30,8 +30,8 @@ for f in hypertune/activated/*.json; do
 done
 
 VIS_DIR=$(mktemp -d)
-bin/run_canids list-de -s | xargs -L 1 bin/run_canids visualize -o "$VIS_DIR" --model-part-name
-bin/run_canids list-fe -s | xargs -L 1 bin/run_canids visualize -o "$VIS_DIR" --model-part-name
+bin/run_canids list-de -s | xargs -L 1 bin/run_canids visualize --db /sqlite.db -o "$VIS_DIR" --model-part-name
+bin/run_canids list-fe -s | xargs -L 1 bin/run_canids visualize --db /sqlite.db -o "$VIS_DIR" --model-part-name
 
 bin/run_canids stats --dataset unsw-nb15 --subset tiny
 
