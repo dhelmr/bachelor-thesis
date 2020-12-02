@@ -88,7 +88,7 @@ Feature extractors can be listed with:
 $(bin/run_canids list-fe --short)
 ```
 
-You can list available decision engines with `bin/run_canids list-de --short` or:
+You can list available decision engines with `bin/run_canids list-de` or:
 
 ```
 $(bin/run_canids list-de --short)
@@ -117,7 +117,7 @@ Evaluate the classification and generate a report containing different metrics. 
 bin/run_canids evaluate --src data/cic-ids-2017 --dataset cic-ids-2017 -id oc_svm_1 --output evaluation.json 
 ```
 
-The evaluations can the be viewed with:
+The evaluations can then be viewed with:
 
 ```
 bin/run_canids list-evaluations
@@ -136,9 +136,10 @@ Hint: The attack distributions over the weekdays can be printed with: `python ma
 
 #### UNSW-NB15 Subsets
 
-Only a specific pcaps of the dataset can be read. Those files which should be used can be specified with the
+
+In order to not read the whole dataset, it is possible to specify which pcaps will be loaded for the model training and testing. Those files which should be used can be specified with the
 following syntax: `--subset [training split]/[test split]`. For example, `--subset 1-10,14/43` uses the first ten pcap files
-and the 14th for the training step (by first filtering out all attack instances in it) and the 43th for the classification.
+and the 14th for the training step (by first filtering out all attack instances in it) and the 43th for the classification. These indexes correspond to the files in the `01/` and `02/` directories, sorted in ascending order: For example, `14` denotes `01/14.pcap`, and `54` denotes `02/1.pcap`.
 
 By default, that is when `--subset default` or nothing is specified, the following pcap files are used for the training step:
 
@@ -160,10 +161,18 @@ For example, a set of different parameter configurations for a autoencoder on th
 
 The results of the evaluations can then be viewed in the sqlite database (`classifications.db` by default).
 
+## Visualize
+
+For visualizing the results of multiple evaluations of one feature extractor or decision engine, the `visualize` command can be used. For example, the following generates a html visualization of all autoencoders models into the directory `data/visualizations`:
+
+```
+❯ bin/run_canids --model-part-name autoencoder --output data/visualizations
+``` 
+
 # Misc
 
-A standalone netflow generator CLI program can be run with `bin/extract_flows-r [pcap] -o [features.csv]`. 
-It groups a pcap file's packets into netflows and generated features for each flow.
+A standalone netflow generator CLI program can be run with `bin/extract_flows -r [pcap] -o [output csv path]`. 
+It groups a pcap file's packets into netflows and generated features for each flow. 
 
 ```
 $(bin/extract_flows --help)
