@@ -186,7 +186,7 @@ class CLIParser:
 
         preprocess = self._create_subparser(
             "preprocess",
-            help="Preprocesses a dataset so that it can be used for evaluation afterwards.",
+            help="Preprocesses a dataset so that it can be used for classification and evaluation afterwards.",
         )
         self._add_dataset_path_param(preprocess)
 
@@ -208,7 +208,8 @@ class CLIParser:
         )
 
         db_migrate = self._create_subparser(
-            "migrate-db", help="Migrates database schema"
+            "migrate-db",
+            help="Migrates database schema. Can also be used to create a new database.",
         )
 
         hypertune = self._create_subparser(

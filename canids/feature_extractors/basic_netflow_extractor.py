@@ -102,8 +102,10 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         flow_timeout: int = 12,
         subflow_timeout: int = 0.5,
         verbose: bool = True,
-        modes: t.List[FeatureSetMode] = list(),
+        modes=None,
     ):
+        if modes is None:
+            modes = list()
         # Stores the mapping "packet index -> flow index" for each traffic sequence name
         self.packets_to_flows: t.Dict[str, t.List[int]] = dict()
         self.flow_timeout = flow_timeout
