@@ -96,7 +96,7 @@ class Distributions:
         new_distribution: ByteDistributionInfo,
     ):
         packet_length, port, protocol = distribution_id
-        self.by_proto[protocol][port][protocol] = new_distribution
+        self.by_proto[protocol][port][packet_length] = new_distribution
 
     def get_nearest(self, distribution_id: ByteDistributionId):
         packet_length, port, protocol = distribution_id

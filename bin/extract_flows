@@ -8,6 +8,7 @@ from canids.dataset_utils import pcap_utils
 from canids.feature_extractors.basic_netflow_extractor import (
     BasicNetflowFeatureExtractor,
 )
+from canids.feature_extractors.payl import PaylExtractor
 from canids.feature_extractors.payload_flows import NetflowPayloadAnalyser
 from canids.transformers import OneHotEncoder
 from canids.types import TrafficSequence
@@ -32,29 +33,38 @@ def main():
     parser.add_argument(
         "-o", "--output", help="CSV output file to write", required=True
     )
-    parser.add_argument("--payloads", help="Analyse payloads", action="store_true")
+    parser.add_argument(
+        "--payloads",
+        help="Analyse payloads with NetflowPayloadAnalyser. It creates an own feature with the frequency for every "
+        "byte in a payload.",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--payl", help="Analyse payloads with PAYL.", action="store_true"
+    )
     parser.add_argument(
         "--one-hot", help="Onehot-encode categorial features", action="store_true"
     )
-    use_payloads = parser.parse_known_args()[0].payloads
-    if not use_payloads:
-        BasicNetflowFeatureExtractor.init_parser(parser)
-    else:
-        NetflowPayloadAnalyser.init_parser(parser)
+
+    fe_class = BasicNetflowFeatureExtractor
+    if parser.parse_known_args()[0].payloads:
+        fe_class = NetflowPayloadAnalyser
+    if parser.parse_known_args()[0].payl:
+        fe_class = PaylExtractor
+
+    fe_class.init_parser(parser)
     parsed = parser.parse_args()
-    if not parsed.payloads:
-        fe = BasicNetflowFeatureExtractor.init_by_parsed(parsed)
-    else:
-        fe = NetflowPayloadAnalyser.init_by_parsed(parsed)
+    fe = fe_class.init_by_parsed(parsed)
 
     traffic = PcapTrafficReader().read(parsed.pcap)
-    features = fe.extract_features(traffic)
+    features = fe.fit_extract(traffic)
     if parsed.one_hot:
         onehot_encoder = OneHotEncoder()
         features = onehot_encoder.fit_transform(features)
     df = features.as_pandas()
     df.to_csv(parsed.output)
     print(df)
+    print("Wrote to %s" % parsed.output)
 
 
 if __name__ == "__main__":

@@ -3,6 +3,8 @@
     "name": "flow_extractor",
     "parameters": {
       "--nf-mode": [
+        null,
+        "tcp",
         [
           "tcp",
           "subflows",
@@ -20,9 +22,7 @@
         [
           "tcp",
           "with_ip_addr"
-        ],
-        "tcp",
-        null
+        ]
       ],
       "--flow-timeout": [
         6,
