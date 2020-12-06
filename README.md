@@ -103,10 +103,11 @@ positional arguments:
                         run.
     list-fe             Lists all available feature extractors
     preprocess          Preprocesses a dataset so that it can be used for
-                        evaluation afterwards.
+                        classification and evaluation afterwards.
     list-models         List available models.
     list-evaluations    Prints evaluations.
-    migrate-db          Migrates database schema
+    migrate-db          Migrates database schema. Can also be used to create a
+                        new database.
     hypertune           Hypertunes parameters of decision engine and feature
                         extractor by running the train->classify->evaluate
                         pipeline multiple times.
@@ -139,6 +140,7 @@ Feature extractors can be listed with:
 
 flow_extractor
 flows_payload
+payl_flows
 
 ```
 
@@ -236,14 +238,17 @@ It groups a pcap file's packets into netflows and generated features for each fl
 ```
 ❯ bin/extract_flows --help
 
-usage: extract_flows [-h] -p PCAP -o OUTPUT [--payloads] [--one-hot]
+usage: extract_flows [-h] -p PCAP -o OUTPUT [--payloads] [--payl] [--one-hot]
 
 optional arguments:
   -h, --help            show this help message and exit
   -p PCAP, --pcap PCAP  Pcap file to read
   -o OUTPUT, --output OUTPUT
                         CSV output file to write
-  --payloads            Analyse payloads
+  --payloads            Analyse payloads with NetflowPayloadAnalyser. It
+                        creates an own feature with the frequency for every
+                        byte in a payload.
+  --payl                Analyse payloads with PAYL.
   --one-hot             Onehot-encode categorial features
 
 ```
