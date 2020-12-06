@@ -15,12 +15,15 @@ from canids.feature_extractors.basic_netflow_extractor import (
 from canids.feature_extractors.payload_flows import AbstractNetflowExtender
 from canids.types import Features, FeatureType
 
+PacketLength = float
+
 
 class ByteDistributionInfo(t.NamedTuple):
     mean_byte_freq: np.array
     mean_squared_freq: np.array
     total_instances: int
-    packet_length: int
+    # The packet length can be a float when two distributions are merged
+    packet_length: float
     # storing the stddevs for each byte distribution here might not be optimal efficient as they are calculated
     # with each training update, even when not needed. However, the performance loss should only be marginal
     stddevs: np.array
@@ -55,9 +58,29 @@ class ByteDistributionInfo(t.NamedTuple):
             stddevs=np.sqrt(variances),
         )
 
+    def manhattan_to(self, other: "ByteDistributionInfo") -> float:
+        return np.abs(self.mean_byte_freq - other.mean_byte_freq).sum()
+
+    def merge_with(self, other: "ByteDistributionInfo") -> "ByteDistributionInfo":
+        total_instances = other.total_instances + self.total_instances
+        mean_byte_freq = (
+            self.mean_byte_freq * self.total_instances
+            + other.mean_byte_freq * other.total_instances
+        ) / total_instances
+        mean_squared_freq = (
+            self.mean_squared_freq * self.total_instances
+            + other.mean_squared_freq * other.total_instances
+        ) / total_instances
+        return ByteDistributionInfo(
+            mean_byte_freq=mean_byte_freq,
+            mean_squared_freq=mean_squared_freq,
+            total_instances=total_instances,
+            packet_length=(self.packet_length + other.packet_length) / 2,
+            stddevs=mean_squared_freq - np.square(mean_byte_freq),
+        )
+
 
 Port = int
-PacketLength = int
 NO_MATCHING_DISTRIBUTION = -1
 ByteDistributionId = t.Tuple[PacketLength, Port, Protocol]
 
@@ -122,10 +145,24 @@ class Distributions:
         )
         return all_packet_lengths[min_index]
 
+    def iter_proto_port(
+        self,
+    ) -> t.Iterable[
+        t.Tuple[Protocol, Port, t.Dict[PacketLength, ByteDistributionInfo]]
+    ]:
+        for proto, by_port in self.by_proto.items():
+            for port, by_packet_length in by_port.items():
+                yield proto, port, by_packet_length
+
+    def remove(self, distr_id: ByteDistributionId):
+        packet_length, port, protocol = distr_id
+        del self.by_proto[protocol][port][packet_length]
+
 
 class PaylModel:
-    def __init__(self, smoothing: int):
+    def __init__(self, smoothing: float, clustering_threshold: float):
         self.smoothing = smoothing
+        self.clustering_threshold = clustering_threshold
         self.distributions = Distributions()
 
     def train(self, flows: t.List[NetFlow]):
@@ -153,13 +190,65 @@ class PaylModel:
             counts[byte] = counts[byte] + 1
         return counts
 
+    def cluster(self):
+        if self.clustering_threshold == 0:
+            return 0
+        runs = 0
+        total_merged = 0
+        while True:
+            runs += 1
+            n_merged = self._cluster_run()
+            total_merged += n_merged
+            if n_merged == 0:
+                logging.info(
+                    "Finish PAYL clustering after %s runs. Merged %s times.",
+                    runs,
+                    total_merged,
+                )
+                return runs
+
+    def _cluster_run(self):
+        n_merged = 0
+        for proto, port, by_packet_length in self.distributions.iter_proto_port():
+            ordered_by_length = sorted(by_packet_length.items(), key=lambda i: i[0])
+            if len(ordered_by_length) <= 1:
+                # if there is only one distribution for a protocol,port,packet length distribution; continue
+                continue
+            must_merge = []
+            last_packet_length, last_distr = ordered_by_length[0]
+            i = 1
+            while i < len(ordered_by_length):
+                packet_length, distr = ordered_by_length[i]
+                distance = last_distr.manhattan_to(distr)
+                if distance < self.clustering_threshold:
+                    must_merge.append((distr, last_distr))
+                    # Skip the comparison with the next distribution for this round, they are compared again
+                    # in the next iteration
+                    i += 1
+                    last_packet_length, last_distr = ordered_by_length[
+                        min(i, len(ordered_by_length) - 1)
+                    ]
+                else:
+                    last_packet_length, last_distr = packet_length, distr
+                i += 1
+            if len(must_merge) == 0:
+                continue
+            for distr_a, distr_b in must_merge:
+                merged_distr = distr_a.merge_with(distr_b)
+                for old_distr in [distr_a, distr_b]:
+                    distr_id = (old_distr.packet_length, port, proto)
+                    self.distributions.remove(distr_id)
+                new_id = (merged_distr.packet_length, port, proto)
+                self.distributions.add_distribution(new_id, merged_distr)
+                n_merged += 1
+        return n_merged
+
     def calc_abs(self, port: Port, packet: IPPacket) -> float:
         _, ip = packet
         packet_length = len(ip.data)
         distribution_id = (packet_length, port, ip.p)
         distribution = self.distributions.get_nearest(distribution_id)
         if distribution is None:
-            logging.info("No matching distribution found for %s", distribution_id)
             return NO_MATCHING_DISTRIBUTION
         counts = np.array(self._count_bytes(ip))
         byte_freq = counts / packet_length
@@ -172,12 +261,13 @@ class PaylModel:
 
 
 class PaylExtractor(AbstractNetflowExtender):
-    def __init__(self, smoothing, *args, **kwargs):
+    def __init__(self, smoothing, clustering_threshold, *args, **kwargs):
         super(PaylExtractor, self).__init__(**kwargs)
-        self.payl = PaylModel(smoothing)
+        self.payl = PaylModel(smoothing, clustering_threshold)
 
     def _fit_extract_additional_features(self, flows: t.List[NetFlow]) -> Features:
         self.payl.train(flows)
+        self.payl.cluster()
         return self._extract_additional_features(flows)
 
     def _extract_additional_features(self, flows: t.List[NetFlow]) -> Features:
@@ -213,11 +303,19 @@ class PaylExtractor(AbstractNetflowExtender):
             default=0.0001,
             help="Smoothing value for the mahalanobis distance calculation",
         )
+        parser.add_argument(
+            "--clustering-threshold",
+            type=float,
+            default=0,
+            help="Distance threshold for clustering. When the manhattan distance of two neighbouring distributions is"
+            "below this value, they are merged during clustering.",
+        )
 
     @staticmethod
     def init_by_parsed(args: argparse.Namespace):
         return PaylExtractor(
             smoothing=args.smoothing,
+            clustering_threshold=args.clustering_threshold,
             flow_timeout=args.flow_timeout,
             subflow_timeout=args.subflow_timeout,
             verbose=args.verbose,
@@ -229,7 +327,13 @@ class PaylExtractor(AbstractNetflowExtender):
         return "payl_flows"
 
     def _get_additional_db_params(self):
-        return {"smoothing": self.payl.smoothing}
+        return {
+            "smoothing": self.payl.smoothing,
+            "clustering_threshold": self.payl.clustering_threshold,
+        }
 
     def _get_additional_id_info(self):
-        return "(smoothing=%s)" % self.payl.smoothing
+        return "(smoothing=%s, clustering_threshold=%s)" % (
+            self.payl.smoothing,
+            self.payl.clustering_threshold,
+        )

@@ -1,0 +1,54 @@
+{
+  "feature_extractor": {
+    "name": "payl_flows",
+    "parameters": {
+      "--nf-mode": [
+        null,
+        "tcp",
+        [
+          "tcp",
+          "subflows",
+          "with_ip_addr"
+        ],
+        [
+          "tcp",
+          "subflows",
+          "with_ip_addr",
+          "hindsight"
+        ]
+      ],
+      "--flow-timeout": [
+        0
+      ],
+      "--subflow-timeout": [
+        0
+      ]
+    }
+  },
+  "decision_engine": {
+    "name": "autoencoder",
+    "parameters": {
+      "--training-epochs": [
+        200
+      ],
+      "--training-batch": [
+        64
+      ],
+      "--layers": [
+        "*0.9,*0.8,*0.8,#2,#1"
+      ],
+      "--activation": [
+        "sigmoid"
+      ],
+      "--loss": [
+        "mse"
+      ]
+    }
+  },
+  "transformers": [
+    "onehot_encoder",
+    "minmax_scaler",
+    "standard_scaler"
+  ],
+  "mode": "grid_search"
+}
