@@ -51,15 +51,6 @@
       ],
       "--loss": [
         "mse"
-      ],
-      "--dropout-ratio": [
-        -1
-      ],
-      "--batch-normalization": [
-        "after_activation"
-      ],
-      "--early-stopping-patience": [
-        3
       ]
     }
   },

@@ -39,14 +39,14 @@
         "mse"
       ],
       "--dropout-ratio": [
-        0.1
+        -1, 0.01
       ],
       "--batch-normalization": [
         "none",
         "after_activation"
       ],
       "--early-stopping-patience": [
-        3
+        -1, 3
       ]
     }
   },
