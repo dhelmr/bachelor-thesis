@@ -23,20 +23,24 @@ class EvaluationsVisualizer:
 
     def visualize(self, model_part_name: str):
         retriever = EvaluationRetriever(self.db, model_part_name)
-        filename = f"{model_part_name}_{datetime.datetime.now().isoformat()}.html"
-        path = os.path.join(self.output_dir, filename)
+
+        # TODO this should be loaded dynamically from the decision engine class
+        if model_part_name == "autoencoder":
+            # threshold is not a hyperparameter, but a variable that is determined by the model during training
+            retriever.ignore_hyperparams.append("threshold")
 
         hyperparam_groupings = retriever.group_for_all()
         figures = [
-            self._make_plot(model_part_name, grouping)
-            for grouping in hyperparam_groupings.values()
+            (param_name, self._make_plot(model_part_name, grouping))
+            for param_name, grouping in hyperparam_groupings.items()
         ]
-        with open(path, "w") as f:
-            f.write("<html><head><title>%s</title></head><body>" % model_part_name)
-            for fig in figures:
-                f.write(fig.to_html(full_html="false", include_plotlyjs="cdn"))
-                f.write("<hr>")
-            f.write("</body></html>")
+
+        timestamp = datetime.datetime.now().isoformat()
+        for param_name, fig in figures:
+            filename = f"{model_part_name}_{timestamp}_{param_name}.html"
+            path = os.path.join(self.output_dir, filename)
+            with open(path, "w") as f:
+                f.write(fig.to_html(include_plotlyjs="cdn"))
 
     def _make_plot(self, model_part_name: str, grouping: HyperparamGrouping):
         fig = make_subplots(
