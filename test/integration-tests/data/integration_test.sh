@@ -33,7 +33,7 @@ VIS_DIR=$(mktemp -d)
 bin/run_canids list-de -s | xargs -L 1 bin/run_canids visualize --db /sqlite.db -o "$VIS_DIR" --model-part-name
 bin/run_canids list-fe -s | xargs -L 1 bin/run_canids visualize --db /sqlite.db -o "$VIS_DIR" --model-part-name
 
-bin/run_canids stats --dataset unsw-nb15 --subset tiny
+bin/run_canids stats --dataset unsw-nb15
 
 # list evaluation for every model
 OUTPUT="$(bin/run_canids list-models | cut -f 1 -d " " | tail -n +3 | xargs -L 1 bin/run_canids list-evaluations --db /sqlite.db --model )"
