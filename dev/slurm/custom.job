@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --partition=clara-job
+#SBATCH --partition=galaxy-job
 #SBATCH --mem=50000
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
