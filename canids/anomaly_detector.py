@@ -25,7 +25,7 @@ class AnomalyDetectorModel:
         self.feature_extractor: FeatureExtractor = feature_extractor
 
     def fit_extract_features(self, traffic: TrafficSequence) -> Features:
-        logging.debug("Extract features...")
+        logging.info("Fit-Extract features with %s", self.feature_extractor.get_id())
         features = self.feature_extractor.fit_extract(traffic)
         features.validate()
         return features
@@ -42,10 +42,10 @@ class AnomalyDetectorModel:
     def feed_traffic(
         self, classification_id: str, traffic: TrafficSequence
     ) -> ClassificationResults:
-        logging.debug("Extract features...")
+        logging.info("Extract features with %s", self.feature_extractor.get_id())
         features = self.feature_extractor.extract_features(traffic)
         features.validate()
-        logging.debug("Feature have dimensions: ", features.data.ndim)
+        logging.debug("Features have dimensions: ", features.data.ndim)
         transformed = self._apply_transformers(features)
         transformed.validate()
         logging.debug("Transformed features. Apply decision engine.")
