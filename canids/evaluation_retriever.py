@@ -33,7 +33,7 @@ class HyperparamGrouping(NamedTuple):
         return param_values
 
 
-class EvaluationRetriever:
+class EvaluationGrouper:
     def __init__(
         self,
         db: DBConnector,
@@ -48,7 +48,7 @@ class EvaluationRetriever:
         self.retrieve() if retrieve_immediately else None
 
     def _get_db_entries(self, model_part_name: str):
-        evaluations, hyperparams = self.db.get_evaluations_by_model_param(
+        evaluations, hyperparams = self.db.get_evaluations_by_model_part(
             model_part_name
         )
         return DbEntries(evaluations, hyperparams)

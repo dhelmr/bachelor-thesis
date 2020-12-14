@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from canids.db import DBConnector
-from canids.evaluation_retriever import EvaluationRetriever, HyperparamGrouping
+from canids.evaluation_retriever import EvaluationGrouper, HyperparamGrouping
 from canids.model_info import get_info
 
 
@@ -22,7 +22,7 @@ class EvaluationsVisualizer:
         self.detailed_info = detailed_info
 
     def visualize(self, model_part_name: str):
-        retriever = EvaluationRetriever(self.db, model_part_name)
+        retriever = EvaluationGrouper(self.db, model_part_name)
 
         # TODO this should be loaded dynamically from the decision engine class
         if model_part_name == "autoencoder":

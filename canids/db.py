@@ -500,7 +500,7 @@ class DBConnector:
             )
         return df
 
-    def get_evaluations_by_model_param(self, model_part_table_name: str):
+    def get_evaluations_by_model_part(self, model_part_table_name: str):
         if not self.exists_table(model_part_table_name):
             raise ValueError("Table %s does not exist!" % model_part_table_name)
         with self.get_conn() as c:

@@ -87,11 +87,11 @@ There are various subcommands:
 ❯ bin/run_canids --help
 
 usage: run_canids [-h]
-                  {train,classify,evaluate,list-de,list-classifications,list-fe,preprocess,list-models,list-evaluations,migrate-db,hypertune,visualize,stats}
+                  {train,classify,evaluate,list-de,list-classifications,list-fe,preprocess,list-models,list-evaluations,migrate-db,hypertune,visualize,stats,report}
                   ...
 
 positional arguments:
-  {train,classify,evaluate,list-de,list-classifications,list-fe,preprocess,list-models,list-evaluations,migrate-db,hypertune,visualize,stats}
+  {train,classify,evaluate,list-de,list-classifications,list-fe,preprocess,list-models,list-evaluations,migrate-db,hypertune,visualize,stats,report}
     train               Creates a classification model from analyzing normal
                         traffic and stores it in the database.
     classify            Feed traffic from a dataset and detect anomalies.
@@ -113,6 +113,7 @@ positional arguments:
                         pipeline multiple times.
     visualize           Visualizes evaluations
     stats               Print stats for a dataset
+    report              Creates a textual report for the evaluations.
 
 optional arguments:
   -h, --help            show this help message and exit

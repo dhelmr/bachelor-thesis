@@ -16,6 +16,7 @@ from canids.evaluator import Evaluator
 from canids.hypertuner import Hypertuner
 from canids.model_info import get_info
 from canids.model_trainer import ModelTrainer
+from canids.report import ReportGenerator, ReportOutputFormat
 from canids.resource_loaders import (
     DECISION_ENGINES,
     TRANSFORMERS,
@@ -250,6 +251,28 @@ class CLIParser:
         stats = self._create_subparser("stats", help="Print stats for a dataset")
         self._add_dataset_path_param(stats)
 
+        report = self._create_subparser(
+            "report", help="Creates a textual report for the evaluations."
+        )
+        report.add_argument(
+            "--model-part-name",
+            required=True,
+            help="Name of the decision engine or feature extractor for which the report is to be generated.",
+        )
+        report.add_argument("--dataset", required=False, help="Filter by dataset")
+        report.add_argument(
+            "--format",
+            default=ReportOutputFormat.JSON,
+            choices=[v for v in ReportOutputFormat],
+            type=lambda x: ReportOutputFormat(x),
+        )
+        report.add_argument(
+            "--output",
+            "-o",
+            help="Output path, file if format=json, directory if format=csv",
+            default="reports/report.json",
+        )
+
     def _create_subparser(self, name: str, help: str):
         sp = self.subparsers.add_parser(
             name, help=help, formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -453,6 +476,14 @@ class CommandExecutor:
     def migrate_db(self, args: argparse.Namespace, unknown: t.Sequence[str]):
         self._check_unknown_args(unknown, expected_len=0)
         DBConnector(db_path=args.db, init_if_not_exists=True, migrate_if_needed=True)
+
+    def report(self, args: argparse.Namespace, unknown: t.Sequence[str]):
+        self._check_unknown_args(unknown, expected_len=0)
+        db = DBConnector(db_path=args.db, init_if_not_exists=False)
+        report_gen = ReportGenerator(db)
+        report_gen.make_report(
+            args.model_part_name, output_format=args.format, output_path=args.output
+        )
 
     def _format_model_dump(self, dump: str) -> str:
         try:
