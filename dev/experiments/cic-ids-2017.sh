@@ -3,7 +3,7 @@
 DB_FILE="db/2021_cic_ids_2017.db"
 
 if [ ! -f "$DB_FILE" ]; then
-  print "database $DB_FILE does not exist, create it first"
+  echo "database $DB_FILE does not exist, create it first"
   exit 1
 fi
 
