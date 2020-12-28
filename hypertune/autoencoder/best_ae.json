@@ -9,6 +9,11 @@
           "with_ip_addr",
           "port_categorial",
           "hindsight"
+        ],
+        [
+          "tcp",
+          "subflows",
+          "with_ip_addr"
         ]
       ],
       "--flow-timeout": [

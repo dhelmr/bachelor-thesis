@@ -21,29 +21,21 @@
       ]
     }
   },
-  "decision_engine": {
-    "name": "autoencoder",
+ "decision_engine": {
+    "name": "one_class_svm",
     "parameters": {
-      "--training-epochs": [
-        200
+      "--gamma": [
+        0.005
       ],
-      "--training-batch": [
-        64
+      "--kernel": [
+        "sigmoid"
       ],
-      "--layers": [
-        "*0.9,*0.8,*0.8,#2,#1",
-        "300,200,75,10,75,200,300"
-      ],
-      "--activation": [
-        "sigmoid",
-        "relu"
-      ],
-      "--loss": [
-        "mse"
+      "--nu": [
+        0.0001
       ]
     }
   },
-  "transformers":[ [
+  "transformers": [ [
     "onehot_encoder",
     "minmax_scaler",
     "standard_scaler"
