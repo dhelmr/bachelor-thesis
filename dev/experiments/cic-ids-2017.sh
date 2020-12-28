@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-DB_FILE="db/2021_cic_ids_2017.db"
+DB_FILE="data/2021_cic_ids_2017.db"
 
 if [ ! -f "$DB_FILE" ]; then
   echo "database $DB_FILE does not exist, create it first"
