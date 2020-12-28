@@ -328,14 +328,14 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             return map(
                 lambda item: (prefix + "_" + item[0], item[1]),
                 [
-                    ("sum_pkg_length", FeatureType.INT),
-                    ("mean_pkg_length", FeatureType.FLOAT),
-                    ("min_pkg_length", FeatureType.FLOAT),
-                    ("max_pkg_length", FeatureType.FLOAT),
-                    ("std_pkg_length", FeatureType.FLOAT),
+                    ("sum_pkt_length", FeatureType.INT),
+                    ("mean_pkt_length", FeatureType.FLOAT),
+                    ("min_pkt_length", FeatureType.FLOAT),
+                    ("max_pkt_length", FeatureType.FLOAT),
+                    ("std_pkt_length", FeatureType.FLOAT),
                     ("n_packets", FeatureType.INT),
-                    ("packets_per_ms", FeatureType.FLOAT),
-                    ("bytes_per_ms", FeatureType.FLOAT),
+                    ("packets_per_s", FeatureType.FLOAT),
+                    ("bytes_per_s", FeatureType.FLOAT),
                     ("avg_ttl", FeatureType.FLOAT),
                     ("iat_std", FeatureType.FLOAT),
                     ("iat_min", FeatureType.FLOAT),
@@ -521,7 +521,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
 
     def _extract_time_features(self, packet_list: t.List[IPPacket]):
         if len(packet_list) <= 1:
-            # inter_arrival_times cannot be calculated if there is only on packet
+            # inter_arrival_times cannot be calculated if there is only one packet
             return [NOT_APPLICABLE_FEATURE_VALUE] * 4
         inter_arrival_times = []
         last_ts = packet_list[0][0]
