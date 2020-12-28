@@ -57,17 +57,7 @@ PCAP_FILES = {  # TODO use same names as when downloaded properly
     "02": [f"{i}.pcap" for i in range(1, 28)],
 }
 
-DEFAULT_BENIGN_PCAPS = [
-    "01/10.pcap",
-    "01/11.pcap",
-    "01/12.pcap",
-    "01/13.pcap",
-    "01/26.pcap",
-    "01/27.pcap",
-    "01/40.pcap",
-    "01/41.pcap",
-    "01/42.pcap",
-]
+DEFAULT_BENIGN_PCAPS = [os.path.join("01", f) for f in PCAP_FILES["01"][9:25]]
 
 TINY_SUBSET = {"benign": {"01/1.pcap": [[0, 20]]}, "unknown": {"01/1.pcap": [[21, 30]]}}
 

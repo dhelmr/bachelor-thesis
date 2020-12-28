@@ -205,7 +205,7 @@ and the 14th for the training step (by first filtering out all attack instances 
 By default, that is when `--subset default` or nothing is specified, the following pcap files are used for the training step:
 
 ```
-['01/10.pcap', '01/11.pcap', '01/12.pcap', '01/13.pcap', '01/26.pcap', '01/27.pcap', '01/40.pcap', '01/41.pcap', '01/42.pcap']
+['01/10.pcap', '01/11.pcap', '01/12.pcap', '01/13.pcap', '01/14.pcap', '01/15.pcap', '01/16.pcap', '01/17.pcap', '01/18.pcap', '01/19.pcap', '01/20.pcap', '01/21.pcap', '01/22.pcap', '01/23.pcap', '01/24.pcap', '01/25.pcap']
 
 ```
 
