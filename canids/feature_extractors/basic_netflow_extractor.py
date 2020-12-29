@@ -101,6 +101,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         self,
         flow_timeout: int = 12,
         subflow_timeout: int = 0.5,
+        hindsight_window: int = 100,
         verbose: bool = True,
         modes=None,
     ):
@@ -112,7 +113,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         self.subflow_timeout = subflow_timeout
         self.verbose = verbose
         self.modes = modes
-        self.hindsight_window = 100
+        self.hindsight_window = hindsight_window
         self.validate()
 
     def fit_extract(self, traffic: TrafficSequence) -> Features:
@@ -282,7 +283,6 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             else NOT_APPLICABLE_FEATURE_VALUE,
         ]
 
-        # TODO rtt, syn, synack times
         return features
 
     def _make_hindsight_features(self, flow: NetFlow, last_flows: t.List[NetFlow]):
@@ -555,6 +555,13 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             default=500,
             help="Activity timeout (for subflows) in milliseconds",
         )
+        parser.add_argument(
+            "--hindsight-window",
+            type=float,
+            dest="hindsight_window",
+            default=100,
+            help="Hindsight window; only used with netflow mode 'hindsight'",
+        )
         parser.add_argument("--verbose", action="store_true", default=False)
         parser.add_argument(
             "--nf-mode",
@@ -569,6 +576,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         return BasicNetflowFeatureExtractor(
             flow_timeout=args.flow_timeout,
             subflow_timeout=args.subflow_timeout,
+            hindsight_window=args.hindsight_window,
             verbose=args.verbose,
             modes=[FeatureSetMode(v) for v in args.nf_mode],
         )
@@ -578,18 +586,22 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
 
     def get_id(self) -> str:
         modes = sorted([m.value for m in self.modes])
-        id_parts = [self.get_name(), "timeout=" + str(self.flow_timeout)]
         if FeatureSetMode.SUBFLOWS in self.modes:
             # information about subflows must only be displayed if subflows are actually used
             sf_part = f", sf_timeout={self.subflow_timeout}"
         else:
             sf_part = ""
-        return f"FlowExtractor(timeout={self.flow_timeout}, modes={modes}{sf_part})"
+        if FeatureSetMode.HINDSIGHT in self.modes:
+            hindsight_part = f", hindsight_window={self.hindsight_window}"
+        else:
+            hindsight_part = ""
+        return f"FlowExtractor(timeout={self.flow_timeout}, modes={modes}{sf_part}{hindsight_part})"
 
     def get_db_params_dict(self):
         params = {
             "flow_timeout": self.flow_timeout,
             "subflow_timeout": self.subflow_timeout,
+            "hindsight_window": self.hindsight_window,
         }
         for nf_mode in FeatureSetMode:
             params[nf_mode.name] = nf_mode in self.modes

@@ -319,6 +319,7 @@ class PaylExtractor(AbstractNetflowExtender):
             flow_timeout=args.flow_timeout,
             subflow_timeout=args.subflow_timeout,
             verbose=args.verbose,
+            hindsight_window=args.hindsight_window,
             modes=[FeatureSetMode(v) for v in args.nf_mode],
         )
 

@@ -100,6 +100,7 @@ class NetflowPayloadAnalyser(AbstractNetflowExtender):
         return NetflowPayloadAnalyser(
             flow_timeout=args.flow_timeout,
             subflow_timeout=args.subflow_timeout,
+            hindsight_window=args.hindsight_window,
             verbose=args.verbose,
             modes=[FeatureSetMode(v) for v in args.nf_mode],
         )
