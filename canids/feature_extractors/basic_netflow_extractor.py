@@ -291,10 +291,10 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         src_addr = 0
         dest_addr = 0
         dest_addr_prot = 0
-        src_addr_port = 0
+        src_addr_prot = 0
         for last_flow in last_flows:
             if last_flow.protocol == flow.protocol and last_flow.src_ip == flow.src_ip:
-                src_addr_port += 1
+                src_addr_prot += 1
             if (
                 last_flow.protocol == flow.protocol
                 and last_flow.dest_ip == flow.dest_ip
@@ -320,7 +320,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             src_addr,
             dest_addr,
             dest_addr_prot,
-            src_addr_port,
+            src_addr_prot,
         ]
 
     def _make_flow_names_types(self):
@@ -432,7 +432,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 ("hindsight_src_addr", FeatureType.INT),
                 ("hindsight_dest_addr", FeatureType.INT),
                 ("hindsight_dest_addr_prot", FeatureType.INT),
-                ("hindsight_src_addr_port", FeatureType.INT),
+                ("hindsight_src_addr_prot", FeatureType.INT),
             ]
         names, types = zip(*names_types)
         return list(names), list(types)
