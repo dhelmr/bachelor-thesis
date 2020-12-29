@@ -189,10 +189,12 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             if FeatureSetMode.WITH_IP_ADDR in self.modes:
                 features_row += [f.src_ip, f.dest_ip]
             if FeatureSetMode.SUBFLOWS in self.modes:
-                subflows = self._extract_sub_flows_features(f.packets)
-                # subflows_forward = self._extract_sub_flows_features(forward_packets)
-                # subflows_backward = self._extract_sub_flows_features(backward_packets)
-                features_row += subflows  # + subflows_forward + subflows_backward
+                active_idle_features = self._extract_active_idle_features(f.packets)
+                subflows_forward = self._extract_subflow_features(forward_packets)
+                subflows_backward = self._extract_subflow_features(backward_packets)
+                features_row += (
+                    active_idle_features + subflows_forward + subflows_backward
+                )
             if FeatureSetMode.TCP in self.modes:
                 features_row += self._make_tcp_features(
                     f, forward_packets, backward_packets
@@ -344,26 +346,6 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 ],
             )
 
-        def subflow_features(prefix):
-            return map(
-                lambda item: (prefix + "_" + item[0], item[1]),
-                [
-                    ("n_subflows", FeatureType.INT),
-                    ("n_active_times", FeatureType.INT),
-                    ("min_active_time", FeatureType.FLOAT),
-                    ("max_active_time", FeatureType.FLOAT),
-                    ("total_active_time", FeatureType.FLOAT),
-                    ("std_active_time", FeatureType.FLOAT),
-                    ("mean_active_time", FeatureType.FLOAT),
-                    ("n_idle_times", FeatureType.INT),
-                    ("min_idle_time", FeatureType.FLOAT),
-                    ("max_idle_time", FeatureType.FLOAT),
-                    ("total_idle_time", FeatureType.FLOAT),
-                    ("std_idle_time", FeatureType.FLOAT),
-                    ("mean_idle_time", FeatureType.FLOAT),
-                ],
-            )
-
         names_types = [
             (
                 "src_port",
@@ -399,10 +381,25 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             ]
         if FeatureSetMode.SUBFLOWS in self.modes:
             names_types += [
-                *subflow_features("subflows")
-                #          *subflow_features("subflows_fwd"),
-                #           *subflow_features("subflows_bwd")
+                ("n_subflows", FeatureType.INT),
+                ("n_active_times", FeatureType.INT),
+                ("min_active_time", FeatureType.FLOAT),
+                ("max_active_time", FeatureType.FLOAT),
+                ("total_active_time", FeatureType.FLOAT),
+                ("std_active_time", FeatureType.FLOAT),
+                ("mean_active_time", FeatureType.FLOAT),
+                ("n_idle_times", FeatureType.INT),
+                ("min_idle_time", FeatureType.FLOAT),
+                ("max_idle_time", FeatureType.FLOAT),
+                ("total_idle_time", FeatureType.FLOAT),
+                ("std_idle_time", FeatureType.FLOAT),
+                ("mean_idle_time", FeatureType.FLOAT),
+                ("fwd_subflow_avg_pkts", FeatureType.FLOAT),
+                ("fwd_subflow_avg_length", FeatureType.FLOAT),
+                ("bwd_subflow_avg_pkts", FeatureType.FLOAT),
+                ("bwd_subflow_avg_length", FeatureType.FLOAT),
             ]
+
         if FeatureSetMode.TCP in self.modes:
             names_types += [
                 ("tcp_fwd_win_mean", FeatureType.FLOAT),
@@ -454,7 +451,7 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         sub_flows.append(current_sub_flow)
         return sub_flows
 
-    def _extract_sub_flows_features(self, flow: t.List[IPPacket]):
+    def _extract_active_idle_features(self, flow: t.List[IPPacket]):
         subflows = self._make_subflows(flow)
         features = [len(subflows)]
         active_times = []
@@ -483,6 +480,16 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 statistics.mean(time_list),
             ]
         return features
+
+    def _extract_subflow_features(self, flow: t.List[IPPacket]):
+        subflows = self._make_subflows(flow)
+        flow_total_lengths = []
+        flow_total_pkts = []
+        for subflow in subflows:
+            flow_total_pkts.append(len(subflow))
+            total_flow_size = sum([self._get_packet_size(packet) for packet in subflow])
+            flow_total_lengths.append(total_flow_size)
+        return [statistics.mean(flow_total_pkts), statistics.mean(flow_total_lengths)]
 
     def _extract_packet_list_features(self, packet_list: t.List[IPPacket]):
         if len(packet_list) == 0:
@@ -608,13 +615,9 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         return params
 
     def packet_length_stats(self, packets: t.List[IPPacket]) -> PacketLengthStats:
-        if FeatureSetMode.INCLUDE_HEADER_LENGTH in self.modes:
-            lengths = [len(ip) for _, ip in packets]
-        else:
-            # by default, only the IP packet's payload is taken into account
-            lengths = [len(ip.data) for _, ip in packets]
         if len(packets) == 0:
             return PacketLengthStats(*[NOT_APPLICABLE_FEATURE_VALUE] * 5)
+        lengths = [self._get_packet_size(packet) for packet in packets]
         return PacketLengthStats(
             total=sum(lengths),
             mean=statistics.mean(lengths),
@@ -622,6 +625,13 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             max=max(lengths),
             std=statistics.pstdev(lengths),
         )
+
+    def _get_packet_size(self, packet: IPPacket):
+        _, ip = packet
+        if FeatureSetMode.INCLUDE_HEADER_LENGTH in self.modes:
+            return len(ip)
+        else:
+            return len(ip.data)
 
     def validate(self):
         if (
