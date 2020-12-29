@@ -350,17 +350,17 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 [
                     ("n_subflows", FeatureType.INT),
                     ("n_active_times", FeatureType.INT),
-                    ("min_active_time", FeatureType.INT),
-                    ("max_active_time", FeatureType.INT),
-                    ("total_active_time", FeatureType.INT),
-                    ("std_active_time", FeatureType.INT),
-                    ("mean_active_time", FeatureType.INT),
+                    ("min_active_time", FeatureType.FLOAT),
+                    ("max_active_time", FeatureType.FLOAT),
+                    ("total_active_time", FeatureType.FLOAT),
+                    ("std_active_time", FeatureType.FLOAT),
+                    ("mean_active_time", FeatureType.FLOAT),
                     ("n_idle_times", FeatureType.INT),
-                    ("min_idle_time", FeatureType.INT),
-                    ("max_idle_time", FeatureType.INT),
-                    ("total_idle_time", FeatureType.INT),
-                    ("std_idle_time", FeatureType.INT),
-                    ("mean_idle_time", FeatureType.INT),
+                    ("min_idle_time", FeatureType.FLOAT),
+                    ("max_idle_time", FeatureType.FLOAT),
+                    ("total_idle_time", FeatureType.FLOAT),
+                    ("std_idle_time", FeatureType.FLOAT),
+                    ("mean_idle_time", FeatureType.FLOAT),
                 ],
             )
 
@@ -437,6 +437,23 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         names, types = zip(*names_types)
         return list(names), list(types)
 
+    def _make_subflows(self, flow: t.List[IPPacket]) -> t.List[t.List[IPPacket]]:
+        sub_flows = []
+        current_sub_flow = []
+        for packet in flow:
+            ts, ip = packet
+            if len(current_sub_flow) == 0:
+                current_sub_flow.append(packet)
+                continue
+            last_ts, _ = current_sub_flow[-1]
+            if ts - last_ts > self.subflow_timeout:
+                sub_flows.append(current_sub_flow)
+                current_sub_flow = [packet]
+                continue
+            current_sub_flow.append(packet)
+        sub_flows.append(current_sub_flow)
+        return sub_flows
+
     def _extract_sub_flows_features(self, flow: t.List[IPPacket]):
         subflows = self._make_subflows(flow)
         features = [len(subflows)]
@@ -466,23 +483,6 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 statistics.mean(time_list),
             ]
         return features
-
-    def _make_subflows(self, flow: t.List[IPPacket]) -> t.List[t.List[IPPacket]]:
-        sub_flows = []
-        current_sub_flow = []
-        for packet in flow:
-            ts, ip = packet
-            if len(current_sub_flow) == 0:
-                current_sub_flow.append(packet)
-                continue
-            last_ts, _ = current_sub_flow[-1]
-            if ts - last_ts > self.subflow_timeout:
-                sub_flows.append(current_sub_flow)
-                current_sub_flow = [packet]
-                continue
-            current_sub_flow.append(packet)
-        sub_flows.append(current_sub_flow)
-        return sub_flows
 
     def _extract_packet_list_features(self, packet_list: t.List[IPPacket]):
         if len(packet_list) == 0:
@@ -545,15 +545,15 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             "--flow-timeout",
             type=float,
             dest="flow_timeout",
-            default=12_000,
-            help="Flow timeout in milliseconds",
+            default=12,
+            help="Flow timeout in seconds",
         )
         parser.add_argument(
             "--subflow-timeout",
             type=float,
             dest="subflow_timeout",
-            default=500,
-            help="Activity timeout (for subflows) in milliseconds",
+            default=0.5,
+            help="Activity timeout (for subflows) in seconds",
         )
         parser.add_argument(
             "--hindsight-window",
