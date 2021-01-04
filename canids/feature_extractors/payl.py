@@ -274,7 +274,7 @@ class PaylExtractor(AbstractNetflowExtender):
         features = [self._make_flow_features(flow) for flow in flows]
         return Features(
             data=np.array(features),
-            names=["mean_payl_dist", "min_payl_dist", "max_payl_dist", "std_payl"],
+            names=["mean_payl_dist", "min_payl_dist", "max_payl_dist", "std_payl_dist"],
             types=[
                 FeatureType.FLOAT,
                 FeatureType.FLOAT,

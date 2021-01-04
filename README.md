@@ -151,6 +151,8 @@ You can list available decision engines with `bin/run_canids list-de` or:
 ❯ bin/run_canids list-de --short
 
 autoencoder
+local_outlier_factor
+isolation_forest
 one_class_svm
 
 ```
