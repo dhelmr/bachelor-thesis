@@ -4,43 +4,50 @@
     "parameters": {
       "--nf-mode": [
         [
-          "subflows",
           "tcp",
+          "subflows",
           "with_ip_addr"
         ]
       ],
       "--flow-timeout": [
-        12
+        6,
+        4,
+        2,
+        8,
+        10,
+        11,
+        12,
+        16,
+        20,
+        60
       ],
       "--subflow-timeout": [
-        0.5
+        0.5,
+        0.4,
+        0.45,
+        0.55,
+        0.6,
+        0.8,
+        1,
+        3
       ]
     }
   },
-  "decision_engine": {
+ "decision_engine": {
     "name": "one_class_svm",
     "parameters": {
       "--gamma": [
-        0.005,
-        0.001,
-        0.002,
-        0.0001
-      ],
-      "--kernel": [
-        "rbf"
+        0.005
       ],
       "--nu": [
-        0.0005,
-        0.00075,
-        0.0002,
-        0.0001,
-        0.00005,
-        0.00001
+        0.0001
       ]
     }
   },
   "transformers": [
-    "minmax_scaler"
+    [
+      "minmax_scaler"
+    ]
   ],
   "mode": "grid_search"
 }

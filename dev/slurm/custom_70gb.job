@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --partition=clara-job
-#SBATCH --mem=8000
+#SBATCH --mem=70000
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 
