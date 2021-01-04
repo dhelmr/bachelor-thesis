@@ -18,8 +18,8 @@ for i in {0..1000}; do
   fi
   for f in ./hypertune/activated/*.json; do
     NAME="$f-$i-$ARGS"
-    JOB_ARGS=$(echo "--only-index $i -f $f $ARGS" | base64)
-    echo "Start $NAME with '$(echo "hypertune $JOB_ARGS" | base64 -d)'"
+    JOB_ARGS=$(echo "hypertune --only-index $i -f $f $ARGS" | base64)
+    echo "Start $NAME with '$(echo "$JOB_ARGS" | base64 -d)'"
     sbatch --output="slurmlogs/%j.out" --export="ARGS=$JOB_ARGS" "$JOB_FILE"
 
     # backoff wait and assure that only max num of jobs are running/pending at the same time
