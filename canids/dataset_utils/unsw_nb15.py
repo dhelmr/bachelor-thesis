@@ -52,12 +52,24 @@ FEATURE_NAME_COLUMN_FIELD = "Name"  # name of the column which specified the fea
 RANGES_FILE = "ranges.json"
 PREPROCESSING_REPORT_FILE = "preprocessing_report.json"
 
-PCAP_FILES = {  # TODO use same names as when downloaded properly
+PCAP_FILES = {
     "01": [f"{i}.pcap" for i in range(1, 54)],
     "02": [f"{i}.pcap" for i in range(1, 28)],
 }
 
-DEFAULT_BENIGN_PCAPS = [os.path.join("01", f) for f in PCAP_FILES["01"][9:25]]
+DEFAULT_BENIGN_PCAPS = [os.path.join("01", f) for f in PCAP_FILES["01"][22:27]]
+
+SPECIAL_TRAIN_SUBSETS = {
+    "A": [os.path.join("01", f) for f in PCAP_FILES["01"][9:31]],
+    "B": [os.path.join("01", f) for f in PCAP_FILES["01"][31:53]],
+    "full": [os.path.join("01", f) for f in PCAP_FILES["01"][9:53]],
+}
+SPECIAL_TEST_SUBSETS = {
+    "a": [os.path.join("01", f) for f in PCAP_FILES["01"][0:9]],
+    "b": [os.path.join("02", f) for f in PCAP_FILES["02"][0:14]],
+    "c": [os.path.join("02", f) for f in PCAP_FILES["02"][14:27]],
+}
+
 
 TINY_SUBSET = {"benign": {"01/1.pcap": [[0, 20]]}, "unknown": {"01/1.pcap": [[21, 30]]}}
 
@@ -161,11 +173,23 @@ class UNSWNB15TrafficReader(TrafficReader):
             }
         elif subset_name == "tiny":
             return TINY_SUBSET
-        # else: subset name must be of parttern "[test split]/[attack file1],[attack file2],..."
+        # else: subset name must be of pattern "[test split]/[attack file1],[attack file2],..." or reference
+        # a key from the SPECIAL_{TRAIN,TEST}_SUBSETS defined above (e.g. "A/b" for the "A" train set and "b" test set)
         benign, unknown = subset_name.split("/")
-        benign_pcaps = self.select_pcaps(benign.split(","))
-        unknown_pcaps = self.select_pcaps(unknown.split(","))
-        return {
+        if benign == "" or unknown == "":
+            raise ValueError(
+                "Invalid subset name '%s': Empty splits are not allowed" % subset_name
+            )
+        if benign in SPECIAL_TRAIN_SUBSETS:
+            benign_pcaps = SPECIAL_TRAIN_SUBSETS[benign]
+        else:
+            benign_pcaps = self.select_pcaps(benign.split(","))
+        if unknown in SPECIAL_TEST_SUBSETS:
+            unknown_pcaps = SPECIAL_TEST_SUBSETS[unknown]
+        else:
+            unknown_pcaps = self.select_pcaps(unknown.split(","))
+        print(benign_pcaps, unknown_pcaps)
+        return {  # TODO filtering for the ranges can probably be removed
             "benign": {
                 pcap: r for pcap, r in ranges["benign"].items() if pcap in benign_pcaps
             },
@@ -220,10 +244,18 @@ class UNSWNB15TrafficReader(TrafficReader):
         return "unsw-nb15"
 
     def get_train_set_name(self):
-        return ",".join(sorted(self.subset["benign"].keys()))
+        if "/" not in self.subset_name:
+            return self.subset_name
+        else:
+            return self.subset_name.split("/")[0]
 
     def get_testset_name(self):
-        return ",".join(sorted(self.subset["unknown"].keys()))
+        if "/" not in self.subset_name:
+            return self.subset_name
+        splitted = self.subset_name.split("/")
+        if len(splitted) == 0:
+            return ""
+        return splitted[1]
 
 
 class UNSWNB15Preprocessor(DatasetPreprocessor):
