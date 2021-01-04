@@ -11,5 +11,5 @@ if [[ ! -d venv3.7 ]]; then
 fi
 venv3.7/bin/python3 venv3.7/bin/pip3 install -r requirements.txt
 
-CLI_ARGS=$(echo "$HYPERTUNE_ARGS" | base64 -d)
-venv3.7/bin/python3 bin/run_canids hypertune $CLI_ARGS
+CLI_ARGS=$(echo "$ARGS" | base64 -d)
+venv3.7/bin/python3 bin/run_canids $CLI_ARGS

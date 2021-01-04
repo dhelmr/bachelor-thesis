@@ -11,8 +11,8 @@ export JOB_FILE="dev/slurm/custom_70gb.job"
 export HYPERTUNEFILE="hypertune/flow_extraction/timeouts_ocsvm.json"
 
 dev/slurm/iterate_single_hypertune.sh --dataset unsw-nb15 --subset A/a --src unsw-nb15 --db "$DB_FILE" &
-dev/slurm/iterate_single_hypertune.sh  --dataset unsw-nb15 --subset A/b --src unsw-nb15 --db "$DB_FILE" &
-dev/slurm/iterate_single_hypertune.sh  --dataset unsw-nb15 --subset A/c --src unsw-nb15 --db "$DB_FILE" &
+dev/slurm/iterate_single_hypertune.sh --dataset unsw-nb15 --subset A/b --src unsw-nb15 --db "$DB_FILE" &
+dev/slurm/iterate_single_hypertune.sh --dataset unsw-nb15 --subset A/c --src unsw-nb15 --db "$DB_FILE" &
 
 dev/slurm/iterate_single_hypertune.sh  --dataset unsw-nb15 --subset B/a --src unsw-nb15 --db "$DB_FILE" &
 dev/slurm/iterate_single_hypertune.sh  --dataset unsw-nb15 --subset B/b --src unsw-nb15 --db "$DB_FILE" &

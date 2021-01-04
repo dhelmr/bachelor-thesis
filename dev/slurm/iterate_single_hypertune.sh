@@ -17,8 +17,8 @@ for i in {0..1000}; do
   fi
   NAME="$HYPERTUNEFILE-$i-$ARGS"
   JOB_ARGS=$(echo "--only-index $i -f $HYPERTUNEFILE $ARGS" | base64)
-  echo "Start $NAME with '$(echo "$JOB_ARGS" | base64 -d)'"
-  sbatch --output="slurmlogs/%j.out" --export="HYPERTUNE_ARGS=$JOB_ARGS" "$JOB_FILE"
+  echo "Start $NAME with '$(echo "hypertune $JOB_ARGS" | base64 -d)'"
+  sbatch --output="slurmlogs/%j.out" --export="ARGS=$JOB_ARGS" "$JOB_FILE"
 
   # backoff wait and assure that only max num of jobs are running/pending at the same time
   sleep 10
