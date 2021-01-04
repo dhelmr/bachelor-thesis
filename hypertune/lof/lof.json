@@ -10,11 +10,10 @@
         ]
       ],
       "--flow-timeout": [
-        20,
-        60
+        6
       ],
       "--subflow-timeout": [
-        2
+        0.5
       ]
     }
   },
@@ -31,15 +30,8 @@
         5,
         0.5
       ],
-      "--algorithm": [
-        "ball_tree",
-        "kd_tree",
-        "brute"
-      ],
       "--n-neighbors": [
-        5,
-        20,
-        80
+        5
       ]
     }
   },

@@ -5,6 +5,8 @@ import typing as t
 from canids.dataset_utils.cic_ids_2017 import CICIDS2017
 from canids.dataset_utils.unsw_nb15 import UNSWNB15
 from canids.decision_engines.autoencoder import AutoencoderDE
+from canids.decision_engines.isolation_forest import IsolationForestDE
+from canids.decision_engines.local_outlier_factor import LocalOutlierFactorDE
 from canids.decision_engines.one_class_svm import OneClassSVMDE
 from canids.feature_extractors.basic_netflow_extractor import (
     BasicNetflowFeatureExtractor,
@@ -64,7 +66,8 @@ DECISION_ENGINES = {
     de.get_name(): (de, de.create_parser)
     for de in [
         AutoencoderDE,
-        #   LocalOutlierFactorDE,
+        LocalOutlierFactorDE,
+        IsolationForestDE,
         OneClassSVMDE,
     ]
 }

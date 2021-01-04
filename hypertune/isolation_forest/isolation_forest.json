@@ -1,0 +1,32 @@
+{
+  "feature_extractor": {
+    "name": "flow_extractor",
+    "parameters": {
+      "--nf-mode": [
+        [
+          "subflows",
+          "tcp",
+          "with_ip_addr"
+        ]
+      ],
+      "--flow-timeout": [
+        6
+      ],
+      "--subflow-timeout": [
+        0.5
+      ]
+    }
+  },
+  "decision_engine": {
+    "name": "isolation_forest",
+    "parameters": {
+      "--n-estimators": [5000],
+      "--max-samples": [0.1, 0.3],
+      "--max-features": [0.5, 0.01, 0.9, 0.001]
+    }
+  },
+  "transformers": [
+	  "standard_scaler"
+  ],
+  "mode": "grid_search"
+}
