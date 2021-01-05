@@ -7,7 +7,7 @@ if [ ! -f "$DB_FILE" ]; then
   exit 1
 fi
 
-export JOB_FILE="dev/slurm/custom_70gb.job"
+export JOB_FILE="dev/slurm/custom_100gb.job"
 export HYPERTUNEFILE="hypertune/flow_extraction/timeouts_ocsvm.json"
 
 dev/slurm/iterate_single_hypertune.sh --dataset unsw-nb15 --subset A/a --src unsw-nb15 --db "$DB_FILE" &
@@ -19,6 +19,7 @@ dev/slurm/iterate_single_hypertune.sh  --dataset unsw-nb15 --subset B/b --src un
 dev/slurm/iterate_single_hypertune.sh  --dataset unsw-nb15 --subset B/c --src unsw-nb15 --db "$DB_FILE" &
 
 export JOB_FILE="dev/slurm/custom_40gb.job"
+export START=8
 dev/slurm/iterate_single_hypertune.sh --dataset cic-ids-2017 --subset tuesday --src cic-ids-2017 --db "$DB_FILE" &
 dev/slurm/iterate_single_hypertune.sh --dataset cic-ids-2017 --subset wednesday --src cic-ids-2017 --db "$DB_FILE" &
 dev/slurm/iterate_single_hypertune.sh --dataset cic-ids-2017 --subset thursday --src cic-ids-2017 --db "$DB_FILE" &

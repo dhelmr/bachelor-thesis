@@ -1,0 +1,14 @@
+#!/bin/bash
+#SBATCH --partition=clara-job
+#SBATCH --mem=100000
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+
+module load Python
+if [[ ! -d venv3.7 ]]; then
+        python3.7 -m venv venv3.7
+fi
+venv3.7/bin/python3 venv3.7/bin/pip3 install -r requirements.txt
+
+CLI_ARGS=$(echo "$ARGS" | base64 -d)
+venv3.7/bin/python3 bin/run_canids $CLI_ARGS
