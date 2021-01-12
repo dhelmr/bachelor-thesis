@@ -28,6 +28,7 @@ class EvaluationsVisualizer:
         if model_part_name == "autoencoder":
             # threshold is not a hyperparameter, but a variable that is determined by the model during training
             retriever.ignore_hyperparams.append("threshold")
+            retriever.ignore_hyperparams.append("layer_sizes")
 
         hyperparam_groupings = retriever.group_for_all()
         figures = [

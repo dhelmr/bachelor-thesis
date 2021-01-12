@@ -69,6 +69,7 @@ class OneClassSVMDE(DecisionEngine):
             "nu": self.svm.nu,
             "shrinking": self.svm.shrinking,
             "tolerance": self.svm.tol,
+            "degree": self.svm.degree,
         }
 
     @staticmethod
