@@ -91,6 +91,7 @@ class FeatureSetMode(Enum):
     # the following features are only useful with a OnehotEncoder
     IP_CATEGORIAL = "ip_categorial"
     PORT_CATEGORIAL = "port_categorial"
+    BASIC = "basic"
 
 
 NOT_APPLICABLE_FEATURE_VALUE = -1
@@ -178,6 +179,9 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 disable=(not self.verbose),
             )
         ):
+            if FeatureSetMode.BASIC in self.modes:
+                features.append([f.src_port, f.dest_port, f.protocol])
+                continue
             forward_packets = f.get_packets_in_direction(FlowDirection.FORWARDS)
             backward_packets = f.get_packets_in_direction(FlowDirection.BACKWARDS)
             total = self._extract_packet_list_features(f.packets)
@@ -360,77 +364,80 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 else FeatureType.INT,
             ),
             ("protocol", FeatureType.CATEGORIAL),
-            *packet_list_features("total"),
-            *packet_list_features("forward"),
-            *packet_list_features("backward"),
         ]
-        if FeatureSetMode.WITH_IP_ADDR in self.modes:
+        if FeatureSetMode.BASIC not in self.modes:
             names_types += [
-                (
-                    "src_ip",
-                    FeatureType.CATEGORIAL
-                    if FeatureSetMode.PORT_CATEGORIAL in self.modes
-                    else FeatureType.INT,
-                ),
-                (
-                    "dest_ip",
-                    FeatureType.CATEGORIAL
-                    if FeatureSetMode.PORT_CATEGORIAL in self.modes
-                    else FeatureType.INT,
-                ),
+                *packet_list_features("total"),
+                *packet_list_features("forward"),
+                *packet_list_features("backward"),
             ]
-        if FeatureSetMode.SUBFLOWS in self.modes:
-            names_types += [
-                ("n_subflows", FeatureType.INT),
-                ("n_active_times", FeatureType.INT),
-                ("min_active_time", FeatureType.FLOAT),
-                ("max_active_time", FeatureType.FLOAT),
-                ("total_active_time", FeatureType.FLOAT),
-                ("std_active_time", FeatureType.FLOAT),
-                ("mean_active_time", FeatureType.FLOAT),
-                ("n_idle_times", FeatureType.INT),
-                ("min_idle_time", FeatureType.FLOAT),
-                ("max_idle_time", FeatureType.FLOAT),
-                ("total_idle_time", FeatureType.FLOAT),
-                ("std_idle_time", FeatureType.FLOAT),
-                ("mean_idle_time", FeatureType.FLOAT),
-                ("fwd_subflow_avg_pkts", FeatureType.FLOAT),
-                ("fwd_subflow_avg_length", FeatureType.FLOAT),
-                ("bwd_subflow_avg_pkts", FeatureType.FLOAT),
-                ("bwd_subflow_avg_length", FeatureType.FLOAT),
-            ]
+            if FeatureSetMode.WITH_IP_ADDR in self.modes:
+                names_types += [
+                    (
+                        "src_ip",
+                        FeatureType.CATEGORIAL
+                        if FeatureSetMode.PORT_CATEGORIAL in self.modes
+                        else FeatureType.INT,
+                    ),
+                    (
+                        "dest_ip",
+                        FeatureType.CATEGORIAL
+                        if FeatureSetMode.PORT_CATEGORIAL in self.modes
+                        else FeatureType.INT,
+                    ),
+                ]
+            if FeatureSetMode.SUBFLOWS in self.modes:
+                names_types += [
+                    ("n_subflows", FeatureType.INT),
+                    ("n_active_times", FeatureType.INT),
+                    ("min_active_time", FeatureType.FLOAT),
+                    ("max_active_time", FeatureType.FLOAT),
+                    ("total_active_time", FeatureType.FLOAT),
+                    ("std_active_time", FeatureType.FLOAT),
+                    ("mean_active_time", FeatureType.FLOAT),
+                    ("n_idle_times", FeatureType.INT),
+                    ("min_idle_time", FeatureType.FLOAT),
+                    ("max_idle_time", FeatureType.FLOAT),
+                    ("total_idle_time", FeatureType.FLOAT),
+                    ("std_idle_time", FeatureType.FLOAT),
+                    ("mean_idle_time", FeatureType.FLOAT),
+                    ("fwd_subflow_avg_pkts", FeatureType.FLOAT),
+                    ("fwd_subflow_avg_length", FeatureType.FLOAT),
+                    ("bwd_subflow_avg_pkts", FeatureType.FLOAT),
+                    ("bwd_subflow_avg_length", FeatureType.FLOAT),
+                ]
 
-        if FeatureSetMode.TCP in self.modes:
-            names_types += [
-                ("tcp_fwd_win_mean", FeatureType.FLOAT),
-                ("tcp_fwd_total_urg", FeatureType.INT),
-                ("tcp_fwd_total_syn", FeatureType.INT),
-                ("tcp_fwd_total_syn_ack", FeatureType.INT),
-                ("tcp_fwd_total_ack", FeatureType.INT),
-                ("tcp_fwd_total_fin", FeatureType.INT),
-                ("tcp_fwd_total_push", FeatureType.INT),
-                ("tcp_fwd_total_rst", FeatureType.INT),
-                ("tcp_bwd_win_mean", FeatureType.FLOAT),
-                ("tcp_bwd_total_urg", FeatureType.INT),
-                ("tcp_bwd_total_syn", FeatureType.INT),
-                ("tcp_bwd_total_syn_ack", FeatureType.INT),
-                ("tcp_bwd_total_ack", FeatureType.INT),
-                ("tcp_bwd_total_fin", FeatureType.INT),
-                ("tcp_bwd_total_push", FeatureType.INT),
-                ("tcp_bwd_total_rst", FeatureType.INT),
-                ("tcp_syn_synack", FeatureType.FLOAT),
-                ("tcp_synack_ack", FeatureType.FLOAT),
-                ("tcp_rtt", FeatureType.FLOAT),
-            ]
-        if FeatureSetMode.HINDSIGHT in self.modes:
-            names_types += [
-                ("hindsight_dest_addr_src_port", FeatureType.INT),
-                ("hindsight_src_addr_dest_port", FeatureType.INT),
-                ("hindsight_src_addr", FeatureType.INT),
-                ("hindsight_dest_addr", FeatureType.INT),
-                ("hindsight_dest_addr_prot", FeatureType.INT),
-                ("hindsight_src_addr_prot", FeatureType.INT),
-            ]
+            if FeatureSetMode.TCP in self.modes:
+                names_types += [
+                    ("tcp_fwd_win_mean", FeatureType.FLOAT),
+                    ("tcp_fwd_total_urg", FeatureType.INT),
+                    ("tcp_fwd_total_syn", FeatureType.INT),
+                    ("tcp_fwd_total_syn_ack", FeatureType.INT),
+                    ("tcp_fwd_total_ack", FeatureType.INT),
+                    ("tcp_fwd_total_fin", FeatureType.INT),
+                    ("tcp_fwd_total_push", FeatureType.INT),
+                    ("tcp_fwd_total_rst", FeatureType.INT),
+                    ("tcp_bwd_win_mean", FeatureType.FLOAT),
+                    ("tcp_bwd_total_urg", FeatureType.INT),
+                    ("tcp_bwd_total_syn", FeatureType.INT),
+                    ("tcp_bwd_total_syn_ack", FeatureType.INT),
+                    ("tcp_bwd_total_ack", FeatureType.INT),
+                    ("tcp_bwd_total_fin", FeatureType.INT),
+                    ("tcp_bwd_total_push", FeatureType.INT),
+                    ("tcp_bwd_total_rst", FeatureType.INT),
+                    ("tcp_syn_synack", FeatureType.FLOAT),
+                    ("tcp_synack_ack", FeatureType.FLOAT),
+                    ("tcp_rtt", FeatureType.FLOAT),
+                ]
+            if FeatureSetMode.HINDSIGHT in self.modes:
+                names_types += [
+                    ("hindsight_dest_addr_src_port", FeatureType.INT),
+                    ("hindsight_src_addr_dest_port", FeatureType.INT),
+                    ("hindsight_src_addr", FeatureType.INT),
+                    ("hindsight_dest_addr", FeatureType.INT),
+                    ("hindsight_dest_addr_prot", FeatureType.INT),
+                    ("hindsight_src_addr_prot", FeatureType.INT),
+                ]
         names, types = zip(*names_types)
         return list(names), list(types)
 
@@ -634,6 +641,16 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             return len(ip.data)
 
     def validate(self):
+        if FeatureSetMode.BASIC in self.modes:
+            for mode in self.modes:
+                if mode not in [FeatureSetMode.TCP, FeatureSetMode.BASIC]:
+                    raise ValueError(
+                        f"'{FeatureSetMode.BASIC.value}' can only be specified without any other modes."
+                    )
+                if mode is FeatureSetMode.TCP:
+                    logging.warning(
+                        "Using netflow mode 'tcp' in conjunction with 'basic' will only affect the flow creation, not the feature extraction"
+                    )
         if (
             FeatureSetMode.IP_CATEGORIAL in self.modes
             and FeatureSetMode.WITH_IP_ADDR not in self.modes

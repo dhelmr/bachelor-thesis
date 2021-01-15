@@ -3,11 +3,10 @@
     "name": "payl_flows",
     "parameters": {
       "--nf-mode": [
-        null,
+        "basic",
         "tcp"
       ],
       "--flow-timeout": [
-        6,
         12
       ],
       "--subflow-timeout": [
