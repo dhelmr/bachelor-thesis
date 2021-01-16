@@ -5,8 +5,7 @@
       "--nf-mode": [
         [
           "subflows",
-          "tcp",
-          "with_ip_addr"
+          "tcp"
         ]
       ],
       "--flow-timeout": [

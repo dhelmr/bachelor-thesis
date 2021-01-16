@@ -7,7 +7,6 @@
           "tcp",
           "subflows",
           "with_ip_addr",
-          "port_categorial",
           "hindsight"
         ],
         [
@@ -35,7 +34,6 @@
       ],
       "--layers": [
         "*0.8,*0.8,#1",
-        "*2,*1.5,*1.5,#2,#1",
          "300,200,75,10,75,200,300"
       ],
       "--activation": [
