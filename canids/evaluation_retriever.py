@@ -13,6 +13,7 @@ class DbEntries(NamedTuple):
 class HyperparamGrouping(NamedTuple):
     variable_hyperparam: str
     fixed_hyperparams: List[str]
+    # maps (hyperparam_name, value) -> [list of metrics with this hyperparameter value]
     groups: Dict[Tuple, List[Dict[str, Any]]]
 
     def as_tuples(self) -> List[Tuple[Dict[str, Any], List[Dict[str, Any]]]]:

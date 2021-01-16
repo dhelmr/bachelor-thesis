@@ -24,7 +24,7 @@ from canids.resource_loaders import (
     DATASET_UTILS,
 )
 from canids.types import DatasetUtils, ParsingException
-from canids.visualize import EvaluationsVisualizer
+from canids.visualize import EvaluationsVisualizer, VisualizationMode
 
 
 def main():
@@ -246,6 +246,11 @@ class CLIParser:
             "--detailed",
             action="store_true",
             help="If set, more information per model is loaded from the db and displayed.",
+        )
+        visualize.add_argument(
+            "--mode",
+            default=VisualizationMode.METRICS,
+            type=lambda v: VisualizationMode(v),
         )
 
         stats = self._create_subparser("stats", help="Print stats for a dataset")
@@ -469,7 +474,7 @@ class CommandExecutor:
         self._check_unknown_args(unknown, expected_len=0)
         db = DBConnector(db_path=args.db, init_if_not_exists=False)
         visualizer = EvaluationsVisualizer(
-            db, args.output_dir, detailed_info=args.detailed
+            db, args.mode, args.output_dir, detailed_info=args.detailed
         )
         visualizer.visualize(args.model_part_name)
 
