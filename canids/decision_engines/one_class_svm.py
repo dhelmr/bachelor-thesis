@@ -16,6 +16,7 @@ class OneClassSVMDE(DecisionEngine):
     def __init__(self, parsed_args: argparse.Namespace):
         self.svm = OneClassSVM(
             cache_size=parsed_args.cache_size,
+            degree=parsed_args.degree,
             coef0=parsed_args.coef0,
             kernel=parsed_args.kernel,
             gamma=parsed_args.gamma,
@@ -60,17 +61,30 @@ class OneClassSVMDE(DecisionEngine):
         return f"{self.svm})"
 
     def get_db_params_dict(self) -> dict:
-        return {
+        base = {
             "cache_size": self.svm.cache_size,
-            "coef0": self.svm.coef0,
             "kernel": self.svm.kernel,
             "gamma": self.svm.gamma,
             "max_iter": self.svm.max_iter,
             "nu": self.svm.nu,
             "shrinking": self.svm.shrinking,
             "tolerance": self.svm.tol,
-            "degree": self.svm.degree,
         }
+        if self.svm.kernel == "poly":
+            base.update(
+                {
+                    "coef0": self.svm.coef0,
+                    "degree": self.svm.degree,
+                }
+            )
+        else:
+            base.update(
+                {
+                    "coef0": 0,
+                    "degree": 0,
+                }
+            )
+        return base
 
     @staticmethod
     def create_parser(prog_name):

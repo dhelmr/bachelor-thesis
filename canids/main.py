@@ -251,6 +251,7 @@ class CLIParser:
             "--mode",
             default=VisualizationMode.METRICS,
             type=lambda v: VisualizationMode(v),
+            help=f"Visualization mode, choose one of {[f.value for f in VisualizationMode]}",
         )
 
         stats = self._create_subparser("stats", help="Print stats for a dataset")
