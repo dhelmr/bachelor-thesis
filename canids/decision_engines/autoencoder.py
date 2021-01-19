@@ -87,6 +87,7 @@ class AutoencoderDE(DecisionEngine):
             self.dropout_ratio = parsed.dropout_ratio
             self.loss = parsed.loss
             self.verbose = parsed.verbose
+            self.threshold_percentile = parsed.threshold_percentile
         else:
             self.threshold = kwargs["threshold"]
             self.autoencoder = kwargs["autoencoder"]
@@ -98,6 +99,9 @@ class AutoencoderDE(DecisionEngine):
             self.training_epochs = kwargs["training_epochs"]
             self.training_batch = kwargs["training_batch"]
             self.early_stopping_patience = kwargs["early_stopping_patience"]
+            self.threshold_percentile = kwargs["threshold_percentile"]
+        if self.threshold_percentile > 100 or self.threshold_percentile < 0:
+            raise ValueError("threshold_percentile must be between 0 and 100")
 
     @staticmethod
     def parse_layers(layers_pattern) -> t.List[LayerDefinition]:
@@ -203,10 +207,9 @@ class AutoencoderDE(DecisionEngine):
             shuffle=True,
             verbose=self._get_keras_verbose(),
         )
-        # Get train MAE loss.
         pred = self.autoencoder.predict(data)
-        train_mae_loss = self.loss_fn(pred, data)
-        self.threshold = np.max(train_mae_loss)
+        reconstruction_errors = self.loss_fn(pred, data)
+        self.threshold = np.percentile(reconstruction_errors, self.threshold_percentile)
 
     def classify(self, features: Features) -> t.Sequence[TrafficType]:
         if self.autoencoder is None or self.threshold is None:
@@ -234,7 +237,7 @@ class AutoencoderDE(DecisionEngine):
 
         return (
             f"Autoencoder(layer_sizes={self.layer_sizes}, loss={self.loss}, act={self.activation},"
-            f" train_batch={self.training_batch}, train_epochs={self.training_epochs})"
+            f" train_batch={self.training_batch}, train_epochs={self.training_epochs}, threshold_percentile={self.threshold_percentile})"
         )
 
     def serialize(self) -> bytes:
@@ -255,6 +258,7 @@ class AutoencoderDE(DecisionEngine):
                 "early_stopping_patience": self.early_stopping_patience,
                 "batch_normalization": self.batch_normalization,
                 "dropout_ratio": self.dropout_ratio,
+                "threshold_percentile": self.threshold_percentile,
             }
         )
 
@@ -272,6 +276,7 @@ class AutoencoderDE(DecisionEngine):
         training_batch = deserialized["training_batch"]
         dropout_ratio = deserialized["dropout_ratio"]
         batch_normalization = deserialized["batch_normalization"]
+        threshold_percentile = deserialized["threshold_percentile"]
         return AutoencoderDE(
             autoencoder=model,
             threshold=threshold,
@@ -283,6 +288,7 @@ class AutoencoderDE(DecisionEngine):
             early_stopping_patience=deserialized["early_stopping_patience"],
             dropout_ratio=dropout_ratio,
             batch_normalization=batch_normalization,
+            threshold_percentile=threshold_percentile,
         )
 
     def get_db_params_dict(self):
@@ -298,6 +304,7 @@ class AutoencoderDE(DecisionEngine):
             "early_stopping_patience": self.early_stopping_patience,
             "batch_normalization": self.batch_normalization.value,
             "dropout_ratio": self.dropout_ratio,
+            "threshold_percentile": self.threshold_percentile,
         }
 
     @staticmethod
@@ -309,6 +316,14 @@ class AutoencoderDE(DecisionEngine):
         parser.add_argument("--training-batch", type=int, default=256)
         parser.add_argument("--early-stopping-patience", type=int, default=-1)
         parser.add_argument("--layers", type=str, default="*0.7,*0.8,#1")
+        parser.add_argument(
+            "--threshold-percentile",
+            type=float,
+            default=100,
+            help="nth percentile of the reconstruction errors that is used to determine the threshold between "
+            "anomalous and benign instances. Must be between 0 and 100. For 100 the maximum of the "
+            "reconstruction error is taken.",
+        )
         parser.add_argument(
             "--activation",
             type=str,
