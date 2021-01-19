@@ -13,7 +13,8 @@
           "tcp",
           "with_ip_addr",
           "hindsight",
-          "port_categorial"
+          "port_decimal",
+          "ip_dotted"
         ]
       ],
       "--flow-timeout": [
@@ -28,7 +29,7 @@
     "name": "one_class_svm",
     "parameters": {
       "--gamma": [
-        0.005
+        0.005, 0.0005
       ],
       "--kernel": [
         "sigmoid"

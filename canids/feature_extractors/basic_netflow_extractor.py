@@ -189,7 +189,12 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             forward = self._extract_packet_list_features(forward_packets)
             backward = self._extract_packet_list_features(backward_packets)
             features_row = (
-                [f.src_port, f.dest_port, f.protocol] + total + forward + backward
+                self._get_port_features(f.src_port)
+                + self._get_port_features(f.dest_port)
+                + [f.protocol]
+                + total
+                + forward
+                + backward
             )
             if FeatureSetMode.WITH_IP_ADDR in self.modes:
                 src_features = self._get_ip_addr_features(f.src_ip)
@@ -211,6 +216,13 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 features_row += self._make_hindsight_features(f, last_flows)
             features.append(features_row)
         return Features(data=np.array(features), names=names, types=types)
+
+    def _get_port_features(self, port: int):
+        if FeatureSetMode.PORT_DECIMAL in self.modes:
+            features = [port // 10 ** n % 10 for n in range(8)]
+            return features
+        else:
+            return [port]
 
     def _get_ip_addr_features(self, ip: int):
         if FeatureSetMode.IP_DOTTED in self.modes:
@@ -376,21 +388,27 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 ],
             )
 
-        names_types = [
-            (
-                "src_port",
-                FeatureType.CATEGORIAL
-                if FeatureSetMode.PORT_DECIMAL in self.modes
-                else FeatureType.INT,
-            ),
-            (
-                "dest_port",
-                FeatureType.CATEGORIAL
-                if FeatureSetMode.PORT_DECIMAL in self.modes
-                else FeatureType.INT,
-            ),
-            ("protocol", FeatureType.CATEGORIAL),
-        ]
+        names_types = []
+        if FeatureSetMode.PORT_DECIMAL not in self.modes:
+            names_types += [
+                (
+                    "src_port",
+                    FeatureType.CATEGORIAL
+                    if FeatureSetMode.PORT_DECIMAL in self.modes
+                    else FeatureType.INT,
+                ),
+                (
+                    "dest_port",
+                    FeatureType.CATEGORIAL
+                    if FeatureSetMode.PORT_DECIMAL in self.modes
+                    else FeatureType.INT,
+                ),
+            ]
+        else:
+            names_types += [
+                ("src_port_digit_%s" % i, FeatureType.INT) for i in range(8)
+            ] + [("dest_port_digit_%s" % i, FeatureType.INT) for i in range(8)]
+        names_types += [("protocol", FeatureType.CATEGORIAL)]
         if FeatureSetMode.BASIC not in self.modes:
             names_types += [
                 *packet_list_features("total"),

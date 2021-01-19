@@ -4,13 +4,14 @@
     "parameters": {
       "--nf-mode": [
         [
-          "port_categorial",
-          "ip_categorial"
+          "with_ip_addr",
+          "port_decimal",
+          "ip_dotted"
         ],
         [
           "with_ip_addr",
-          "port_categorial",
-          "ip_categorial",
+          "port_decimal",
+          "ip_dotted",
           "tcp",
           "subflows"
         ],
