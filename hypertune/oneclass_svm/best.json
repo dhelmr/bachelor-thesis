@@ -6,15 +6,15 @@
         [
           "subflows",
           "tcp",
-          "with_ip_addr"
-        ],
-        [
-          "subflows",
-          "tcp",
           "with_ip_addr",
           "hindsight",
           "port_decimal",
           "ip_dotted"
+        ],
+         [
+          "subflows",
+          "tcp",
+          "with_ip_addr"
         ]
       ],
       "--flow-timeout": [
@@ -42,10 +42,7 @@
   "transformers": [
     [
       "onehot_encoder",
-      "minmax_scaler",
-      "standard_scaler"
-    ],
-    [
+      "pca_reducer_20",
       "minmax_scaler",
       "standard_scaler"
     ]

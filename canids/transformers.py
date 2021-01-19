@@ -1,7 +1,9 @@
 import logging
 from abc import ABC
+from typing import Tuple, List
 
 import pandas
+from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 from canids.types import Transformer, Features, FeatureType
@@ -18,10 +20,18 @@ class ScikitTransformer(Transformer, ABC):
 
     def transform(self, features: Features) -> Features:
         data = self._scaler.transform(features.data)
-        return features.with_data(data)
+        names, types = self.transform_feature_type_names(features)
+        features = Features(data=data, names=names, types=types)
+        features.validate()
+        return features
 
     def get_name(self):
         return self._name
+
+    def transform_feature_type_names(
+        self, features
+    ) -> Tuple[List[str], List[FeatureType]]:
+        return features.names, features.types
 
 
 class StandardScalerTransformer(ScikitTransformer):
@@ -32,6 +42,21 @@ class StandardScalerTransformer(ScikitTransformer):
 class MinMaxScalerTransformer(ScikitTransformer):
     def __init__(self):
         super().__init__(scaler=MinMaxScaler(), name="minmax_scaler")
+
+
+class PCATransformer(ScikitTransformer):
+    def __init__(self, n_components):
+        super().__init__(
+            scaler=PCA(n_components=n_components), name="pca_reducer_%s" % n_components
+        )
+        self.n_components = n_components
+
+    def transform_feature_type_names(
+        self, features
+    ) -> Tuple[List[str], List[FeatureType]]:
+        names = ["pca_%s" % i for i in range(self.n_components)]
+        types = [FeatureType.FLOAT for _ in range(self.n_components)]
+        return names, types
 
 
 class OneHotEncoder(Transformer):
