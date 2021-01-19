@@ -1,5 +1,6 @@
 import argparse
 import logging
+import socket
 import statistics
 import typing as t
 from enum import Enum
@@ -89,8 +90,8 @@ class FeatureSetMode(Enum):
     INCLUDE_HEADER_LENGTH = "include_header_length"
     HINDSIGHT = "hindsight"
     # the following features are only useful with a OnehotEncoder
-    IP_CATEGORIAL = "ip_categorial"
-    PORT_CATEGORIAL = "port_categorial"
+    IP_DOTTED = "ip_dotted"
+    PORT_DECIMAL = "port_decimal"
     BASIC = "basic"
 
 
@@ -191,7 +192,9 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 [f.src_port, f.dest_port, f.protocol] + total + forward + backward
             )
             if FeatureSetMode.WITH_IP_ADDR in self.modes:
-                features_row += [f.src_ip, f.dest_ip]
+                src_features = self._get_ip_addr_features(f.src_ip)
+                dest_features = self._get_ip_addr_features(f.dest_ip)
+                features_row += src_features + dest_features
             if FeatureSetMode.SUBFLOWS in self.modes:
                 active_idle_features = self._extract_active_idle_features(f.packets)
                 subflows_forward = self._extract_subflow_features(forward_packets)
@@ -208,6 +211,29 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 features_row += self._make_hindsight_features(f, last_flows)
             features.append(features_row)
         return Features(data=np.array(features), names=names, types=types)
+
+    def _get_ip_addr_features(self, ip: int):
+        if FeatureSetMode.IP_DOTTED in self.modes:
+            # convert to 6 bytes (IPv6 compatible)
+            as_bytes = ip.to_bytes(length=16, byteorder="big")
+            # dotted = socket.inet_ntoa(as_bytes)
+            dotted = socket.inet_ntop(socket.AF_INET6, as_bytes)
+            dotted_features = [
+                int(part)
+                for part in dotted.replace("::", ".").split(".")
+                if part.strip() != ""
+            ]
+            if len(dotted_features) == 4:
+                return [NOT_APPLICABLE_FEATURE_VALUE] * 12 + dotted_features
+            elif len(dotted_features) != 16:
+                logging.warning(
+                    "Something went wrong with creating dotted ip representation: %s",
+                    dotted_features,
+                )
+                return [NOT_APPLICABLE_FEATURE_VALUE] * 16
+            return dotted_features
+        else:
+            return [ip]
 
     def _make_tcp_features(
         self,
@@ -354,13 +380,13 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             (
                 "src_port",
                 FeatureType.CATEGORIAL
-                if FeatureSetMode.PORT_CATEGORIAL in self.modes
+                if FeatureSetMode.PORT_DECIMAL in self.modes
                 else FeatureType.INT,
             ),
             (
                 "dest_port",
                 FeatureType.CATEGORIAL
-                if FeatureSetMode.PORT_CATEGORIAL in self.modes
+                if FeatureSetMode.PORT_DECIMAL in self.modes
                 else FeatureType.INT,
             ),
             ("protocol", FeatureType.CATEGORIAL),
@@ -372,20 +398,25 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                 *packet_list_features("backward"),
             ]
             if FeatureSetMode.WITH_IP_ADDR in self.modes:
-                names_types += [
-                    (
-                        "src_ip",
-                        FeatureType.CATEGORIAL
-                        if FeatureSetMode.PORT_CATEGORIAL in self.modes
-                        else FeatureType.INT,
-                    ),
-                    (
-                        "dest_ip",
-                        FeatureType.CATEGORIAL
-                        if FeatureSetMode.PORT_CATEGORIAL in self.modes
-                        else FeatureType.INT,
-                    ),
-                ]
+                if FeatureSetMode.IP_DOTTED not in self.modes:
+                    names_types += [
+                        (
+                            "src_ip",
+                            FeatureType.INT,
+                        ),
+                        (
+                            "dest_ip",
+                            FeatureType.INT,
+                        ),
+                    ]
+                else:
+                    names_types += [
+                        ("src_ip_dotted_%s" % (17 - i), FeatureType.INT)
+                        for i in range(1, 17)
+                    ] + [
+                        ("dest_ip_dotted_%s" % (17 - i), FeatureType.INT)
+                        for i in range(1, 17)
+                    ]
             if FeatureSetMode.SUBFLOWS in self.modes:
                 names_types += [
                     ("n_subflows", FeatureType.INT),
@@ -652,11 +683,11 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                         "Using netflow mode 'tcp' in conjunction with 'basic' will only affect the flow creation, not the feature extraction"
                     )
         if (
-            FeatureSetMode.IP_CATEGORIAL in self.modes
+            FeatureSetMode.IP_DOTTED in self.modes
             and FeatureSetMode.WITH_IP_ADDR not in self.modes
         ):
             raise ValueError(
-                f"'{FeatureSetMode.IP_CATEGORIAL.value}' can only be set as a netflow mode if '{FeatureSetMode.WITH_IP_ADDR.value}' is set as well."
+                f"'{FeatureSetMode.IP_DOTTED.value}' can only be set as a netflow mode if '{FeatureSetMode.WITH_IP_ADDR.value}' is set as well."
             )
 
 
