@@ -16,7 +16,7 @@ from canids.evaluator import Evaluator
 from canids.hypertuner import Hypertuner
 from canids.model_info import get_info
 from canids.model_trainer import ModelTrainer
-from canids.report import ReportGenerator, ReportOutputFormat
+from canids.report import ReportGenerator, ReportOutputFormat, IMPORTANT_METRICS
 from canids.resource_loaders import (
     DECISION_ENGINES,
     TRANSFORMERS,
@@ -262,8 +262,11 @@ class CLIParser:
         )
         report.add_argument(
             "--model-part-name",
+            dest="model_part_names",
             required=True,
-            help="Name of the decision engine or feature extractor for which the report is to be generated.",
+            type=str,
+            nargs="+",
+            help="Name(s) of the model components for which the report is to be generated.",
         )
         report.add_argument("--dataset", required=False, help="Filter by dataset")
         report.add_argument(
@@ -277,6 +280,22 @@ class CLIParser:
             "-o",
             help="Output path, file if format=json, directory if format=csv",
             default="reports/report.json",
+        )
+        report.add_argument(
+            "--filter-constants",
+            "-c",
+            help="Drops all columns with constant values from the report",
+            default=False,
+            action="store_true",
+        )
+        report.add_argument(
+            "--all",
+            help=f"Outputs all evaluation metrics, otherwise only {IMPORTANT_METRICS} are used",
+            default=False,
+            action="store_true",
+        )
+        report.add_argument(
+            "--query", "-q", help="Queries the pandas dataframe", default=None, type=str
         )
 
     def _create_subparser(self, name: str, help: str):
@@ -488,7 +507,12 @@ class CommandExecutor:
         db = DBConnector(db_path=args.db, init_if_not_exists=False)
         report_gen = ReportGenerator(db)
         report_gen.make_report(
-            args.model_part_name, output_format=args.format, output_path=args.output
+            args.model_part_names,
+            output_format=args.format,
+            output_path=args.output,
+            filter_constants=args.filter_constants,
+            important_metrics=not args.all,
+            query=args.query,
         )
 
     def _format_model_dump(self, dump: str) -> str:

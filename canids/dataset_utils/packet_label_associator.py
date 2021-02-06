@@ -250,7 +250,7 @@ class PacketLabelAssociator(ABC):
             and get_field(COL_SRC_PKTS) > 0
             and get_field(COL_DEST_PKTS) == 0
         ):
-            # if the flow is unidirectional, store its source address explicitely
+            # if the flow is unidirectional, store its source address explicitly
             # otherwise, the source address cannot be determined for sure from only the flow id
             uni_flow_src = SrcIdentification(
                 ip_address=get_field(COL_SRC_IP), port=int(get_field(COL_SRC_PORT))

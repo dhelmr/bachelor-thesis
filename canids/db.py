@@ -500,18 +500,38 @@ class DBConnector:
             )
         return df
 
-    def get_evaluations_by_model_part(self, model_part_table_name: str):
-        if not self.exists_table(model_part_table_name):
-            raise ValueError("Table %s does not exist!" % model_part_table_name)
+    def get_evaluations_by_model_part(self, *model_part_table_names: str):
+        for table_name in model_part_table_names:
+            if not self.exists_table(table_name):
+                raise ValueError("Table %s does not exist!" % table_name)
+        sql_vars_names = [
+            (f"p{i}", name) for i, name in enumerate(model_part_table_names)
+        ]
+        selected_tables = ",".join(
+            [f"{var}.*" for var, _ in sql_vars_names]
+        )  # like "p1.*, p2.*, p3.*, ..."
+        join_statements = " ".join(
+            [
+                f"JOIN {name} {var} ON {var}.model_id = c.model_id"
+                for var, name in sql_vars_names
+            ]
+        )
         with self.get_conn() as c:
             df = pd.read_sql_query(
                 f"""
-            SELECT p.*, e.*
-            FROM "{model_part_table_name}" p JOIN classification_info c ON p.model_id = c.model_id 
-            JOIN evaluations e ON e.classification_id = c.classification_id WHERE is_aggregated = 1;""",
+            SELECT  m.decision_engine, m.feature_extractor, m.dataset_name AS 'train_dataset', m.train_set_name,
+            {selected_tables}, e.*
+            FROM classification_info c {join_statements}
+            JOIN evaluations e ON e.classification_id = c.classification_id 
+            JOIN model m ON m.model_id  = c.model_id
+            WHERE is_aggregated = 1;""",
                 con=c,
             )
-        hyperparams = df.columns[: df.columns.tolist().index("classification_id")]
+        hyperparams = df.columns[
+            df.columns.tolist().index("train_set_name")
+            + 1 : df.columns.tolist().index("classification_id")
+        ]
+        hyperparams = [p for p in hyperparams if p != "model_id"]
         return df, hyperparams
 
     def migrate(self, old_version, new_version):

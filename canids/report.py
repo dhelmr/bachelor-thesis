@@ -1,8 +1,7 @@
 import json
-import os
+import logging
 from enum import Enum
-
-import pandas
+from typing import List
 
 from canids.db import DBConnector
 
@@ -10,6 +9,36 @@ from canids.db import DBConnector
 class ReportOutputFormat(Enum):
     JSON = "json"
     CSV = "csv"
+
+
+IMPORTANT_METRICS = [
+    "f1_score",
+    "mcc",
+    "balanced_accuracy",
+    "precision",
+    "recall",
+    "false_positives",
+    "false_negatives",
+    "support",
+    "part_name",
+    "traffic_name",
+    "dataset_name",
+    "train_dataset",
+    "train_set_name",
+]
+
+RENAME_COLS = {
+    "f1_score": "F1",
+    "mcc": "MCC",
+    "balanced_accuracy": "BA",
+    "precision": "PR",
+    "false_positives": "FP",
+    "false_negatives": "FN",
+    "true_positives": "TP",
+    "true_negatives": "TN",
+    "support": "N",
+    "recall": "RC",
+}
 
 
 class ReportGenerator:
@@ -25,9 +54,44 @@ class ReportGenerator:
         self.best_n = 30
 
     def make_report(
-        self, model_part_name: str, output_path: str, output_format: ReportOutputFormat
+        self,
+        model_part_names: List[str],
+        output_path: str,
+        output_format: ReportOutputFormat,
+        filter_constants: bool,
+        important_metrics: bool,
+        query: str = None,
+        rename_cols: bool = True,
     ):
-        records, hyperparams = self.db.get_evaluations_by_model_part(model_part_name)
+        records, hyperparams = self.db.get_evaluations_by_model_part(*model_part_names)
+        records.drop(columns=["model_id"], inplace=True)
+        drop_cols = []
+        for col in records.columns:
+            if (
+                filter_constants
+                and col in hyperparams
+                and len(records[col].unique()) <= 1
+            ):
+                drop_cols.append(col)
+            if (
+                important_metrics
+                and col not in hyperparams
+                and col not in IMPORTANT_METRICS
+            ):
+                drop_cols.append(col)
+        logging.info("Drop %s", drop_cols)
+        records.drop(columns=drop_cols, inplace=True)
+        if rename_cols:
+            records.rename(columns=RENAME_COLS, inplace=True)
+            lower_hyperparams = {p: p.lower() for p in hyperparams}
+            records.rename(columns=lower_hyperparams, inplace=True)
+        if query is not None:
+            logging.info("Execute query '%s'", query)
+            records = records.query(query)
+        if output_format is ReportOutputFormat.CSV:
+            records.to_csv(output_path, index=False)
+            return
+
         report = {}
         for training_set in records["traffic_name"].unique():
             training_set_records = records[records["traffic_name"] == training_set]
@@ -46,16 +110,6 @@ class ReportGenerator:
         if output_format is ReportOutputFormat.JSON:
             with open(output_path, "w") as f:
                 json.dump(report, f)
-        elif output_format is ReportOutputFormat.CSV:
-            for part_name, metrics in report.items():
-                part_name_esc = part_name.replace("/", "_")
-                for metric_name, best_evaluations in metrics.items():
-                    df = pandas.DataFrame(best_evaluations)
-                    path = os.path.join(
-                        output_path,
-                        f"{model_part_name}_{part_name_esc}_{metric_name}.csv",
-                    )
-                    df.to_csv(path)
 
     def _sort_group(self, records):
         sorted_by_metrics = [
