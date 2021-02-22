@@ -25,6 +25,7 @@ IMPORTANT_METRICS = [
     "dataset_name",
     "train_dataset",
     "train_set_name",
+    "classification_ms_per_packet",
 ]
 
 RENAME_COLS = {

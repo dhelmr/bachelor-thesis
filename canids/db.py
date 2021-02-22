@@ -519,8 +519,10 @@ class DBConnector:
         with self.get_conn() as c:
             df = pd.read_sql_query(
                 f"""
-            SELECT  m.decision_engine, m.feature_extractor, m.dataset_name AS 'train_dataset', m.train_set_name,
-            {selected_tables}, e.*
+            SELECT  m.decision_engine, m.feature_extractor, m.dataset_name AS 'train_dataset', m.train_set_name, 
+            {selected_tables}, e.*, 
+            (1000 * (c.total_time - c.packet_read_time) / c.packet_count)  AS classification_ms_per_packet,
+            c.total_time 
             FROM classification_info c {join_statements}
             JOIN evaluations e ON e.classification_id = c.classification_id 
             JOIN model m ON m.model_id  = c.model_id
