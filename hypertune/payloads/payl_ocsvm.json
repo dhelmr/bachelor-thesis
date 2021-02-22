@@ -3,17 +3,18 @@
     "name": "payl_flows",
     "parameters": {
       "--nf-mode": [
-        "basic",
-        "tcp"
+        ["basic",
+        "tcp"],
+        ["tcp", "subflows"]
       ],
       "--flow-timeout": [
-        12
+        1,6,12
       ],
       "--subflow-timeout": [
         0.5
       ],
       "--smoothing": [
-        0.001, 0.1, 0.000001, 0.0001
+        0.1
       ],
       "--clustering-threshold": [
         0.5, 2, 4, 5, 7, 20
@@ -27,6 +28,7 @@
         0.005
       ],
       "--kernel": [
+        "rbf",
         "sigmoid"
       ],
       "--nu": [
@@ -36,10 +38,6 @@
   },
   "transformers": [ [
     "onehot_encoder",
-    "minmax_scaler",
-    "standard_scaler"
-  ],
-    [
     "minmax_scaler",
     "standard_scaler"
   ]
