@@ -3,34 +3,39 @@
     "name": "flow_extractor",
     "parameters": {
       "--nf-mode": [
-        null,
-        "tcp",
-        [
-          "tcp",
-          "subflows",
-          "with_ip_addr"
-        ],
-        [
-          "tcp",
-          "subflows",
-          "with_ip_addr"
-        ],
+        "basic",
+        ["tcp", "basic"],
         [
           "tcp",
           "subflows"
         ],
         [
           "tcp",
+          "subflows",
           "with_ip_addr"
+        ],
+        [
+          "tcp",
+          "subflows",
+          "with_ip_addr",
+          "ip_dotted"
+        ],
+        [
+          "tcp",
+          "subflows",
+          "port_decimal"
+        ],
+        [
+          "tcp",
+          "subflows",
+          "hingsight"
         ]
       ],
       "--flow-timeout": [
-        6,
-        12
+        6,12,60
       ],
       "--subflow-timeout": [
-        0.5,
-        1
+        0.2, 0.5, 1.0
       ]
     }
   },
@@ -38,16 +43,16 @@
     "name": "autoencoder",
     "parameters": {
       "--training-epochs": [
-        400
+        200
       ],
       "--training-batch": [
-        64
+        1024
       ],
       "--layers": [
         "*0.9,*0.8,*0.8,#2,#1"
       ],
       "--activation": [
-        "sigmoid"
+        "relu"
       ],
       "--loss": [
         "mse"
