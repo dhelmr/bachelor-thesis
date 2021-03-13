@@ -212,7 +212,8 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
                     f, forward_packets, backward_packets
                 )
             if FeatureSetMode.HINDSIGHT in self.modes:
-                last_flows = flows[max(0, i - self.hindsight_window) : i]
+                window_start = int(max(0, i - self.hindsight_window))
+                last_flows = flows[window_start:i]
                 features_row += self._make_hindsight_features(f, last_flows)
             features.append(features_row)
         return Features(data=np.array(features), names=names, types=types)

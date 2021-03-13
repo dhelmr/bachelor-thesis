@@ -3,25 +3,6 @@
 Note: This repository is **work in progress**.
 
 <!-- ToC start -->
-# Table of Contents
-
-1. [Comparison of Anomaly-Based Network Intrusion Detection Approaches Under Practical Aspects](#comparison-of-anomaly-based-network-intrusion-detection-approaches-under-practical-aspects)
-   1. [](#)
-1. [Installation](#installation)
-1. [Dataset preparation](#dataset-preparation)
-   1. [CIC-IDS-2017](#cic-ids-2017)
-   1. [UNSW-NB-15](#unsw-nb-15)
-   1. [Preprocessing](#preprocessing)
-   1. [Docker](#docker)
-1. [Usage](#usage)
-   1. [List decision engines and feature extractors](#list-decision-engines-and-feature-extractors)
-   1. [Simulate traffic, detect anomalies and create evaluation report](#simulate-traffic-detect-anomalies-and-create-evaluation-report)
-   1. [Subsets](#subsets)
-         1. [CIC-IDS-2017 subsets](#cic-ids-2017-subsets)
-         1. [UNSW-NB15 Subsets](#unsw-nb15-subsets)
-   1. [Hypertune](#hypertune)
-   1. [Visualize](#visualize)
-1. [Misc](#misc)
 <!-- ToC end -->
 
 ---

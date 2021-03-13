@@ -3,27 +3,10 @@
     "name": "flow_extractor",
     "parameters": {
       "--nf-mode": [
-        "basic",
-        ["tcp", "basic"],
-        [
-          "tcp",
-          "subflows"
-        ],
         [
           "tcp",
           "subflows",
-          "with_ip_addr"
-        ],
-        [
-          "tcp",
-          "subflows",
-          "with_ip_addr",
-          "ip_dotted"
-        ],
-        [
-          "tcp",
-          "subflows",
-          "port_decimal"
+          "hindsight"
         ]
       ],
       "--flow-timeout": [
@@ -31,6 +14,9 @@
       ],
       "--subflow-timeout": [
         0.2, 0.5, 1.0
+      ],
+      "--hindsight-window":[
+        50, 100, 500, 1000, 2000
       ]
     }
   },
