@@ -63,9 +63,13 @@ class ReportGenerator:
         important_metrics: bool,
         query: str = None,
         rename_cols: bool = True,
+        expand_transformers: bool = True,
     ):
         records, hyperparams = self.db.get_evaluations_by_model_part(*model_part_names)
         records.drop(columns=["model_id"], inplace=True)
+        if expand_transformers:
+            self._expand_transformers(records)
+
         drop_cols = []
         for col in records.columns:
             if (
@@ -128,3 +132,19 @@ class ReportGenerator:
         }
 
         return as_dict_filtered
+
+    def _expand_transformers(self, records):
+        # expand "transfomer" column and create own column for each transformer (1 if transformer is applied; 0 if not)
+        all_transformers = set()
+        records["transformers"] = records["transformers"].apply(
+            lambda x: x.strip().split(",")
+        )
+        for _, row in records.iterrows():
+            for transformer in row["transformers"]:
+                all_transformers.add(transformer)
+        for transformer_name in all_transformers:
+            records[transformer_name] = records["transformers"].apply(
+                lambda transformer_list: 1
+                if transformer_name in transformer_list
+                else 0
+            )
