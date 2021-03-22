@@ -5,8 +5,7 @@
       "--nf-mode": [
         [
           "tcp",
-          "subflows",
-          "with_ip_addr"
+          "subflows"
         ]
       ],
       "--flow-timeout": [
@@ -27,12 +26,11 @@
         64
       ],
       "--layers": [
-        "*0.8,*0.8,*0.8,#2,#1",
         "*0.9,*0.8,*0.8,#2,#1",
         "300,200,75,10,75,200,300"
       ],
       "--activation": [
-        "sigmoid"
+        "relu"
       ],
       "--loss": [
         "mse"
@@ -47,11 +45,20 @@
     ],
     [
       "onehot_encoder",
+      "standard_scaler",
+      "minmax_scaler"
+    ],
+    [
+      "onehot_encoder",
       "standard_scaler"
     ],
     [
       "onehot_encoder",
       "minmax_scaler"
+    ],
+    [
+      "minmax_scaler",
+      "standard_scaler"
     ],
     [
       "minmax_scaler"
