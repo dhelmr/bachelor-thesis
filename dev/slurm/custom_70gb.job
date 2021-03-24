@@ -12,4 +12,4 @@ if [[ ! -d venv ]]; then
 fi
 
 CLI_ARGS=$(echo "$ARGS" | base64 -d)
-venv3.7/bin/python3 bin/run_canids $CLI_ARGS
+venv/bin/python3 bin/run_canids $CLI_ARGS
