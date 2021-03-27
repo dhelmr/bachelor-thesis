@@ -93,6 +93,7 @@ class FeatureSetMode(Enum):
     IP_DOTTED = "ip_dotted"
     PORT_DECIMAL = "port_decimal"
     BASIC = "basic"
+    TCP_END_ON_RST = "tcp_end_on_rst"
 
 
 NOT_APPLICABLE_FEATURE_VALUE = -1
@@ -129,7 +130,8 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
     def _make_flows(self, traffic: TrafficSequence) -> t.List[NetFlow]:
         timeout_fn = None
         if FeatureSetMode.TCP in self.modes:
-            timeout_fn = tcp_timeout_on_FIN
+            end_on_rst = FeatureSetMode.TCP_END_ON_RST in self.modes
+            timeout_fn = lambda pkt, flow: tcp_timeout_on_FIN(pkt, flow, end_on_rst)
         netflow_gen = NetFlowGenerator(timeout=self.flow_timeout, timeout_fn=timeout_fn)
         mapping = []
         no_flows_count = 0
@@ -706,14 +708,19 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
             and FeatureSetMode.WITH_IP_ADDR not in self.modes
         ):
             raise ValueError(
-                f"'{FeatureSetMode.IP_DOTTED.value}' can only be set as a netflow mode if '{FeatureSetMode.WITH_IP_ADDR.value}' is set as well."
+                f"'Mode {FeatureSetMode.IP_DOTTED.value}' can only be set as a netflow mode if '{FeatureSetMode.WITH_IP_ADDR.value}' is set as well."
             )
+        if (
+            FeatureSetMode.TCP_END_ON_RST in self.modes
+            and FeatureSetMode.TCP not in self.modes
+        ):
+            f"'Mode {FeatureSetMode.TCP_END_ON_RST.value}' can only be set as a netflow mode if '{FeatureSetMode.TCP.value}' is set as well."
 
 
-def tcp_timeout_on_FIN(packet: IPPacket, flow: NetFlow):
+def tcp_timeout_on_FIN(packet: IPPacket, flow: NetFlow, end_on_rst: bool = False):
     """
     Is used for determining when a TCP flow ends. A TCP flow is closed when a FIN packet is observed, even
-    if the timeout is not yet exceeded.
+    if the timeout is not yet exceeded. If end_on_rst is set, then a flow is also ended when the RST flag is observed.
     """
     if flow.protocol != TCP:
         return None
@@ -721,7 +728,9 @@ def tcp_timeout_on_FIN(packet: IPPacket, flow: NetFlow):
     tcp = ip.data
     if type(tcp) is not dpkt.tcp.TCP:
         return None
-    return tcp.flags & dpkt.tcp.TH_FIN != 0
+    return tcp.flags & dpkt.tcp.TH_FIN != 0 or (
+        end_on_rst and (tcp.flags & dpkt.tcp.TH_RST != 0)
+    )
 
 
 class NetFlowGenerator:
