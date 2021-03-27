@@ -1,4 +1,5 @@
 import logging
+import os
 from abc import ABC
 from typing import Tuple, List
 
@@ -99,3 +100,54 @@ class OneHotEncoder(Transformer):
 
     def get_name(self):
         return "one_hot_encoder"
+
+
+class FixedFeatureNameFilter(Transformer):
+    def __init__(self):
+        self.feature_file_name = "fixed_features.txt"
+        self.features = self._load_features(self.feature_file_name)
+
+    def _load_features(self, feature_file_name):
+        if os.path.exists(feature_file_name):
+            path = feature_file_name
+        else:
+            relative_to_file = os.path.join(
+                os.path.dirname(__file__), feature_file_name
+            )
+            if os.path.exists(relative_to_file):
+                path = relative_to_file
+            else:
+                raise ValueError(
+                    "%s cannot be found. It must be placed either at %s or at the current directory."
+                    % (feature_file_name, relative_to_file)
+                )
+        with open(path, "r") as f:
+            text = f.read()
+        features = [line.strip() for line in text.split("\n") if line.strip() != ""]
+        as_set = set(features)
+        if len(features) != len(as_set):
+            raise ValueError("Found duplicate feature names in %s. Abort." % path)
+        return as_set
+
+    def fit_transform(self, features: Features) -> Features:
+        return self.transform(features)
+
+    def transform(self, features: Features) -> Features:
+        indexes_to_keep = []
+        remove_indexes = []
+        for i, name in enumerate(features.names):
+            if name in self.features:
+                indexes_to_keep.append(i)
+            else:
+                remove_indexes.append(i)
+        filtered_data = features.as_pandas()
+        filtered_data.drop(columns=filtered_data.columns[remove_indexes], inplace=True)
+        indexes_to_keep = set(indexes_to_keep)
+        filtered_types = [
+            f_type for i, f_type in enumerate(features.types) if i in indexes_to_keep
+        ]
+        filtered_features = Features.from_pandas(df=filtered_data, types=filtered_types)
+        return filtered_features
+
+    def get_name(self) -> str:
+        return "fixed_feature_name_filter"

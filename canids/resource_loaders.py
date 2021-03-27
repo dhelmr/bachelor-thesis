@@ -23,6 +23,7 @@ from canids.transformers import (
     OneHotEncoder,
     MinMaxScalerTransformer,
     PCATransformer,
+    FixedFeatureNameFilter,
 )
 from canids.types import FeatureExtractor, DecisionEngine, ParsingException
 
@@ -80,6 +81,7 @@ TRANSFORMERS = {
     "pca_reducer_30": lambda: PCATransformer(30),
     "pca_reducer_10": lambda: PCATransformer(10),
     "pca_reducer_50": lambda: PCATransformer(50),
+    "fixed_feature_name_filter": FixedFeatureNameFilter,
 }
 FEATURE_EXTRACTORS = {
     fe.get_name(): fe

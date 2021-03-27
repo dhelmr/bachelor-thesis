@@ -97,10 +97,14 @@ class Features(NamedTuple):
 
     @staticmethod
     def from_pandas(df: pandas.DataFrame, types: t.List[FeatureType]) -> "Features":
-        return Features(data=df.values, types=types, names=df.columns.tolist())
+        features = Features(data=df.values, types=types, names=df.columns.tolist())
+        features.validate()
+        return features
 
     def with_data(self, data):
-        return Features(data=data, types=self.types, names=self.names)
+        features = Features(data=data, types=self.types, names=self.names)
+        features.validate()
+        return features
 
     def combine(self, other_features: "Features"):
         return Features(
@@ -157,7 +161,7 @@ class Transformer(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def transform(self, traffic_data: Features) -> Features:
+    def transform(self, features: Features) -> Features:
         raise NotImplementedError()
 
     @abstractmethod

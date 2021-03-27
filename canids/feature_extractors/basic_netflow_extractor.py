@@ -415,8 +415,8 @@ class BasicNetflowFeatureExtractor(FeatureExtractor):
         if FeatureSetMode.BASIC not in self.modes:
             names_types += [
                 *packet_list_features("total"),
-                *packet_list_features("forward"),
-                *packet_list_features("backward"),
+                *packet_list_features("fwd"),
+                *packet_list_features("bwd"),
             ]
             if FeatureSetMode.WITH_IP_ADDR in self.modes:
                 if FeatureSetMode.IP_DOTTED not in self.modes:
