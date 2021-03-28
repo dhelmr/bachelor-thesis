@@ -49,7 +49,6 @@ CSV_FOLDER = "UNSW-NB15 - CSV Files"
 CSV_FILES = ["UNSW-NB15_1.csv", "UNSW-NB15_2.csv", "UNSW-NB15_3.csv", "UNSW-NB15_4.csv"]
 CSV_FEATURE_NAMES_FILE = "NUSW-NB15_features.csv"
 FEATURE_NAME_COLUMN_FIELD = "Name"  # name of the column which specified the feature name in NUSW-NB15_features.csv
-RANGES_FILE = "ranges.json"
 PREPROCESSING_REPORT_FILE = "preprocessing_report.json"
 
 PCAP_FILES = {
@@ -91,8 +90,7 @@ class FlowCsvColumns(Enum):
 class UNSWNB15TrafficReader(TrafficReader):
     def __init__(self, directory: str, subset: str):
         super().__init__(directory, subset)
-        self.ranges = self._load_ranges()
-        self.subset = self._load_subset(self.subset_name, ranges=self.ranges)
+        self.subset = self._load_subset(self.subset_name)
 
     def read_normal_data(self) -> TrafficSequence:
         traffic_sequences = [
@@ -152,22 +150,17 @@ class UNSWNB15TrafficReader(TrafficReader):
             parts=parts,
         )
 
-    def _load_ranges(self):
-        path = os.path.join(self.dataset_dir, RANGES_FILE)
-        with open(path, "r") as f:
-            return json.load(f)
-
-    def _load_subset(self, subset_name: str, ranges):
+    def _load_subset(self, subset_name: str):
         if subset_name == "all" or subset_name == "default":
             return {
                 "benign": {
-                    pcap: r
-                    for pcap, r in ranges["benign"].items()
+                    pcap: [[0, "end"]]
+                    for pcap in iter_pcaps(self.dataset_dir, skip_not_found=True)
                     if pcap in DEFAULT_BENIGN_PCAPS
                 },
                 "unknown": {
-                    pcap: r
-                    for pcap, r in ranges["unknown"].items()
+                    pcap: [[0, "end"]]
+                    for pcap in iter_pcaps(self.dataset_dir, skip_not_found=True)
                     if pcap not in DEFAULT_BENIGN_PCAPS
                 },
             }
@@ -188,16 +181,9 @@ class UNSWNB15TrafficReader(TrafficReader):
             unknown_pcaps = SPECIAL_TEST_SUBSETS[unknown]
         else:
             unknown_pcaps = self.select_pcaps(unknown.split(","))
-        print(benign_pcaps, unknown_pcaps)
-        return {  # TODO filtering for the ranges can probably be removed
-            "benign": {
-                pcap: r for pcap, r in ranges["benign"].items() if pcap in benign_pcaps
-            },
-            "unknown": {
-                pcap: r
-                for pcap, r in ranges["unknown"].items()
-                if pcap in unknown_pcaps
-            },
+        return {
+            "benign": {pcap: [[0, "end"]] for pcap in benign_pcaps},
+            "unknown": {pcap: [[0, "end"]] for pcap in unknown_pcaps},
         }
 
     def select_pcaps(self, patterns: List[str]):
@@ -261,7 +247,6 @@ class UNSWNB15TrafficReader(TrafficReader):
 class UNSWNB15Preprocessor(DatasetPreprocessor):
     def _parse_args(self, args):
         parser = argparse.ArgumentParser()
-        parser.add_argument("--only-ranges", required=False, action="store_true")
         parser.add_argument("--only-stats", action="store_true", help="Only make stats")
         parser.add_argument(
             "--only-validate", action="store_true", help="Only validate"
@@ -278,19 +263,11 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
             help="Use the end time of each flow for determining whether a packet is part of it or not.",
         )
         parsed = parser.parse_args(args)
-        if parsed.only_stats == True and parsed.only_ranges == True:
-            raise ValueError(
-                "--only-stats and --only-ranges cannot be specified at the same time."
-            )
         return parsed
 
     def preprocess(self, dataset_path: str, additional_args):
         parsed = self._parse_args(additional_args)
-        if (
-            parsed.only_ranges == False
-            and parsed.only_stats == False
-            and parsed.only_validate == False
-        ):
+        if parsed.only_stats == False and parsed.only_validate == False:
             label_associator = UNSWNB15LabelAssociator(
                 dataset_path,
                 use_end_time=parsed.use_end_time
@@ -299,7 +276,6 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
                 packet_modify_mode=parsed.modify_timestamps,
             )
             for pcap in iter_pcaps(dataset_path, yield_relative=True):
-                logging.info("Make ranges for %s" % pcap)
                 full_path = os.path.join(dataset_path, pcap)
                 label_associator.associate_pcap_labels(full_path, packet_id_prefix=pcap)
             report = {
@@ -311,43 +287,6 @@ class UNSWNB15Preprocessor(DatasetPreprocessor):
             logging.info("Make stats...")
             self._make_stats(dataset_path)
         self._validate(dataset_path)
-        if parsed.only_stats != True and parsed.only_validate != True:
-            logging.info("Start making ranges...")
-            ranges = self._make_ranges(dataset_path)
-            ranges_path = os.path.join(dataset_path, RANGES_FILE)
-            with open(ranges_path, "w") as f:
-                json.dump(ranges, f)
-
-    def _make_ranges(self, dataset_path) -> dict:
-        ranges = {"benign": {}, "unknown": {}}
-        index = 0
-        for pcap in iter_pcaps(dataset_path, skip_not_found=False, yield_relative=True):
-            full_path = os.path.join(dataset_path, pcap)
-            if os.path.exists(full_path):
-                ranges["benign"][pcap] = self.find_ranges_of_type(
-                    full_path, TrafficType.BENIGN
-                )
-            else:
-                logging.info("%s not found", pcap)
-            ranges["unknown"][pcap] = [[0, "end"]]
-            index += 1
-        return ranges
-
-    def find_ranges_of_type(self, pcap, traffic_type) -> list:
-        """ finds consecutive sequences of packets inside the pcap that belong to a specific traffic type"""
-        labels = read_packet_labels(pcap)
-        current_start = None
-        ranges = []
-        index = 0
-        for _, row in labels.iterrows():
-            if row["traffic_type"] is traffic_type and current_start is None:
-                current_start = index
-            elif row["traffic_type"] is not traffic_type and current_start is not None:
-                ranges.append([current_start, index])
-                current_start = None
-            index += 1
-        ranges.append([current_start, "end"])
-        return ranges
 
     def _make_stats(self, dataset_path):
         output_file = os.path.join(dataset_path, "attack_stats.csv")
