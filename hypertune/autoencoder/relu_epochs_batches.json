@@ -3,17 +3,16 @@
     "name": "flow_extractor",
     "parameters": {
       "--nf-mode": [
-        ["tcp", "tcp_end_on_rst"],
         [
-          "tcp", "tcp_end_on_rst",
+          "tcp",
           "subflows"
         ]
       ],
       "--flow-timeout": [
-        6,12,60
+        12
       ],
       "--subflow-timeout": [
-        0.2, 0.5, 1.0
+        0.5
       ]
     }
   },
@@ -21,10 +20,10 @@
     "name": "autoencoder",
     "parameters": {
       "--training-epochs": [
-        200
+        10,50,100,200,400,800
       ],
       "--training-batch": [
-        1024
+        32,64,256,512,1024,2048
       ],
       "--layers": [
         "*0.9,*0.8,*0.8,#2,#1"
@@ -34,6 +33,15 @@
       ],
       "--loss": [
         "mse"
+      ],
+      "--dropout-ratio": [
+        -1
+      ],
+      "--batch-normalization": [
+        "none"
+      ],
+      "--early-stopping-patience": [
+        -1, 3
       ],
       "--threshold-percentile": [
         99.99
