@@ -1,0 +1,14 @@
+fwd_max_pkt_length
+fwd_std_pkt_length
+fwd_mean_pkt_length
+fwd_sum_pkt_length
+bwd_mean_pkt_length
+bwd_sum_pkt_length
+bwd_std_pkt_length
+total_iat_max
+total_iat_sum
+total_iat_min
+bwd_n_packets
+total_bytes_per_s
+fwd_n_packets
+fwd_iat_sum
