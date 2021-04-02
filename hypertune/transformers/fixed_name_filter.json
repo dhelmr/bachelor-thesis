@@ -9,7 +9,7 @@
         ]
       ],
       "--flow-timeout": [
-        13
+        12
       ],
       "--subflow-timeout": [
         0.5
@@ -23,7 +23,7 @@
         400
       ],
       "--training-batch": [
-        64
+        64, 2048
       ],
       "--layers": [
         "*0.9,*0.8,*0.8,#2,#1",
@@ -34,6 +34,9 @@
       ],
       "--loss": [
         "mse"
+      ],
+      "--early-stopping-patience": [
+        3
       ]
     }
   },
