@@ -6,23 +6,6 @@
         [
           "subflows",
           "tcp"
-        ],
-        [
-          "subflows",
-          "tcp",
-          "with_ip_addr"
-        ],
-        [
-          "subflows",
-          "tcp",
-          "with_ip_addr",
-          "hindsight"
-        ],
-        [
-          "subflows",
-          "tcp",
-          "with_ip_addr",
-          "hindsight"
         ]
       ],
       "--flow-timeout": [
@@ -37,26 +20,36 @@
     "name": "one_class_svm",
     "parameters": {
       "--gamma": [
-        0.0001
+        0.0001, 0.005
       ],
       "--kernel": [
-        "rbf"
+        "rbf", "poly"
       ],
       "--nu": [
-        0.00005
+        0.00005, 0.0005
       ],
       "--tolerance": [
-        0.01
+        0.01, 0.001
       ]
     }
   },
-  "transformers":[ [
+  "transformers":[
+      [
+    "onehot_encoder",
+    "pca_reducer_10",
+    "minmax_scaler",
+    "standard_scaler"
+  ], [
     "onehot_encoder",
     "pca_reducer_20",
     "minmax_scaler",
     "standard_scaler"
-  ],
-  [
+  ], [
+    "onehot_encoder",
+    "pca_reducer_30",
+    "minmax_scaler",
+    "standard_scaler"
+  ], [
     "onehot_encoder",
     "pca_reducer_50",
     "minmax_scaler",
