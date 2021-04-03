@@ -20,11 +20,12 @@ for developing, testing and evaluating anomaly-based network intrusion detection
    1. [Docker](#docker)
 1. [Usage](#usage)
    1. [List decision engines and feature extractors](#list-decision-engines-and-feature-extractors)
-   1. [Simulate traffic, detect anomalies and create evaluation report](#simulate-traffic-detect-anomalies-and-create-evaluation-report)
+   1. [Simulate traffic, detect anomalies and create evaluation](#simulate-traffic-detect-anomalies-and-create-evaluation)
    1. [Subsets](#subsets)
          1. [CIC-IDS-2017 subsets](#cic-ids-2017-subsets)
          1. [UNSW-NB15 Subsets](#unsw-nb15-subsets)
    1. [Hypertune](#hypertune)
+   1. [Report](#report)
    1. [Visualize](#visualize)
 1. [Misc](#misc)
 <!-- ToC end -->
@@ -163,7 +164,7 @@ one_class_svm
 
 Without `--short`, more information will be printed. Then you can see, that feature extractors and decision engines can take additional CLI parameters. Those can just be added when specifying them in the `train` command (see examples below).
 
-## Simulate traffic, detect anomalies and create evaluation report
+## Simulate traffic, detect anomalies and create evaluation
 
 First build and train a model by analyzing normal traffic:
 
@@ -177,7 +178,7 @@ Then read unknown traffic from a dataset and detect anomalies using the created 
 bin/run_canids classify --src data/cic-ids-2017 --dataset cic-ids-2017  --id oc_svm_c1 --model-id oc_svm
 ```
 
-Evaluate the classification and generate a report containing different metrics. The metrics are stored in the sqlite database and,
+Evaluate the classification. The metrics are stored in the sqlite database and,
  optionally, in a json file:
 
 ```
@@ -221,21 +222,31 @@ For automation of the `train`->`classify`->`evaluate` pipeline, the `hypertune` 
 as its input that contains directions for a hyperparameter search. Currently, only a brute-force grid search is implemented which iterates over all possible parameter combinations.
 Examples for such files can be found in the `hypertune/` folder.
 
-For example, a set of different parameter configurations for a autoencoder on the unsw-nb15 dataset can be run with:
+For example, a set of different parameter configurations for an autoencoder on the unsw-nb15 dataset can be run with:
 
 ```
-❯ bin/run_canids hypertune -f hypertune/ae.json --dataset unsw-nb15 --subset 1-5/15,55,56
+❯ bin/run_canids hypertune -f hypertune/autoencoder/best_ae.json --dataset unsw-nb15 --subset 1-5/15,55,56
 ```
 
 The results of the evaluations can then be viewed in the sqlite database (`classifications.db` by default).
+
+## Report
+
+A csv report can be created with the `report` command:
+
+```
+❯ bin/run_canids report --model-part-name autoencoder flow_extractor --format csv --all -o autoencoder_flow_extractor_report.csv
+```
+
+It contains the chosen parameters for each model and the classifications that were ran with it, together with the calculated evaluation metrics. The `--model-part-name` parameter specifies which model components are incorporated into the report.
 
 ## Visualize
 
 For visualizing the results of multiple evaluations of one feature extractor or decision engine, the `visualize` command can be used. For example, the following generates a html visualization of all autoencoders models into the directory `data/visualizations`:
 
 ```
-❯ bin/run_canids --model-part-name autoencoder --output data/visualizations
-``` 
+❯ bin/run_canids visualize --model-part-name autoencoder --output data/visualizations
+```
 
 # Misc
 
