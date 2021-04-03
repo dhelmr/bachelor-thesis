@@ -1,6 +1,7 @@
 # Comparison of Anomaly-Based Network Intrusion Detection Approaches Under Practical Aspects
 
-Note: This repository is **work in progress**.
+This repository contains the code for my Bachelor's Thesis on "Comparing Anomaly-Based Network Intrusion Detection Approaches Under Practical Aspects". It provides a python program named *canids* (= **c**ompare **a**nomaly-based **NIDS**) that can be used
+for developing, testing and evaluating anomaly-based network intrusion detection approaches.
 
 <!-- ToC start -->
 # Table of Contents
@@ -25,7 +26,6 @@ Note: This repository is **work in progress**.
 <!-- ToC end -->
 
 ---
-
 
 # Installation
 
