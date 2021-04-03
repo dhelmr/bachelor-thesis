@@ -1,7 +1,11 @@
 # Comparison of Anomaly-Based Network Intrusion Detection Approaches Under Practical Aspects
 
 This repository contains the code for my Bachelor's Thesis on "Comparing Anomaly-Based Network Intrusion Detection Approaches Under Practical Aspects". It provides a python program named *canids* (= **c**ompare **a**nomaly-based **NIDS**) that can be used
-for developing, testing and evaluating anomaly-based network intrusion detection approaches.
+for developing, testing and evaluating anomaly-based network intrusion detection approaches while considering practical aspects, such as:
+
+* only allowing one-class classification models which are trained in an unsupervised manner, with only *normal* (benign) network traffic as reference 
+* taking raw network packets (as PCAPs) as the input (the modern UNSW-NB15 and CIC-IDS-2017 datasets can be used for this) 
+* measuring the performance of a model through various metrics (precision, recall, MCC, f1-score, balanced accuracy or the classification time per packet)
 
 <!-- ToC start -->
 <!-- ToC end -->
