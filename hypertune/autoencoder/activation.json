@@ -5,9 +5,7 @@
       "--nf-mode": [
         [
           "tcp",
-          "subflows",
-          "with_ip_addr",
-          "hindsight"
+          "subflows"
         ]
       ],
       "--flow-timeout": [
@@ -25,23 +23,28 @@
         400
       ],
       "--training-batch": [
-        64
+        1024
       ],
       "--layers": [
         "*0.9,*0.8,*0.8,#2,#1",
-        "300,200,75,10,75,200,300"
+        "300,200,75,10,75,200,300",
+        "200,20,200",
+        "400,200,10,200,400"
       ],
       "--activation": [
         "relu",
         "sigmoid",
         "tanh",
         "exponential",
-        "softmax",
-        "selu",
-        "elu"
+        "softmax"
       ],
       "--loss": [
-        "mse"
+        "mse",
+        "mae"
+      ],
+      "--threshold": [
+        99.99,
+        99.0
       ]
     }
   },
