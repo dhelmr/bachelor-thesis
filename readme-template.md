@@ -148,7 +148,6 @@ Hint: The attack distributions over the weekdays can be printed with: `python ma
 
 #### UNSW-NB15 Subsets
 
-
 In order to not read the whole dataset, it is possible to specify which pcaps will be loaded for the model training and testing. Those files which should be used can be specified with the
 following syntax: `--subset [training split]/[test split]`. For example, `--subset 1-10,14/43` uses the first ten pcap files
 and the 14th for the training step (by first filtering out all attack instances in it) and the 43th for the classification. These indexes correspond to the files in the `01/` and `02/` directories, sorted in ascending order: For example, `14` denotes `01/14.pcap`, and `54` denotes `02/1.pcap`.
@@ -159,7 +158,7 @@ By default, that is when `--subset default` or nothing is specified, the followi
 -$(python -c "from canids.dataset_utils.unsw_nb15 import DEFAULT_BENIGN_PCAPS;print(DEFAULT_BENIGN_PCAPS)")
 ```
 
-## Hypertune
+## Hyperparameter Search
 
 For automation of the `train`->`classify`->`evaluate` pipeline, the `hypertune` command can be used. It reads a json file
 as its input that contains directions for a hyperparameter search. Currently, only a brute-force grid search is implemented which iterates over all possible parameter combinations.
