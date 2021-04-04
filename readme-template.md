@@ -23,7 +23,7 @@ Clone the git repository and install the requirements with `pip install -r requi
 
 ## Docker
 
-Alternatively, a [docker container available at docker hub](https://hub.docker.com/repository/docker/dhelmr/canids) can be used. In order to run, the data directory must be mounted inside the container:
+Alternatively, a [docker container available at docker hub](https://hub.docker.com/repository/docker/dhelmr/canids) can be used. In order to run, a data directory, which will contain the datasets and an database, must be mounted inside the container:
 
 ```shell
 docker run -v $(pwd)/data:/data -it canids [CMDS]
