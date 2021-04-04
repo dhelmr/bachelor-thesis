@@ -1,6 +1,6 @@
 # Introduction
 
-This repository contains the code for my Bachelor's Thesis on "Comparing Anomaly-Based Network Intrusion Detection Approaches Under Practical Aspects". It provides a python program named *canids* (= **c**ompare **a**nomaly-based **NIDS**) that can be used
+This repository contains the code for my bachelor's thesis on "Comparing Anomaly-Based Network Intrusion Detection Approaches Under Practical Aspects". It provides a python program named *canids* (= **c**ompare **a**nomaly-based **NIDS**) that can be used
 for developing, testing and evaluating anomaly-based network intrusion detection approaches while considering practical aspects, such as:
 
 * only allowing one-class classification models which are trained in an unsupervised manner, with only *normal* (benign) network traffic as reference 
@@ -32,7 +32,7 @@ docker run -v $(pwd)/data:/data -it canids [CMDS]
 In the following, the manual method is presumed, but all commands can be also run with docker. Just replace `bin/run_canids` with
 `docker run -v $(pwd)/data:/data -it canids`.
 
-# Dataset preparation
+# Dataset Preparation
 
 As a first step, the datasets need to be downloaded and preprocessed. This includes, for each network packet, the association of the corresponding network flow and thereby its label (benign or attack).
 
@@ -100,11 +100,11 @@ For help of the subcommands just type `--help`, for example:
 ❯ bin/run_canids train --help
 ```
 
-## List decision engines and feature extractors
+## List Decision Engines and Feature Extractors
 
 An anomaly detection model consists of:
 
-2. one or more transformers, which map the extracted features to other numerical values (e.g. standardization)
+2. an arbitrary number of transformers, which map the extracted features to other numerical values (e.g. standardization)
 3. a decision engine which decides whether a feature vector is an anomaly or not
 
 Feature extractors can be listed with:
@@ -132,9 +132,22 @@ one_class_svm
 
 Without `--short`, more information will be printed. Then you can see, that feature extractors and decision engines can take additional CLI parameters. Those can just be added when specifying them in the `train` command (see examples below).
 
-## Simulate traffic, detect anomalies and create evaluation
+Available feature transformers are:
 
-First build and train a model by analyzing normal traffic:
+```
+minmax_scaler
+standard_scaler
+onehot_encoder
+pca_reducer_20
+pca_reducer_30
+pca_reducer_50
+fixed_feature_name_filter
+
+```
+
+## Train Model, Simulate Unknown Traffic, Detect Anomalies and Evaluate
+
+First build and train a model by analyzing normal traffic (in this example with the netflow generator, the One-Hot encoder, the minmax scaler and a rbf one-class SVM):
 
 ```
 ```
@@ -207,7 +220,7 @@ For visualizing the results of multiple evaluations of one feature extractor or 
 
 # Misc
 
-## Standalone Network Flow generator (optionally with payload analysis)
+## Standalone Network Flow Generator (Optionally with Payload Analysis)
 
 A standalone netflow generator CLI program can be run with `bin/extract_flows -r [pcap] -o [output csv path]`. 
 It groups a pcap file's packets into netflows and generated features for each flow. 
