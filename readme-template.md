@@ -198,4 +198,4 @@ $(bin/extract_flows --help)
 
 # License
 
-Licensed under [GPLv3](LICENSE.txt).
+The content of this repository is licensed under [GPLv3](LICENSE.txt).
