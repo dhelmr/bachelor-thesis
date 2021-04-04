@@ -1,4 +1,4 @@
-# Comparison of Anomaly-Based Network Intrusion Detection Approaches Under Practical Aspects
+# Introduction
 
 This repository contains the code for my Bachelor's Thesis on "Comparing Anomaly-Based Network Intrusion Detection Approaches Under Practical Aspects". It provides a python program named *canids* (= **c**ompare **a**nomaly-based **NIDS**) that can be used
 for developing, testing and evaluating anomaly-based network intrusion detection approaches while considering practical aspects, such as:
@@ -13,8 +13,24 @@ for developing, testing and evaluating anomaly-based network intrusion detection
 ---
 
 # Installation
+## Manual
 
-Clone the git repository and install the requirements with `pip install -r requirements.txt`. Python version 3.6 or higher is required.
+Clone the git repository and install the requirements with `pip install -r requirements.txt`. Python version 3.6 or higher is required. You can optionally also build the docker image locally:
+
+```
+❯ docker build . -t dhelmr/canids:latest -f docker/Dockerfile
+```
+
+## Docker
+
+Alternatively, a [docker container available at docker hub](https://hub.docker.com/repository/docker/dhelmr/canids) can be used. In order to run, the data directory must be mounted inside the container:
+
+```shell
+docker run -v $(pwd)/data:/data -it canids [CMDS]
+```
+
+In the following, the manual method is presumed, but all commands can be also run with docker. Just replace `bin/run_canids` with
+`docker run -v $(pwd)/data:/data -it canids`.
 
 # Dataset preparation
 
@@ -48,20 +64,6 @@ Afterwards, the datasets must be preprocessed once:
 ```
 ❯  bin/run_canids preprocess --dataset cic-ids-2017 
 ❯  bin/run_canids preprocess --dataset unsw-nb15
-```
-
-## Docker
-
-You can also build a docker image to run the commands of the next sections inside a container:
-
-```
-❯ docker build . -t canids:latest -f docker/Dockerfile
-```
-
-In order to run, the data directory must be mounted inside the container:
-
-```
-docker run -v (pwd)/data:/data -it canids [CMDS]
 ```
 
 # Usage
