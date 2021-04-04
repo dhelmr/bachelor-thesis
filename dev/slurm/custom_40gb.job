@@ -3,13 +3,13 @@
 #SBATCH --mem=40000
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --time=24:00:00
-
-module load Python
-if [[ ! -d venv ]]; then
-    python3 -m venv venv
-    venv/bin/python3 venv/bin/pip3 install -r requirements.txt
-fi
+module load Python/3.7.4-GCCcore-8.3.0
+VENV=$(mktemp -d)
+python3.7 -m venv $VENV
+$VENV/bin/python3 $VENV/bin/pip3 install -r requirements.txt
 
 CLI_ARGS=$(echo "$ARGS" | base64 -d)
-venv/bin/python3 bin/run_canids $CLI_ARGS
+$VENV/bin/python3 bin/run_canids $CLI_ARGS
+
+rm -rf "$VENV"
+
