@@ -195,3 +195,7 @@ It groups a pcap file's packets into netflows and generated features for each fl
 ```
 $(bin/extract_flows --help)
 ```
+
+# License
+
+Licensed under [GPLv3](LICENSE.txt).
