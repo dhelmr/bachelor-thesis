@@ -187,6 +187,8 @@ For visualizing the results of multiple evaluations of one feature extractor or 
 
 # Misc
 
+## Standalone Network Flow generator (optionally with payload analysis)
+
 A standalone netflow generator CLI program can be run with `bin/extract_flows -r [pcap] -o [output csv path]`. 
 It groups a pcap file's packets into netflows and generated features for each flow. 
 
