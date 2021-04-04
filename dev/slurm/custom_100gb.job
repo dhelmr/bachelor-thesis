@@ -6,7 +6,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --gres=gpu:v100:1
 
-module load Python
+module load Python/3.7.4-GCCcore-8.3.0
 module load TensorFlow/2.3.1-fosscuda-2019b-Python-3.7.4
 if [[ ! -d venv ]]; then
     python3 -m venv venv
