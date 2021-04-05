@@ -1,0 +1,61 @@
+{
+  "feature_extractor": {
+    "name": "flow_extractor",
+    "parameters": {
+      "--nf-mode": [
+        [
+          "subflows",
+          "tcp"
+        ]
+      ],
+      "--flow-timeout": [
+        12
+      ],
+      "--subflow-timeout": [
+        0.5
+      ]
+    }
+  },
+  "decision_engine": {
+    "name": "one_class_svm",
+    "parameters": {
+      "--gamma": [
+        0.0050
+      ],
+      "--kernel": [
+        poly
+      ],
+      "--nu": [
+         0.0001
+      ],
+      "--tolerance": [
+         0.001
+      ],
+      "--degree": [3],
+      "--coef0": [0]
+    }
+  },
+  "transformers":[
+      [
+    "onehot_encoder",
+    "pca_reducer_10",
+    "minmax_scaler",
+    "standard_scaler"
+  ], [
+    "onehot_encoder",
+    "pca_reducer_20",
+    "minmax_scaler",
+    "standard_scaler"
+  ], [
+    "onehot_encoder",
+    "pca_reducer_30",
+    "minmax_scaler",
+    "standard_scaler"
+  ], [
+    "onehot_encoder",
+    "pca_reducer_50",
+    "minmax_scaler",
+    "standard_scaler"
+  ]],
+  "mode": "grid_search"
+}
