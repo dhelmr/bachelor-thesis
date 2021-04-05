@@ -3,18 +3,9 @@
     "name": "flow_extractor",
     "parameters": {
       "--nf-mode": [
-        [
-          "subflows",
-          "tcp",
-          "with_ip_addr",
-          "hindsight",
-          "port_decimal",
-          "ip_dotted"
-        ],
          [
           "subflows",
-          "tcp",
-          "with_ip_addr"
+          "tcp"
         ]
       ],
       "--flow-timeout": [
@@ -29,10 +20,10 @@
     "name": "one_class_svm",
     "parameters": {
       "--gamma": [
-        0.005, 0.0005
+        0.0001
       ],
       "--kernel": [
-        "sigmoid"
+        "rbf"
       ],
       "--nu": [
         0.0001
@@ -42,7 +33,7 @@
   "transformers": [
     [
       "onehot_encoder",
-      "pca_reducer_20",
+      "pca_reducer_30",
       "minmax_scaler",
       "standard_scaler"
     ]
