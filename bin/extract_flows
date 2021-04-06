@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import sys
 
 import pandas
 
@@ -47,9 +48,9 @@ def main():
     )
 
     fe_class = BasicNetflowFeatureExtractor
-    if parser.parse_known_args()[0].payloads:
+    if "--payloads" in sys.argv:
         fe_class = NetflowPayloadAnalyser
-    if parser.parse_known_args()[0].payl:
+    if "--payl" in sys.argv:
         fe_class = PaylExtractor
 
     fe_class.init_parser(parser)

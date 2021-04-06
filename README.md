@@ -276,6 +276,10 @@ It groups a pcap file's packets into netflows and generated features for each fl
 ❯ bin/extract_flows --help
 
 usage: extract_flows [-h] -p PCAP -o OUTPUT [--payloads] [--payl] [--one-hot]
+                     [--flow-timeout FLOW_TIMEOUT]
+                     [--subflow-timeout SUBFLOW_TIMEOUT]
+                     [--hindsight-window HINDSIGHT_WINDOW] [--verbose]
+                     [--nf-mode {subflows,with_ip_addr,tcp,include_header_length,hindsight,ip_dotted,port_decimal,basic,tcp_end_on_rst} [{subflows,with_ip_addr,tcp,include_header_length,hindsight,ip_dotted,port_decimal,basic,tcp_end_on_rst} ...]]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -287,6 +291,16 @@ optional arguments:
                         byte in a payload.
   --payl                Analyse payloads with PAYL.
   --one-hot             Onehot-encode categorial features
+  --flow-timeout FLOW_TIMEOUT
+                        Flow timeout in seconds
+  --subflow-timeout SUBFLOW_TIMEOUT
+                        Activity timeout (for subflows) in seconds
+  --hindsight-window HINDSIGHT_WINDOW
+                        Hindsight window; only used with netflow mode
+                        'hindsight'
+  --verbose
+  --nf-mode {subflows,with_ip_addr,tcp,include_header_length,hindsight,ip_dotted,port_decimal,basic,tcp_end_on_rst} [{subflows,with_ip_addr,tcp,include_header_length,hindsight,ip_dotted,port_decimal,basic,tcp_end_on_rst} ...]
+                        Feature Selection Modes
 
 ```
 
