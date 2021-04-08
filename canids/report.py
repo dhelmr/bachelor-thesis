@@ -69,6 +69,7 @@ class ReportGenerator:
         records.drop(columns=["model_id"], inplace=True)
         if expand_transformers:
             self._expand_transformers(records)
+        records["transformers"] = records["transformers"].apply(lambda l: ", ".join(l))
 
         drop_cols = []
         for col in records.columns:
