@@ -29,6 +29,7 @@ for developing, testing and evaluating anomaly-based network intrusion detection
    1. [Visualize](#visualize)
 1. [Misc](#misc)
    1. [Standalone Network Flow Generator (Optionally with Payload Analysis)](#standalone-network-flow-generator-optionally-with-payload-analysis)
+   1. [Slurm scripts and jobs](#slurm-scripts-and-jobs)
 1. [License](#license)
 <!-- ToC end -->
 
@@ -303,6 +304,11 @@ optional arguments:
                         Feature Selection Modes
 
 ```
+
+## Slurm scripts and jobs
+
+The directory `dev/` contains several files that can be useful for running the hyperparameter search experiments from 
+`hypertune/` in a [slurm](https://slurm.schedmd.com/overview.html) environment.
 
 # License
 

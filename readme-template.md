@@ -201,6 +201,11 @@ It groups a pcap file's packets into netflows and generated features for each fl
 $(bin/extract_flows --help)
 ```
 
+## Slurm scripts and jobs
+
+The directory `dev/` contains several files that can be useful for running the hyperparameter search experiments from 
+`hypertune/` in a [slurm](https://slurm.schedmd.com/overview.html) environment.
+
 # License
 
 The content of this repository is licensed under [GPLv3](LICENSE.txt).
