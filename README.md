@@ -235,6 +235,8 @@ By default, that is when `--subset default` or nothing is specified, the followi
 
 ```
 
+There are also predefined subsets which are called `A`,`B` (for training), `a`,`b`, and `c` (for classification).
+
 ## Hyperparameter Search
 
 For automation of the `train`->`classify`->`evaluate` pipeline, the `hypertune` command can be used. It reads a json file
@@ -309,7 +311,7 @@ optional arguments:
 For example, the following line applies the PAYL extractor using the modes `subflows`, `tcp`, and `with_ip_addr` on the packets from the file `traffic.pcap` and writes the extracted features to `features.csv`:
 
 ```shell
-venv/bin/python3.6 bin/extract_flows -p traffic.pcap --payl --nf-mode subflows with_ip_addr tcp -o features.csv
+bin/extract_flows -p traffic.pcap --payl --nf-mode subflows with_ip_addr tcp -o features.csv
 ```
 
 ## Slurm scripts and jobs
