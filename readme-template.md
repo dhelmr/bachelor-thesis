@@ -201,10 +201,21 @@ It groups a pcap file's packets into netflows and generated features for each fl
 $(bin/extract_flows --help)
 ```
 
+For example, the following line applies the PAYL extractor using the modes `subflows`, `tcp`, and `with_ip_addr` on the packets from the file `traffic.pcap` and writes the extracted features to `features.csv`:
+
+```shell
+venv/bin/python3.6 bin/extract_flows -p traffic.pcap --payl --nf-mode subflows with_ip_addr tcp -o features.csv
+```
+
 ## Slurm scripts and jobs
 
 The directory `dev/` contains several files that can be useful for running the hyperparameter search experiments from 
 `hypertune/` in a [slurm](https://slurm.schedmd.com/overview.html) environment.
+
+## Testing
+
+The `test/` directory contains both unit and integration tests. The unit tests can be run with `python -m unittest discover test/`. The integration tests require the docker container and can be run with `test/integration-tests/run.sh
+`.
 
 # License
 

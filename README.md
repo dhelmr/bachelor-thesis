@@ -30,6 +30,7 @@ for developing, testing and evaluating anomaly-based network intrusion detection
 1. [Misc](#misc)
    1. [Standalone Network Flow Generator (Optionally with Payload Analysis)](#standalone-network-flow-generator-optionally-with-payload-analysis)
    1. [Slurm scripts and jobs](#slurm-scripts-and-jobs)
+   1. [Testing](#testing)
 1. [License](#license)
 <!-- ToC end -->
 
@@ -305,11 +306,23 @@ optional arguments:
 
 ```
 
+For example, the following line applies the PAYL extractor using the modes `subflows`, `tcp`, and `with_ip_addr` on the packets from the file `traffic.pcap` and writes the extracted features to `features.csv`:
+
+```shell
+venv/bin/python3.6 bin/extract_flows -p traffic.pcap --payl --nf-mode subflows with_ip_addr tcp -o features.csv
+```
+
 ## Slurm scripts and jobs
 
 The directory `dev/` contains several files that can be useful for running the hyperparameter search experiments from 
 `hypertune/` in a [slurm](https://slurm.schedmd.com/overview.html) environment.
 
+## Testing
+
+The `test/` directory contains both unit and integration tests. The unit tests can be run with `python -m unittest discover test/`. The integration tests require the docker container and can be run with `test/integration-tests/run.sh
+`.
+
 # License
 
 The content of this repository is licensed under [GPLv3](LICENSE.txt).
+
