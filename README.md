@@ -7,6 +7,8 @@ for developing, testing and evaluating anomaly-based network intrusion detection
 * taking raw network packets (as PCAPs) as the input (the modern UNSW-NB15 and CIC-IDS-2017 datasets can be used for this) 
 * measuring the performance of a model through various metrics (precision, recall, MCC, f1-score, balanced accuracy or the classification time per packet)
 
+The full text of the bachelor's thesis can be [accessed here](https://nbn-resolving.de/urn:nbn:de:bsz:15-qucosa2-753859).
+
 <!-- ToC start -->
 # Table of Contents
 
